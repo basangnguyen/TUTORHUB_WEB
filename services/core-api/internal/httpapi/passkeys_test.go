@@ -118,6 +118,7 @@ func TestPasskeyCapabilityAndProblemSignal(t *testing.T) {
 		{identity.ErrPasskeyClone, 403, "auth_passkey_clone_detected", false},
 		{identity.ErrLastIdentity, 409, "auth_last_identity", false},
 		{identity.ErrRecentAuthenticationRequired, 403, "auth_recent_authentication_required", false},
+		{identity.ErrFederationAALRequired, 403, "auth_assurance_required", false},
 	} {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "/api/v1/auth/passkeys/assertion/verify", nil)

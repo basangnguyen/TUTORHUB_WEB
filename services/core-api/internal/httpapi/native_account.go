@@ -110,6 +110,9 @@ func (handlers nativeAuthHandlers) verifyEmailCodeLogin(w http.ResponseWriter, r
 		handlers.writeAccountCodeError(w, r, err)
 		return
 	}
+	if handlers.writeMFAChallenge(w, result.MFA) {
+		return
+	}
 	handlers.setSession(w, result)
 	handlers.clearTransactionCookie(w)
 	writeJSON(handlers.auth.logger, w, http.StatusOK, nativeAuthenticationResponse{Status: "authenticated"})
@@ -130,9 +133,12 @@ func (handlers nativeAuthHandlers) completePasswordRecovery(w http.ResponseWrite
 	if !ok {
 		return
 	}
-	err := service.CompletePasswordRecovery(r.Context(), binding, identity.PasswordRecoveryCompleteInput{ChallengeID: input.ChallengeID, Code: input.Code, NewPassword: input.NewPassword})
+	challenge, err := service.CompletePasswordRecovery(r.Context(), binding, identity.PasswordRecoveryCompleteInput{ChallengeID: input.ChallengeID, Code: input.Code, NewPassword: input.NewPassword})
 	if err != nil {
 		handlers.writeAccountCodeError(w, r, err)
+		return
+	}
+	if handlers.writeMFAChallenge(w, challenge) {
 		return
 	}
 	handlers.clearTransactionCookie(w)

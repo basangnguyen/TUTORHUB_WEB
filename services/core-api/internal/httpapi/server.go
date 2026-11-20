@@ -107,9 +107,14 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		requireMethod(http.MethodGet, apiStatusHandler(cfg, logger, options.Clock)),
 	)
 	auth := newAuthHandlers(cfg, logger, options.Identity, options.Clock)
-	federation := federationHandlers{auth: auth, limiter: options.AuthRateLimiter}
-	nativeAuth := nativeAuthHandlers{auth: auth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
+	// Account settings and factor enrollment remain reachable when an existing
+	// administrator session must step up to use its workspace.
+	accountAuth := auth
+	auth.tenantAccess = true
+	federation := federationHandlers{auth: accountAuth, limiter: options.AuthRateLimiter}
+	nativeAuth := nativeAuthHandlers{auth: accountAuth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
 	nativeAuth.registerPasskeyRoutes(mux)
+	nativeAuth.registerMFARoutes(mux)
 	const pendingRegistration = "/api/v1/auth/pending-registration"
 	const facebookOAuth = "/api/v1/auth/oauth/facebook"
 	mux.Handle(pendingRegistration, authFoundationResponseHeaders(requireMethod(http.MethodGet, http.HandlerFunc(nativeAuth.previewRegistration))))
@@ -181,9 +186,9 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle("/api/v1/auth/link-intent/confirm", preAuthGuard(cfg.WebOrigin, requireMethod(http.MethodPost, http.HandlerFunc(federation.confirm))))
 	mux.Handle("/api/v1/auth/link-intent/cancel", preAuthGuard(cfg.WebOrigin, requireMethod(http.MethodPost, http.HandlerFunc(federation.cancel))))
 	mux.Handle("/api/v1/auth/csrf", requireMethod(http.MethodGet, http.HandlerFunc(auth.csrf)))
-	mux.Handle("/api/v1/auth/logout", requireMethod(http.MethodPost, http.HandlerFunc(auth.logout)))
-	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(auth.me)))
-	mux.Handle("/api/v1/me/profile", http.HandlerFunc(auth.profile))
+	mux.Handle("/api/v1/auth/logout", requireMethod(http.MethodPost, http.HandlerFunc(accountAuth.logout)))
+	mux.Handle("/api/v1/me", requireMethod(http.MethodGet, http.HandlerFunc(accountAuth.me)))
+	mux.Handle("/api/v1/me/profile", http.HandlerFunc(accountAuth.profile))
 	mux.Handle("/api/v1/me/password", http.HandlerFunc(nativeAuth.myPassword))
 	for path, handler := range map[string]http.HandlerFunc{
 		"/api/v1/me/security":      nativeAuth.mySecurity,
@@ -202,13 +207,13 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	mux.Handle("/api/v1/auth/reauth", nativeAuth.reauthRoute())
 	mux.Handle(
 		"/api/v1/me/identities",
-		requireMethod(http.MethodGet, http.HandlerFunc(auth.identities)),
+		requireMethod(http.MethodGet, http.HandlerFunc(accountAuth.identities)),
 	)
 	mux.Handle(
 		"/api/v1/me/identities/link",
-		requireMethod(http.MethodPost, http.HandlerFunc(auth.beginIdentityLink)),
+		requireMethod(http.MethodPost, http.HandlerFunc(accountAuth.beginIdentityLink)),
 	)
-	mux.Handle(identityResourcePathPrefix, http.HandlerFunc(auth.identityResource))
+	mux.Handle(identityResourcePathPrefix, http.HandlerFunc(accountAuth.identityResource))
 	mux.Handle(
 		tenantsCollectionPath,
 		auditMutation(
@@ -580,7 +585,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		"/api/v1/session/active-tenant",
 		auditMutation(
 			staticAuditMutation(http.MethodPut, audit.ActionTenantSwitch, "tenant", nil),
-			requireMethod(http.MethodPut, http.HandlerFunc(auth.switchActiveTenant)),
+			requireMethod(http.MethodPut, http.HandlerFunc(accountAuth.switchActiveTenant)),
 		),
 	)
 	classes := newClassHandlers(logger, auth, options.Classroom)

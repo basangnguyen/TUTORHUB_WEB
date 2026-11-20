@@ -42,7 +42,8 @@ type signupChallengeResponse struct {
 }
 
 type nativeAuthenticationResponse struct {
-	Status string `json:"status"`
+	Status  string   `json:"status"`
+	Methods []string `json:"methods,omitempty"`
 }
 
 func (handlers nativeAuthHandlers) available(w http.ResponseWriter, r *http.Request, enabled bool) bool {
@@ -182,8 +183,20 @@ func (handlers nativeAuthHandlers) passwordLogin(w http.ResponseWriter, r *http.
 		handlers.writeError(w, r, err)
 		return
 	}
+	if handlers.writeMFAChallenge(w, result.MFA) {
+		return
+	}
 	handlers.setSession(w, result)
 	writeJSON(handlers.auth.logger, w, http.StatusOK, nativeAuthenticationResponse{Status: "authenticated"})
+}
+
+func (handlers nativeAuthHandlers) writeMFAChallenge(w http.ResponseWriter, challenge *identity.MFAChallenge) bool {
+	if challenge == nil {
+		return false
+	}
+	http.SetCookie(w, challenge.Cookie)
+	writeJSON(handlers.auth.logger, w, http.StatusOK, nativeAuthenticationResponse{Status: "mfa_required", Methods: challenge.Methods})
+	return true
 }
 
 func (handlers nativeAuthHandlers) transactionBinding(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -227,6 +240,8 @@ func (handlers nativeAuthHandlers) writeError(w http.ResponseWriter, r *http.Req
 	switch {
 	case errors.Is(err, identity.ErrNativeInvalidCode):
 		status, title, detail, code = http.StatusUnauthorized, "Verification failed", "Invalid or expired verification code.", "auth_invalid_verification_code"
+	case errors.Is(err, identity.ErrFederationAALRequired):
+		status, title, detail, code = http.StatusForbidden, "Additional verification required", "Verify with a strong sign-in method.", "auth_assurance_required"
 	case errors.Is(err, identity.ErrNativeMethodDisabled):
 		status, title, detail = http.StatusServiceUnavailable, "Authentication unavailable", "This authentication method is disabled or unavailable."
 	case errors.Is(err, identity.ErrNativeInvalidCurrentPassword):

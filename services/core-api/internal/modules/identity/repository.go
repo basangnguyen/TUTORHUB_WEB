@@ -52,7 +52,7 @@ type Repository interface {
 		ctx context.Context,
 		claims ProviderClaims,
 		metadata SessionMetadata,
-	) (Principal, error)
+	) (FederationLoginRecord, error)
 	GetSession(
 		ctx context.Context,
 		tokenHash []byte,

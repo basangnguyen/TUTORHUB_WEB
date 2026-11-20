@@ -57,7 +57,7 @@ type NativeAccountAuthAPI interface {
 	StartEmailCodeLogin(context.Context, SignupStartInput) (SignupChallengeResult, error)
 	VerifyEmailCodeLogin(context.Context, string, EmailCodeVerifyInput) (NativeSessionResult, error)
 	StartPasswordRecovery(context.Context, SignupStartInput) (SignupChallengeResult, error)
-	CompletePasswordRecovery(context.Context, string, PasswordRecoveryCompleteInput) error
+	CompletePasswordRecovery(context.Context, string, PasswordRecoveryCompleteInput) (*MFAChallenge, error)
 	ResendEmailChallenge(context.Context, string, AuthMethodFlags, func(context.Context, string) (bool, error)) (SignupChallengeResult, error)
 	GetMyPasswordStatus(context.Context, Principal) (MyPasswordStatus, error)
 	UpdateMyPassword(context.Context, Principal, UpdateMyPasswordInput) (UpdateMyPasswordResult, error)

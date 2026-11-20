@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,16 +14,18 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/logsafe"
 	"github.com/tutorhub-v2/core-api/internal/platform/requestmeta"
+	"github.com/tutorhub-v2/core-api/internal/policy"
 )
 
 const csrfHeader = "X-CSRF-Token"
 
 type authHandlers struct {
-	config      config.Config
-	logger      *slog.Logger
-	identity    identity.ServiceAPI
-	cookieNames authCookieNames
-	clock       func() time.Time
+	tenantAccess bool
+	config       config.Config
+	logger       *slog.Logger
+	identity     identity.ServiceAPI
+	cookieNames  authCookieNames
+	clock        func() time.Time
 }
 
 type authCookieNames struct {
@@ -130,6 +133,10 @@ func (handlers authHandlers) callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !result.IdentityLinked {
+		if result.MFA != nil {
+			handlers.redirectMFA(w, r, result.MFA)
+			return
+		}
 		handlers.setCookie(w, handlers.cookieNames.session, result.SessionToken, result.ExpiresAt)
 		handlers.setCookie(w, handlers.cookieNames.csrf, result.CSRFToken, result.ExpiresAt)
 	}
@@ -140,6 +147,13 @@ func (handlers authHandlers) callback(w http.ResponseWriter, r *http.Request) {
 		strings.TrimRight(handlers.config.WebOrigin, "/")+result.ReturnTo,
 		http.StatusSeeOther,
 	)
+}
+
+func (handlers authHandlers) redirectMFA(w http.ResponseWriter, r *http.Request, challenge *identity.MFAChallenge) {
+	http.SetCookie(w, challenge.Cookie)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	http.Redirect(w, r, strings.TrimRight(handlers.config.WebOrigin, "/")+"/sign-in?mfa=pending", http.StatusSeeOther)
 }
 
 func (handlers authHandlers) csrf(w http.ResponseWriter, r *http.Request) {
@@ -197,6 +211,17 @@ func (handlers authHandlers) me(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if handlers.adminMFARequired(principal) {
+		// A role promotion can leave a previously valid AAL1 session with
+		// an active admin tenant. Expose its account and workspace choices
+		// while withholding the active workspace until step-up.
+		principal.ActiveTenant = nil
+		principal.Permissions = []string{}
+		principal.Memberships = slices.Clone(principal.Memberships)
+		for i := range principal.Memberships {
+			principal.Memberships[i].IsActive = false
+		}
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Vary", "Cookie")
 	handlers.writePrincipal(w, http.StatusOK, principal)
@@ -215,9 +240,7 @@ func (handlers authHandlers) authenticatedPrincipal(
 		handlers.writeIdentityProblem(w, r, err)
 		return identity.Principal{}, false
 	}
-	handlers.attachRequestPrincipal(r, principal)
-
-	return principal, true
+	return handlers.allowPrincipal(w, r, principal)
 }
 
 func (handlers authHandlers) csrfPrincipal(
@@ -236,8 +259,20 @@ func (handlers authHandlers) csrfPrincipal(
 		handlers.writeIdentityProblem(w, r, err)
 		return identity.Principal{}, false
 	}
-	handlers.attachRequestPrincipal(r, principal)
+	return handlers.allowPrincipal(w, r, principal)
+}
 
+func (handlers authHandlers) adminMFARequired(principal identity.Principal) bool {
+	return handlers.config.Authentication.RequireAdminMFA && principal.AssuranceLevel < 2 &&
+		principal.ActiveTenant != nil && policy.OrganizationRole(principal.ActiveTenant.Role) == policy.OrganizationRoleAdmin
+}
+
+func (handlers authHandlers) allowPrincipal(w http.ResponseWriter, r *http.Request, principal identity.Principal) (identity.Principal, bool) {
+	if handlers.tenantAccess && handlers.adminMFARequired(principal) {
+		handlers.writeIdentityProblem(w, r, identity.ErrAdminMFARequired)
+		return identity.Principal{}, false
+	}
+	handlers.attachRequestPrincipal(r, principal)
 	return principal, true
 }
 
@@ -301,6 +336,12 @@ func (handlers authHandlers) writeIdentityProblem(w http.ResponseWriter, r *http
 	detail := "The authentication request could not be completed."
 
 	switch {
+	case errors.Is(err, identity.ErrFederationAALRequired):
+		writeCodedProblem(w, r, http.StatusForbidden, "auth_assurance_required", "Stronger authentication required", "Verify a second factor before linking this identity.")
+		return
+	case errors.Is(err, identity.ErrAdminMFARequired):
+		writeCodedProblem(w, r, http.StatusForbidden, "auth_admin_mfa_required", "Administrator MFA required", "Verify a second factor to use this administrator workspace.")
+		return
 	case errors.Is(err, identity.ErrAuthenticationDisabled):
 		status = http.StatusServiceUnavailable
 		title = "Authentication unavailable"

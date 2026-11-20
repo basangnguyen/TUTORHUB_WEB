@@ -290,7 +290,7 @@ paths:
       summary: Verify an email code and create a new session
       security:
         - AuthTransactionCookie: []
-      description: Requires AUTH_METHOD_EMAIL_CODE_ENABLED. Atomically consumes the challenge and transaction, adds a verified native email identity when needed, and creates a session. Administrators are capped at 24 hours. Clears the transaction cookie on success. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      description: Consumes the email code, then issues a session or a five-minute MFA transaction according to the account's active factors. Administrators are capped at 24 hours. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
       parameters:
         - $ref: "#/components/parameters/PreAuthOrigin"
         - $ref: "#/components/parameters/PreAuthFetchSite"
@@ -302,7 +302,7 @@ paths:
               $ref: "#/components/schemas/EmailCodeLoginVerifyRequest"
       responses:
         "200":
-          description: Authenticated with new session cookies; MFA continuation reserved for later slices
+          description: Authenticated with new session cookies or awaiting a second factor
           headers:
             Set-Cookie:
               schema:
@@ -365,7 +365,7 @@ paths:
       summary: Reset a password and revoke every existing session
       security:
         - AuthTransactionCookie: []
-      description: Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Password policy validation runs before OTP consumption. Successful reset revokes every session, clears session, CSRF and transaction cookies, and sends a password-changed notice. Does not sign the user in. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      description: Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Password policy validation runs before OTP consumption. When MFA is enabled, accounts protected by an active TOTP or usable passkey require a second factor before the password changes. A completed reset revokes every session, clears session, CSRF and transaction cookies and sends a password-changed notice.
       parameters:
         - $ref: "#/components/parameters/PreAuthOrigin"
         - $ref: "#/components/parameters/PreAuthFetchSite"
@@ -377,7 +377,7 @@ paths:
               $ref: "#/components/schemas/PasswordRecoveryCompleteRequest"
       responses:
         "200":
-          description: Password reset without a new session; MFA continuation reserved for later slices
+          description: Password reset without a new session or awaiting a second factor
           headers:
             Set-Cookie:
               schema:
@@ -400,6 +400,262 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         "429":
           $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/mfa:
+    get:
+      operationId: getPendingMFA
+      summary: Read the current five-minute multi-factor challenge
+      description: Returns the available methods and remaining lifetime after first-factor proof. A missing, expired or consumed browser binding returns 404. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      security:
+        - AuthTransactionCookie: []
+      responses:
+        "200":
+          description: Successful verification response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MFAStateResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/mfa/passkey/options:
+    post:
+      operationId: startMFAPasskey
+      summary: Begin user-verified passkey proof for a multi-factor challenge
+      description: Returns options restricted to the account bound to the MFA transaction. User verification is required. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      security:
+        - AuthTransactionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "200":
+          description: Successful verification response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyRequestOptions"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/auth/mfa/verify:
+    post:
+      operationId: verifyMFA
+      summary: Complete a multi-factor login or password reset
+      description: Checks the bound transaction and second factor. Login issues AAL2 session cookies. Password recovery resets the password and revokes sessions. Success clears the transaction cookie. Verification is limited per IP and to five attempts per account per five minutes. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      security:
+        - AuthTransactionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MFAVerifyRequest"
+      responses:
+        "200":
+          description: Successful verification response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MFAVerifyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/mfa/totp/enroll:
+    post:
+      operationId: enrollTOTP
+      summary: Create a pending authenticator enrollment
+      description: Requires recent authentication. An account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). The enrollment secret and otpauth URI are returned only by this call. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "200":
+          description: Successful verification response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TOTPEnrollmentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/mfa/totp/confirm:
+    post:
+      operationId: confirmTOTP
+      summary: Activate a pending authenticator
+      description: Requires recent authentication and a fresh six-digit TOTP. An account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). Rotates session and CSRF cookies, issues ten single-use recovery codes and revokes weaker sessions. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TOTPCodeRequest"
+      responses:
+        "200":
+          description: Successful verification response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/AuthRateLimitedResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/mfa/totp:
+    delete:
+      operationId: disableTOTP
+      summary: Disable the account authenticator
+      description: Requires a recent AAL2 session. Invalidates all recovery codes. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      responses:
+        "204":
+          description: Authenticator disabled
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/me/mfa/recovery-codes:
+    post:
+      operationId: regenerateRecoveryCodes
+      summary: Replace the account recovery codes
+      description: Requires a recent AAL2 session. Invalidates all previous codes and returns the ten replacements once. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+        - $ref: "#/components/parameters/PreAuthFetchSite"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyAuthRequest"
+      responses:
+        "200":
+          description: Successful verification response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "415":
+          $ref: "#/components/responses/ProblemResponse"
         "503":
           $ref: "#/components/responses/AuthUnavailableResponse"
         default:
@@ -452,7 +708,7 @@ paths:
     post:
       operationId: verifyPasskeyAssertion
       summary: Verify a discoverable assertion and start a session
-      description: Consumes the browser-bound transaction and verifies the signed assertion. User verification grants AAL2. User presence without verification grants AAL1. Successful login sets session and CSRF cookies and clears auth_tx. Rate limit is 30 requests per IP prefix per fifteen minutes.
+      description: Consumes the browser-bound transaction and verifies the signed assertion. User verification grants AAL2. User presence alone requires a second factor for accounts with active TOTP and otherwise grants AAL1. Rate limit is 30 requests per IP prefix per fifteen minutes.
       security:
         - AuthTransactionCookie: []
       parameters:
@@ -474,7 +730,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthAuthenticatedResponse"
+                $ref: "#/components/schemas/NativeAuthenticationResponse"
         "400":
           $ref: "#/components/responses/BadRequestResponse"
         "401":
@@ -580,7 +836,7 @@ paths:
     post:
       operationId: startPasskeyRegistration
       summary: Begin registration of a discoverable passkey
-      description: Requires CSRF, exact Origin and authentication within ten minutes. Sets a five-minute auth_tx cookie bound to the user and session. Returns creation options with residentKey required, userVerification preferred and attestation none.
+      description: Requires CSRF, exact Origin and authentication within ten minutes. When TOTP MFA is enabled, an account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). Sets a five-minute auth_tx cookie bound to the user and session. Returns creation options with residentKey required, userVerification preferred and attestation none.
       security:
         - SessionCookie: []
       parameters:
@@ -631,7 +887,7 @@ paths:
     post:
       operationId: verifyPasskeyRegistration
       summary: Verify attestation and register a passkey
-      description: Requires CSRF, exact Origin and recent authentication. Consumes the browser-bound registration transaction, verifies attestation and stores the credential and its label.
+      description: Requires CSRF, exact Origin and recent authentication. When TOTP MFA is enabled, an account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). Consumes the browser-bound registration transaction, verifies attestation and stores the credential and its label.
       security:
         - SessionCookie: []
           AuthTransactionCookie: []
@@ -737,7 +993,7 @@ paths:
     delete:
       operationId: revokeMyPasskey
       summary: Revoke an active passkey
-      description: Requires CSRF, exact Origin and authentication within ten minutes. No request body is needed. Soft-revokes the passkey when another active sign-in method remains.
+      description: Requires CSRF, exact Origin and authentication within ten minutes. No request body is needed. When TOTP MFA is enabled, revocation requires AAL2 (403 auth_assurance_required). Soft-revokes the passkey when another active sign-in method remains.
       security:
         - SessionCookie: []
       parameters:
@@ -899,7 +1155,7 @@ paths:
     post:
       operationId: reauthenticate
       summary: Reauthenticate and rotate session and CSRF cookies
-      description: Requires a session, CSRF and exact Origin. Password and email methods require AUTH_DEVICE_MANAGEMENT_ENABLED. Passkeys require AUTH_PASSKEYS_ENABLED and user verification for AAL2. Email codes and passkey assertions require a single-use auth_tx cookie bound to the current user and session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, preserves cookie lifetime and applies the org_admin 24-hour cap.
+      description: Requires a session, CSRF and exact Origin. Accounts with active MFA and sessions at AAL2 require TOTP or a user-verified passkey. Password and email methods require AUTH_DEVICE_MANAGEMENT_ENABLED. Email codes and passkey assertions use a single-use auth_tx cookie bound to the current user and session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens and applies the org_admin 24-hour cap.
       security:
         - SessionCookie: []
       parameters:
@@ -1080,7 +1336,7 @@ paths:
     post:
       operationId: updateMyPassword
       summary: Set or change a password after recent authentication
-      description: Requires password authentication enabled, a session, CSRF and authentication within ten minutes. Active credentials require the current password; first enrollment requires verified email. Hashing occurs before database locks. Atomically replaces credentials, revokes other sessions and rotates the current session and CSRF cookies while preserving its lifetime. A password-changed notice is sent after commit. Responses use Cache-Control private, no-store.
+      description: Requires password authentication enabled, a session, CSRF and authentication within ten minutes. An active credential requires the current password. First enrollment requires verified email. When TOTP MFA is enabled, first enrollment on an account with an active passkey or TOTP also requires AAL2 (403 auth_assurance_required). Hashing occurs before database locks. Atomically replaces credentials, revokes other sessions and rotates the current session and CSRF cookies while preserving its lifetime. A password-changed notice is sent after commit. Responses use Cache-Control private, no-store.
       security:
         - SessionCookie: []
       parameters:
@@ -1119,7 +1375,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "403":
-          description: CSRF, recent authentication (auth_recent_authentication_required) or verified email required
+          description: CSRF, recent authentication (auth_recent_authentication_required), verified email or AAL2 (auth_assurance_required) required
           content:
             application/problem+json:
               schema:
@@ -1251,7 +1507,7 @@ paths:
               $ref: "#/components/schemas/PasswordLoginRequest"
       responses:
         "200":
-          description: Authentication result; AUTH-02A returns authenticated, with MFA continuation reserved for later slices
+          description: Authenticated with new session cookies or awaiting a second factor
           headers:
             Set-Cookie:
               schema:
@@ -1382,7 +1638,7 @@ paths:
     get:
       operationId: completeOAuth
       summary: Complete a provider-bound single-use OAuth flow
-      description: The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject or a new Microsoft subject without an email verified by xms_edov=true creates a registration_tx and redirects to /sign-in?registration=pending&provider=<provider>. Successful login sets session and CSRF cookies.
+      description: The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject or a new Microsoft subject without an email verified by xms_edov=true creates a registration_tx and redirects to /sign-in?registration=pending&provider=<provider>. Accounts with active TOTP receive a browser-bound MFA transaction and redirect to /sign-in?mfa=pending before session issuance.
       parameters:
         - $ref: "#/components/parameters/FederationProvider"
         - name: state
@@ -9710,6 +9966,117 @@ components:
         status:
           type: string
           const: authenticated
+    MFAStateResponse:
+      type: object
+      additionalProperties: false
+      required: [methods, expires_in_seconds]
+      properties:
+        methods:
+          $ref: "#/components/schemas/MFAMethods"
+        expires_in_seconds:
+          type: integer
+          minimum: 1
+          maximum: 300
+    MFAMethods:
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items:
+        type: string
+        enum: [totp, recovery_code, passkey]
+    TOTPCodeRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          writeOnly: true
+    MFAVerifyRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [method, code]
+          properties:
+            method:
+              type: string
+              const: totp
+            code:
+              type: string
+              pattern: "^[0-9]{6}$"
+              writeOnly: true
+        - type: object
+          additionalProperties: false
+          required: [method, code]
+          properties:
+            method:
+              type: string
+              const: recovery_code
+            code:
+              type: string
+              minLength: 1
+              writeOnly: true
+        - type: object
+          additionalProperties: false
+          required: [method, assertion]
+          properties:
+            method:
+              type: string
+              const: passkey
+            assertion:
+              $ref: "#/components/schemas/PasskeyAssertion"
+    MFAVerifyResponse:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [status]
+          properties:
+            status:
+              type: string
+              const: authenticated
+            return_to:
+              type: string
+              description: Server-validated local return path from the first factor.
+        - $ref: "#/components/schemas/PasswordResetResponse"
+    TOTPEnrollmentResponse:
+      type: object
+      additionalProperties: false
+      required: [secret, otpauth_uri, issuer, account_name]
+      properties:
+        secret:
+          type: string
+          description: Base32 encoding of the secret for this enrollment.
+        otpauth_uri:
+          type: string
+        issuer:
+          type: string
+        account_name:
+          type: string
+    RecoveryCodesResponse:
+      type: object
+      additionalProperties: false
+      required: [recovery_codes]
+      properties:
+        recovery_codes:
+          type: array
+          minItems: 10
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+    ReauthenticateTOTPRequest:
+      type: object
+      additionalProperties: false
+      required: [method, code]
+      properties:
+        method:
+          type: string
+          const: totp
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          writeOnly: true
     AuthMFARequiredResponse:
       type: object
       additionalProperties: false
@@ -9719,12 +10086,7 @@ components:
           type: string
           const: mfa_required
         methods:
-          type: array
-          items:
-            type: string
-            enum: [passkey, totp, recovery_code]
-          minItems: 1
-          uniqueItems: true
+          $ref: "#/components/schemas/MFAMethods"
     NativeAuthenticationResponse:
       oneOf:
         - $ref: "#/components/schemas/AuthAuthenticatedResponse"
@@ -10000,13 +10362,17 @@ components:
           type: boolean
         mfa_enabled:
           type: boolean
-          enum: [false]
+        recovery_codes_remaining:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Number of currently valid recovery codes.
         reauth_methods:
           type: array
           uniqueItems: true
           items:
             type: string
-            enum: [passkey, password, email_code]
+            enum: [passkey, totp, password, email_code]
         recent_auth_expires_at:
           type: [string, "null"]
           format: date-time
@@ -10155,6 +10521,7 @@ components:
           $ref: "#/components/schemas/PasskeyAssertion"
     ReauthenticateRequest:
       oneOf:
+        - $ref: "#/components/schemas/ReauthenticateTOTPRequest"
         - $ref: "#/components/schemas/ReauthenticatePasswordRequest"
         - $ref: "#/components/schemas/ReauthenticateEmailCodeRequest"
         - $ref: "#/components/schemas/ReauthenticatePasskeyRequest"
@@ -10164,6 +10531,7 @@ components:
           password: "#/components/schemas/ReauthenticatePasswordRequest"
           email_code: "#/components/schemas/ReauthenticateEmailCodeRequest"
           passkey: "#/components/schemas/ReauthenticatePasskeyRequest"
+          totp: "#/components/schemas/ReauthenticateTOTPRequest"
     ReauthenticateResponse:
       type: object
       additionalProperties: false

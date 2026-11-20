@@ -54,7 +54,25 @@ export type MyPasswordUpdateRequest =
   components["schemas"]["MyPasswordUpdateRequest"];
 export type MyPasswordUpdateResponse =
   components["schemas"]["MyPasswordUpdateResponse"];
-export type MySecurityResponse = components["schemas"]["MySecurityResponse"];
+export type AccountSecurityResponse =
+  components["schemas"]["MySecurityResponse"];
+/** Security response supported by existing AUTH-08 clients. */
+export type MySecurityResponse = Omit<
+  AccountSecurityResponse,
+  "reauth_methods"
+> & {
+  readonly reauth_methods: readonly Exclude<
+    AccountSecurityResponse["reauth_methods"][number],
+    "totp"
+  >[];
+};
+export type MFAStateResponse = components["schemas"]["MFAStateResponse"];
+export type MFAVerifyRequest = components["schemas"]["MFAVerifyRequest"];
+export type MFAVerifyResponse = components["schemas"]["MFAVerifyResponse"];
+export type TOTPEnrollmentResponse =
+  components["schemas"]["TOTPEnrollmentResponse"];
+export type RecoveryCodesResponse =
+  components["schemas"]["RecoveryCodesResponse"];
 export type MyLoginMethodsResponse =
   components["schemas"]["MyLoginMethodsResponse"];
 export type MySession = components["schemas"]["MySession"];
@@ -1028,7 +1046,7 @@ export async function updateMyPassword(
 
 export async function getMySecurity(
   options: APIRequestOptions = {},
-): Promise<MySecurityResponse> {
+): Promise<AccountSecurityResponse> {
   const { data, error, response } = await createTutorHubClient(options).GET(
     "/api/v1/me/security",
     {
@@ -1038,8 +1056,8 @@ export async function getMySecurity(
       referrerPolicy: "no-referrer",
     },
   );
-  return requireData<MySecurityResponse>(
-    data as MySecurityResponse | undefined,
+  return requireData<AccountSecurityResponse>(
+    data as AccountSecurityResponse | undefined,
     error,
     response,
   );
@@ -1118,14 +1136,139 @@ export async function startPasskeyAssertion(
 export async function verifyPasskeyAssertion(
   input: PasskeyAssertionVerifyRequest,
   options: APIRequestOptions = {},
-): Promise<AuthAuthenticatedResponse> {
+): Promise<NativeAuthenticationResponse> {
   const { data, error, response } = await createTutorHubClient(options).POST(
     "/api/v1/auth/passkeys/assertion/verify",
     { ...preAuthRequestOptions(options), body: input },
   );
-  const result = requireData<AuthAuthenticatedResponse>(data, error, response);
+  const result = requireData<NativeAuthenticationResponse>(
+    data as NativeAuthenticationResponse | undefined,
+    error,
+    response,
+  );
+  if (result.status === "authenticated") currentCSRFToken = null;
+  return result;
+}
+
+export async function getPendingMFA(
+  options: APIRequestOptions = {},
+): Promise<MFAStateResponse> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/auth/mfa",
+    {
+      headers: { Accept: "application/json" },
+      signal: options.signal,
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return requireData<MFAStateResponse>(
+    data as MFAStateResponse | undefined,
+    error,
+    response,
+  );
+}
+
+export async function startMFAPasskey(
+  options: APIRequestOptions = {},
+): Promise<PasskeyRequestOptions> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/mfa/passkey/options",
+    {
+      ...preAuthRequestOptions(options),
+      body: {},
+    },
+  );
+  return requireData<PasskeyRequestOptions>(
+    data as PasskeyRequestOptions | undefined,
+    error,
+    response,
+  );
+}
+
+export async function verifyMFA(
+  input: MFAVerifyRequest,
+  options: APIRequestOptions = {},
+): Promise<MFAVerifyResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/auth/mfa/verify",
+    {
+      ...preAuthRequestOptions(options),
+      body: input,
+    },
+  );
+  const result = requireData<MFAVerifyResponse>(data, error, response);
   currentCSRFToken = null;
   return result;
+}
+
+export async function enrollTOTP(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<TOTPEnrollmentResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/mfa/totp/enroll",
+    {
+      ...securityMutationOptions(csrfToken, options),
+      body: {},
+    },
+  );
+  return requireData<TOTPEnrollmentResponse>(data, error, response);
+}
+
+export async function confirmTOTP(
+  code: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<RecoveryCodesResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/mfa/totp/confirm",
+    {
+      ...securityMutationOptions(csrfToken, options),
+      body: { code },
+    },
+  );
+  const result = requireData<RecoveryCodesResponse>(
+    data as RecoveryCodesResponse | undefined,
+    error,
+    response,
+  );
+  currentCSRFToken = null;
+  return result;
+}
+
+export async function disableTOTP(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<void> {
+  const { error, response } = await createTutorHubClient(options).DELETE(
+    "/api/v1/me/mfa/totp",
+    securityMutationOptions(csrfToken, options),
+  );
+  if (!response.ok)
+    throw new APIRequestError(
+      response.status,
+      isProblem(error) ? error : undefined,
+      retryAfterSeconds(response),
+    );
+}
+
+export async function regenerateRecoveryCodes(
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<RecoveryCodesResponse> {
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/me/mfa/recovery-codes",
+    {
+      ...securityMutationOptions(csrfToken, options),
+      body: {},
+    },
+  );
+  return requireData<RecoveryCodesResponse>(
+    data as RecoveryCodesResponse | undefined,
+    error,
+    response,
+  );
 }
 
 export async function startPasskeyReauthentication(

@@ -41,17 +41,17 @@ func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, strin
 func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 47 || version.Dirty {
-		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 47")
+	if err != nil || version.Number != 48 || version.Dirty {
+		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 48")
 	}
-	if err := migrationrunner.Down(ctx, url, 5); err != nil {
+	if err := migrationrunner.Down(ctx, url, 6); err != nil {
 		t.Fatal("empty disposable AUTH-01 rollback")
 	}
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("reapply AUTH-01 migration")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 47 || version.Dirty {
+	if err != nil || version.Number != 48 || version.Dirty {
 		t.Fatal("AUTH-01 roundtrip did not retain clean ledger")
 	}
 	down, err := migrations.Files.ReadFile("000043_auth_foundation.down.sql")
@@ -87,8 +87,8 @@ func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 47 || version.Dirty {
-		t.Fatal("AUTH-06 ACL requires clean ledger 47")
+	if err != nil || version.Number != 48 || version.Dirty {
+		t.Fatal("AUTH-06 ACL requires clean ledger 48")
 	}
 	roleName := "auth_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	role := pgx.Identifier{roleName}.Sanitize()
@@ -102,7 +102,7 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 		_, _ = pool.Exec(cleanupCtx, "DROP ROLE "+role)
 	})
 	// Emulate previously materialized broad grants, including column grants.
-	if _, err := pool.Exec(ctx, "GRANT ALL ON tutorhub.auth_transactions, tutorhub.auth_challenges, tutorhub.auth_challenge_deliveries, tutorhub.user_password_credentials, tutorhub.user_legal_acceptances, tutorhub.webauthn_credentials TO "+role); err != nil {
+	if _, err := pool.Exec(ctx, "GRANT ALL ON tutorhub.auth_transactions, tutorhub.auth_challenges, tutorhub.auth_challenge_deliveries, tutorhub.user_password_credentials, tutorhub.user_legal_acceptances, tutorhub.webauthn_credentials, tutorhub.mfa_totp_factors, tutorhub.mfa_recovery_codes TO "+role); err != nil {
 		t.Fatal("seed overbroad runtime ACL")
 	}
 	if _, err := pool.Exec(ctx, "GRANT UPDATE (code_hash) ON tutorhub.auth_challenges TO "+role); err != nil {
@@ -132,6 +132,8 @@ func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 		"user_password_credentials":       {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
 		"user_legal_acceptances":          {},
 		"external_data_deletion_requests": {"status", "completed_at"},
+		"mfa_totp_factors":                {"status", "last_used_step", "confirmed_at", "disabled_at", "updated_at"},
+		"mfa_recovery_codes":              {"consumed_at", "invalidated_at"},
 		"webauthn_credentials":            {"sign_count", "clone_warning", "backup_eligible", "backup_state", "transports", "label", "status", "last_used_at", "revoked_at", "updated_at"},
 	}
 	for table, updates := range expectedUpdates {

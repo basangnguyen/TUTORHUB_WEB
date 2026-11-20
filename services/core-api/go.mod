@@ -20,6 +20,7 @@ require (
 	github.com/livekit/protocol v1.49.0
 	github.com/livekit/server-sdk-go/v2 v2.18.1
 	github.com/pion/webrtc/v4 v4.2.15
+	github.com/pquerna/otp v1.5.0
 	github.com/teambition/rrule-go v1.8.2
 	github.com/twitchtv/twirp v8.1.3+incompatible
 	golang.org/x/crypto v0.57.0
@@ -50,6 +51,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dennwc/iters v1.2.2 // indirect
 	github.com/frostbyte73/core v0.1.1 // indirect

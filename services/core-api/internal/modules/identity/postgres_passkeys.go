@@ -234,12 +234,15 @@ func (service *NativeAuthService) ListMyPasskeys(ctx context.Context, p Principa
 	return items, nil
 }
 
-func (service *NativeAuthService) lockRecentPasskeySession(ctx context.Context, tx pgx.Tx, p Principal) error {
+func (service *NativeAuthService) lockRecentPasskeySession(ctx context.Context, tx pgx.Tx, p Principal, changesFactor bool) (lockedSecuritySession, error) {
 	locked, err := service.lockNativeSecuritySession(ctx, tx, p)
 	if err != nil {
-		return err
+		return locked, err
 	}
-	return nativePasswordRecentAuthentication(locked.AuthenticatedAt, service.now().UTC())
+	if err = nativePasswordRecentAuthentication(locked.AuthenticatedAt, service.now().UTC()); err == nil && changesFactor {
+		err = service.requireRecoveryFactorAssurance(ctx, tx, p.User.ID, locked.AssuranceLevel)
+	}
+	return locked, err
 }
 
 func (service *NativeAuthService) RenameMyPasskey(ctx context.Context, p Principal, id uuid.UUID, label string) (Passkey, error) {
@@ -256,7 +259,7 @@ func (service *NativeAuthService) RenameMyPasskey(ctx context.Context, p Princip
 		return Passkey{}, ErrAuthFoundationStorage
 	}
 	defer rollback(tx)
-	if err := service.lockRecentPasskeySession(ctx, tx, p); err != nil {
+	if _, err := service.lockRecentPasskeySession(ctx, tx, p, false); err != nil {
 		return Passkey{}, err
 	}
 	item, err := readPasskey(tx.QueryRow(ctx, `UPDATE tutorhub.webauthn_credentials SET label=$3,updated_at=GREATEST(updated_at,$4) WHERE id=$1 AND user_id=$2 AND status='active' RETURNING `+passkeySummaryColumns, id, p.User.ID, label, service.now().UTC()))
@@ -280,7 +283,7 @@ func (service *NativeAuthService) RevokeMyPasskey(ctx context.Context, p Princip
 		return ErrAuthFoundationStorage
 	}
 	defer rollback(tx)
-	if err := service.lockRecentPasskeySession(ctx, tx, p); err != nil {
+	if _, err := service.lockRecentPasskeySession(ctx, tx, p, true); err != nil {
 		return err
 	}
 	var exists bool

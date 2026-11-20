@@ -26,6 +26,13 @@ type PostgresRepository struct {
 	authorizer      policy.Authorizer
 	controls        featurecontrol.Enforcer
 	passkeysEnabled bool
+	mfa             *NativeAuthService
+	requireAdminMFA bool
+}
+
+// ConfigureAccountAssurance sets the deployment policies before serving requests.
+func (repository *PostgresRepository) ConfigureAccountAssurance(mfa *NativeAuthService, requireAdminMFA bool) {
+	repository.mfa, repository.requireAdminMFA = mfa, requireAdminMFA
 }
 
 // SetPasskeysEnabled configures the login methods available for identity
@@ -192,13 +199,13 @@ func (repository *PostgresRepository) CreateAuthenticatedSession(
 	ctx context.Context,
 	claims ProviderClaims,
 	metadata SessionMetadata,
-) (Principal, error) {
+) (FederationLoginRecord, error) {
 	queryContext, cancel := repository.contextWithTimeout(ctx)
 	defer cancel()
 
 	transaction, err := repository.database.Begin(queryContext)
 	if err != nil {
-		return Principal{}, fmt.Errorf("begin authenticated session: %w", err)
+		return FederationLoginRecord{}, fmt.Errorf("begin authenticated session: %w", err)
 	}
 	defer rollback(transaction)
 
@@ -209,12 +216,22 @@ func (repository *PostgresRepository) CreateAuthenticatedSession(
 		metadata.CreatedAt,
 	)
 	if err != nil {
-		return Principal{}, err
+		return FederationLoginRecord{}, err
 	}
 
-	activeTenantID, err := selectActiveTenant(queryContext, transaction, userID)
+	challenge, err := repository.beginFederatedMFA(queryContext, transaction, userID, identityID, "oidc", metadata.ReturnTo)
 	if err != nil {
-		return Principal{}, err
+		return FederationLoginRecord{}, err
+	}
+	if challenge != nil {
+		if err := transaction.Commit(queryContext); err != nil {
+			return FederationLoginRecord{}, ErrAuthFoundationStorage
+		}
+		return FederationLoginRecord{MFA: challenge}, nil
+	}
+	activeTenantID, err := selectActiveTenant(queryContext, transaction, userID, repository.requireAdminMFA)
+	if err != nil {
+		return FederationLoginRecord{}, err
 	}
 
 	var ipPrefix any
@@ -257,21 +274,21 @@ RETURNING id`
 		claims.AuthTime,
 		metadata.DeviceLabel,
 	).Scan(&sessionID); err != nil {
-		return Principal{}, fmt.Errorf("insert authenticated session: %w", err)
+		return FederationLoginRecord{}, fmt.Errorf("insert authenticated session: %w", err)
 	}
 
 	principal, err := repository.loadPrincipal(
 		queryContext, transaction, sessionID, userID, activeTenantID,
 	)
 	if err != nil {
-		return Principal{}, err
+		return FederationLoginRecord{}, err
 	}
 
 	if err := transaction.Commit(queryContext); err != nil {
-		return Principal{}, fmt.Errorf("commit authenticated session: %w", err)
+		return FederationLoginRecord{}, fmt.Errorf("commit authenticated session: %w", err)
 	}
 
-	return principal, nil
+	return FederationLoginRecord{Principal: principal}, nil
 }
 
 func (repository *PostgresRepository) GetSession(
@@ -485,6 +502,9 @@ func (repository *PostgresRepository) CreateTenant(
 		}
 	}
 
+	if repository.requireAdminMFA && lockedSession.AssuranceLevel < 2 {
+		return TenantMutationResult{}, ErrAdminMFARequired
+	}
 	var tenantID uuid.UUID
 	var tenantVersion int64
 	if err := transaction.QueryRow(
@@ -581,9 +601,10 @@ func (repository *PostgresRepository) SwitchActiveTenant(
 	defer rollback(transaction)
 
 	var targetTenantVersion int64
+	var targetRole policy.OrganizationRole
 	if err := transaction.QueryRow(
 		queryContext,
-		`SELECT t.version
+		`SELECT t.version, m.role
     FROM tutorhub.memberships m
     JOIN tutorhub.tenants t ON t.id = m.tenant_id
     WHERE m.user_id = $1
@@ -593,7 +614,7 @@ func (repository *PostgresRepository) SwitchActiveTenant(
 FOR SHARE OF t, m`,
 		userID,
 		tenantID,
-	).Scan(&targetTenantVersion); err != nil {
+	).Scan(&targetTenantVersion, &targetRole); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return TenantMutationResult{}, ErrTenantAccessDenied
 		}
@@ -608,6 +629,9 @@ FOR SHARE OF t, m`,
 	)
 	if err != nil {
 		return TenantMutationResult{}, err
+	}
+	if repository.requireAdminMFA && targetRole == policy.OrganizationRoleAdmin && lockedSession.AssuranceLevel < 2 {
+		return TenantMutationResult{}, ErrAdminMFARequired
 	}
 
 	if err := updateTenantSession(
@@ -653,6 +677,7 @@ FOR SHARE OF t, m`,
 type lockedTenantSession struct {
 	ExpiresAt      time.Time
 	ActiveTenantID uuid.UUID
+	AssuranceLevel int16
 }
 
 func lockTenantMutationSession(
@@ -671,7 +696,7 @@ func lockTenantMutationSession(
 	var contextVersion int64
 	if err := transaction.QueryRow(
 		ctx,
-		`SELECT expires_at, active_tenant_id, context_version
+		`SELECT expires_at, active_tenant_id, context_version, assurance_level
 FROM tutorhub.sessions
 WHERE id = $1
   AND user_id = $2
@@ -682,7 +707,7 @@ FOR UPDATE`,
 		sessionID,
 		userID,
 		rotation.RotatedAt,
-	).Scan(&result.ExpiresAt, &activeTenantID, &contextVersion); err != nil {
+	).Scan(&result.ExpiresAt, &activeTenantID, &contextVersion, &result.AssuranceLevel); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return lockedTenantSession{}, ErrSessionNotFound
 		}
@@ -1636,6 +1661,21 @@ func (repository *PostgresRepository) LinkIdentity(
 	if err := lockIdentityUser(queryContext, transaction, userID); err != nil {
 		return ExternalIdentity{}, err
 	}
+	if repository.mfa != nil {
+		active, err := hasActiveTOTP(queryContext, transaction, userID)
+		if err != nil {
+			return ExternalIdentity{}, err
+		}
+		if active {
+			var assurance int
+			if err := transaction.QueryRow(queryContext, `SELECT assurance_level FROM tutorhub.sessions WHERE id=$1 AND user_id=$2`, sessionID, userID).Scan(&assurance); err != nil {
+				return ExternalIdentity{}, ErrAuthFoundationStorage
+			}
+			if assurance < 2 {
+				return ExternalIdentity{}, ErrFederationAALRequired
+			}
+		}
+	}
 	var existing ExternalIdentity
 	var existingUserID uuid.UUID
 	var status string
@@ -1999,6 +2039,7 @@ func selectActiveTenant(
 	ctx context.Context,
 	transaction pgx.Tx,
 	userID uuid.UUID,
+	excludeAdmin bool,
 ) (uuid.UUID, error) {
 	var tenantID uuid.UUID
 	err := transaction.QueryRow(
@@ -2009,9 +2050,10 @@ JOIN tutorhub.tenants t ON t.id = m.tenant_id
 WHERE m.user_id = $1
   AND m.status = 'active'
   AND t.status = 'active'
+  AND (NOT $2::boolean OR m.role <> 'org_admin')
 ORDER BY m.joined_at ASC NULLS LAST, m.created_at ASC, m.tenant_id ASC
 LIMIT 1`,
-		userID,
+		userID, excludeAdmin,
 	).Scan(&tenantID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, nil

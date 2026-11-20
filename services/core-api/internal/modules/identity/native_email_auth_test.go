@@ -217,7 +217,7 @@ func TestNativeRecoveryHashesOutsideTransactionAndRollsBackEveryWrite(t *testing
 			// A bounded queue without a worker lets the test observe post-commit notice admission.
 			dispatcher := &DeliveryDispatcher{queue: make(chan deliveryJob, 1)}
 			service.challenges.dispatcher = dispatcher
-			err := service.CompletePasswordRecovery(context.Background(), strings.Repeat("a", 43), PasswordRecoveryCompleteInput{ChallengeID: db.challengeID, Code: "420381", NewPassword: "Strong replacement 42!"})
+			_, err := service.CompletePasswordRecovery(context.Background(), strings.Repeat("a", 43), PasswordRecoveryCompleteInput{ChallengeID: db.challengeID, Code: "420381", NewPassword: "Strong replacement 42!"})
 			if spy.calls != 1 || len(db.transactions) != 2 || !db.transactions[0].closed {
 				t.Fatal("recovery must hash after closing snapshot")
 			}
@@ -242,7 +242,7 @@ func TestNativeRecoveryHashesOutsideTransactionAndRollsBackEveryWrite(t *testing
 	}
 	service, db, spy := emailAuthUnitFixture(t, "recovery")
 	spy.failure = ErrPasswordPolicy
-	err := service.CompletePasswordRecovery(context.Background(), strings.Repeat("a", 43), PasswordRecoveryCompleteInput{ChallengeID: db.challengeID, Code: "420381", NewPassword: "weak"})
+	_, err := service.CompletePasswordRecovery(context.Background(), strings.Repeat("a", 43), PasswordRecoveryCompleteInput{ChallengeID: db.challengeID, Code: "420381", NewPassword: "weak"})
 	if !errors.Is(err, ErrPasswordPolicy) || len(db.transactions) != 1 || len(db.transactions[0].writes) != 0 {
 		t.Fatal("password policy failure consumed OTP attempt")
 	}
@@ -313,7 +313,7 @@ func TestNativeRecoveryKeepsDisplayNamePolicyPrivateUntilOTPProof(t *testing.T) 
 				input.Code = "420381"
 				want = ErrPasswordPolicy
 			}
-			err = service.CompletePasswordRecovery(context.Background(), strings.Repeat("a", 43), input)
+			_, err = service.CompletePasswordRecovery(context.Background(), strings.Repeat("a", 43), input)
 			if !errors.Is(err, want) {
 				t.Fatalf("unexpected recovery outcome: %v", err)
 			}

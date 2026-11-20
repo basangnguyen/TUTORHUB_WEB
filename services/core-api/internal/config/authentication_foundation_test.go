@@ -20,6 +20,7 @@ func TestAuthFoundationDefaultsAndFlags(t *testing.T) {
 		"AUTH_METHOD_PHONE_ENABLED":       func(c AuthenticationConfig) bool { return c.PhoneEnabled },
 		"AUTH_PASSKEYS_ENABLED":           func(c AuthenticationConfig) bool { return c.PasskeysEnabled },
 		"AUTH_MFA_TOTP_ENABLED":           func(c AuthenticationConfig) bool { return c.MFATOTPEnabled },
+		"AUTH_REQUIRE_ADMIN_MFA":          func(c AuthenticationConfig) bool { return c.RequireAdminMFA },
 		"AUTH_DEVICE_MANAGEMENT_ENABLED":  func(c AuthenticationConfig) bool { return c.DeviceManagementEnabled },
 		"AUTH_SSO_DOMAINS_ENABLED":        func(c AuthenticationConfig) bool { return c.SSODomainsEnabled },
 		"AUTH_PROVIDER_GOOGLE_ENABLED":    func(c AuthenticationConfig) bool { return c.ProviderGoogleEnabled },

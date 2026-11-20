@@ -233,6 +233,14 @@ func TestAuthRateLimitPurposesQuotasAndPrivacy(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for action, policy := range authRateLimitPolicies(7, 3) {
+		if action == AuthRateLimitMFAUser || action == AuthRateLimitMFAIP {
+			// MFA has a transaction-backed rolling window. A query-only
+			// backend must fail closed, even if the other limits are available.
+			if decision := limiter.Allow(context.Background(), action, "subject", fixedTime); decision.Allowed || decision.Err == nil {
+				t.Fatal("MFA limiter accepted a nontransactional backend")
+			}
+			continue
+		}
 		db.rows = append(db.rows, invitationRateLimitRow{value: 1})
 		decision := limiter.Allow(context.Background(), action, "private@example.test", fixedTime)
 		if !decision.Allowed {

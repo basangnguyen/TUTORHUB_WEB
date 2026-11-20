@@ -20,6 +20,7 @@ func configureAuthFoundation(cfg *AuthenticationConfig, lookup lookupEnv, enviro
 		"AUTH_METHOD_PHONE_ENABLED":       &cfg.PhoneEnabled,
 		"AUTH_PASSKEYS_ENABLED":           &cfg.PasskeysEnabled,
 		"AUTH_MFA_TOTP_ENABLED":           &cfg.MFATOTPEnabled,
+		"AUTH_REQUIRE_ADMIN_MFA":          &cfg.RequireAdminMFA,
 		"AUTH_DEVICE_MANAGEMENT_ENABLED":  &cfg.DeviceManagementEnabled,
 		"AUTH_SSO_DOMAINS_ENABLED":        &cfg.SSODomainsEnabled,
 		"AUTH_PROVIDER_GOOGLE_ENABLED":    &cfg.ProviderGoogleEnabled,

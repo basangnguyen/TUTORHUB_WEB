@@ -243,7 +243,7 @@ func TestNativeRecoveryPostgresAtomicRevocationUnlockAndNotice(t *testing.T) {
 	input := PasswordRecoveryCompleteInput{ChallengeID: start.ChallengeID, Code: "420381", NewPassword: "New cedar sunset 75!"}
 	weak := input
 	weak.NewPassword = "short"
-	if err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, weak); !errors.Is(err, ErrPasswordPolicy) {
+	if _, err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, weak); !errors.Is(err, ErrPasswordPolicy) {
 		t.Fatal("weak recovery password accepted")
 	}
 	var attempts int
@@ -252,7 +252,7 @@ func TestNativeRecoveryPostgresAtomicRevocationUnlockAndNotice(t *testing.T) {
 	}
 	faulty := *f.service
 	faulty.database = nativeFaultDatabase{Database: f.pool, fragment: "UPDATE tutorhub.sessions"}
-	if err := faulty.CompletePasswordRecovery(f.ctx, start.Cookie.Value, input); !errors.Is(err, ErrAuthFoundationStorage) {
+	if _, err := faulty.CompletePasswordRecovery(f.ctx, start.Cookie.Value, input); !errors.Is(err, ErrAuthFoundationStorage) {
 		t.Fatal("injected session revocation failure did not fail recovery")
 	}
 	var consumed bool
@@ -263,7 +263,7 @@ func TestNativeRecoveryPostgresAtomicRevocationUnlockAndNotice(t *testing.T) {
 	if f.pool.QueryRow(f.ctx, `SELECT count(*) FROM tutorhub.sessions WHERE user_id=$1 AND revoked_at IS NULL`, userID).Scan(&activeSessions) != nil || activeSessions != 2 {
 		t.Fatal("failed recovery partially revoked sessions")
 	}
-	if err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, input); err != nil {
+	if _, err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, input); err != nil {
 		t.Fatal(err)
 	}
 	if err := dispatcher.Close(f.ctx); err != nil {
@@ -294,7 +294,7 @@ func TestNativeRecoveryPostgresAtomicRevocationUnlockAndNotice(t *testing.T) {
 	if notices != 1 {
 		t.Fatal("recovery must deliver one password_changed notice after successful commit")
 	}
-	if err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, input); !errors.Is(err, ErrNativeInvalidCode) {
+	if _, err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, input); !errors.Is(err, ErrNativeInvalidCode) {
 		t.Fatal("recovery replayed")
 	}
 
@@ -307,7 +307,7 @@ func TestNativeRecoveryPostgresAtomicRevocationUnlockAndNotice(t *testing.T) {
 			}
 		}
 		start := startNativeEmailFixture(t, f, target, "recovery", true)
-		if err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, PasswordRecoveryCompleteInput{ChallengeID: start.ChallengeID, Code: "420381", NewPassword: "Recovered fir woodland 95!"}); err != nil {
+		if _, err := f.service.CompletePasswordRecovery(f.ctx, start.Cookie.Value, PasswordRecoveryCompleteInput{ChallengeID: start.ChallengeID, Code: "420381", NewPassword: "Recovered fir woodland 95!"}); err != nil {
 			t.Fatal("OIDC/removed credential recovery failed")
 		}
 		var active bool
@@ -316,7 +316,7 @@ func TestNativeRecoveryPostgresAtomicRevocationUnlockAndNotice(t *testing.T) {
 		}
 	}
 	unknown := startNativeEmailFixture(t, f, "unknown-recovery-"+uuid.NewString()+"@example.test", "recovery", true)
-	if err := f.service.CompletePasswordRecovery(f.ctx, unknown.Cookie.Value, PasswordRecoveryCompleteInput{ChallengeID: unknown.ChallengeID, Code: "420381", NewPassword: "Recovered fir woodland 95!"}); !errors.Is(err, ErrNativeInvalidCode) {
+	if _, err := f.service.CompletePasswordRecovery(f.ctx, unknown.Cookie.Value, PasswordRecoveryCompleteInput{ChallengeID: unknown.ChallengeID, Code: "420381", NewPassword: "Recovered fir woodland 95!"}); !errors.Is(err, ErrNativeInvalidCode) {
 		t.Fatal("unregistered email recovery was accepted")
 	}
 }

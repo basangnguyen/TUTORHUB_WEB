@@ -37,6 +37,7 @@ type fakeNativeAuth struct {
 	methodFlags              identity.AuthMethodFlags
 	passwordInput            identity.UpdateMyPasswordInput
 	passwordPrincipal        identity.Principal
+	mfa                      *identity.MFAChallenge
 }
 
 func (service *fakeNativeAuth) challenge() identity.SignupChallengeResult {
@@ -45,6 +46,9 @@ func (service *fakeNativeAuth) challenge() identity.SignupChallengeResult {
 			Secure: service.secure, SameSite: http.SameSiteStrictMode, MaxAge: 900, Expires: fixedTime.Add(15 * time.Minute)}}
 }
 func (service *fakeNativeAuth) session() identity.NativeSessionResult {
+	if service.mfa != nil {
+		return identity.NativeSessionResult{MFA: service.mfa}
+	}
 	return identity.NativeSessionResult{SessionToken: "private-session-token", CSRFToken: "private-csrf-token", ExpiresAt: fixedTime.Add(8 * time.Hour), AbsoluteExpiresAt: fixedTime.Add(30 * 24 * time.Hour), Persistent: service.persistent}
 }
 func (service *fakeNativeAuth) StartEmailSignup(_ context.Context, input identity.SignupStartInput) (identity.SignupChallengeResult, error) {

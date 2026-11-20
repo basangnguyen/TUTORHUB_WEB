@@ -492,12 +492,23 @@ func run() int {
 		}
 		repository := identity.NewPostgresRepository(pool, cfg.Database.QueryTimeout, authorizer, featureControlEnforcer)
 		repository.SetPasskeysEnabled(cfg.Authentication.PasskeysAvailable())
+		var mfaService *identity.NativeAuthService
+		if cfg.Authentication.MFATOTPEnabled {
+			var ok bool
+			mfaService, ok = authFoundation.native.(*identity.NativeAuthService)
+			if !ok || mfaService == nil {
+				logger.Error("TOTP requires the native authentication service")
+				return 1
+			}
+		}
+		repository.ConfigureAccountAssurance(mfaService, cfg.Authentication.RequireAdminMFA)
 		configuredService, err := identity.NewService(
 			repository,
 			provider,
 			crypto,
 			authorizer,
 			identity.ServiceConfig{
+				RequireAdminMFA:         cfg.Authentication.RequireAdminMFA,
 				FlowTTL:                 cfg.Authentication.FlowTTL,
 				SessionTTL:              cfg.Authentication.SessionTTL,
 				SessionAbsoluteTTL:      cfg.Authentication.SessionAbsoluteTTL,

@@ -758,7 +758,7 @@ FROM tutorhub.sessions WHERE id = $1`,
 	if err != nil || len(listed) != 1 || listed[0].ID != secondTenantID {
 		t.Fatalf("archived tenant must leave the active list: tenants=%+v error=%v", listed, err)
 	}
-	selectedTenantID, err := selectActiveTenant(ctx, transaction, userID)
+	selectedTenantID, err := selectActiveTenant(ctx, transaction, userID, false)
 	if err != nil || selectedTenantID != secondTenantID {
 		t.Fatalf("default tenant selection must skip archived tenants: id=%s error=%v", selectedTenantID, err)
 	}

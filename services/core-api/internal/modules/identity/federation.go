@@ -94,6 +94,7 @@ type FederationLoginParams struct {
 }
 
 type FederationLoginRecord struct {
+	MFA                 *MFAChallenge
 	Principal           Principal
 	LinkPending         bool
 	RegistrationPending bool

@@ -264,7 +264,7 @@ func verifyFacebookErasureEmailAccess(t *testing.T, ctx context.Context, databas
 	if err != nil {
 		t.Fatal("email recovery challenge", err)
 	}
-	err = service.CompletePasswordRecovery(ctx, recovery.Cookie.Value, PasswordRecoveryCompleteInput{ChallengeID: recovery.ChallengeID, Code: "420381", NewPassword: uuid.NewString()})
+	_, err = service.CompletePasswordRecovery(ctx, recovery.Cookie.Value, PasswordRecoveryCompleteInput{ChallengeID: recovery.ChallengeID, Code: "420381", NewPassword: uuid.NewString()})
 	if err != nil {
 		t.Fatal("verified email password recovery after provider erasure", err)
 	}
@@ -327,7 +327,7 @@ func verifyFacebookRegistrationAfterErasure(t *testing.T, ctx context.Context, p
 
 func TestFacebookErasureMigrationRoundTripAndPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 2); err != nil {
+	if err := migrationrunner.Down(ctx, url, 3); err != nil {
 		t.Fatal("empty 46 down", err)
 	}
 	version, err := migrationrunner.CurrentVersion(ctx, url)

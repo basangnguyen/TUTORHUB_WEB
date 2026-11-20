@@ -77,7 +77,7 @@ func (tx *passkeyLoginTx) Exec(_ context.Context, query string, args ...any) (pg
 	case strings.Contains(query, "SELECT user_id,identity_id,active_tenant_id"):
 		tx.sessionHash, tx.csrfHash = args[3].([]byte), args[4].([]byte)
 		tx.newLifetime = NativeSessionResult{ExpiresAt: args[6].(time.Time), AbsoluteExpiresAt: args[7].(time.Time), Persistent: args[8].(bool)}
-	case strings.Contains(query, "revoked_reason='passkey_reauthenticated'"):
+	case strings.Contains(query, "revoked_reason=$4") && args[3] == "passkey_reauthenticated":
 		tx.revoked = true
 	case strings.Contains(query, "INSERT INTO tutorhub.sessions"):
 		tx.sessions++

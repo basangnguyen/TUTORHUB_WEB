@@ -9,6 +9,8 @@ import (
 // Auth purposes share the atomic PostgreSQL limiter with invitations, but never
 // share a bucket or quota with another purpose.
 const (
+	AuthRateLimitMFAUser            InvitationRateLimitAction = "auth.mfa.user"
+	AuthRateLimitMFAIP              InvitationRateLimitAction = "auth.mfa.ip"
 	AuthRateLimitPasskeyOptionsIP   InvitationRateLimitAction = "auth.passkey.options.ip"
 	AuthRateLimitPasskeyVerifyIP    InvitationRateLimitAction = "auth.passkey.verify.ip"
 	AuthRateLimitDiscoveryIP        InvitationRateLimitAction = "auth.discovery.ip"
@@ -40,6 +42,8 @@ func authRateLimitPolicies(emailQuota, phoneQuota int) map[InvitationRateLimitAc
 // than 1 to APP_ENV=test.
 func scaledAuthRateLimitPolicies(emailQuota, phoneQuota, ipMultiplier int) map[InvitationRateLimitAction]invitationRateLimitPolicy {
 	policies := map[InvitationRateLimitAction]invitationRateLimitPolicy{
+		AuthRateLimitMFAUser:            {Limit: 5, Window: 5 * time.Minute},
+		AuthRateLimitMFAIP:              {Limit: 20, Window: 5 * time.Minute},
 		AuthRateLimitPasskeyOptionsIP:   {Limit: 30, Window: time.Minute},
 		AuthRateLimitPasskeyVerifyIP:    {Limit: 30, Window: 15 * time.Minute},
 		AuthRateLimitDiscoveryIP:        {Limit: 30, Window: time.Minute},

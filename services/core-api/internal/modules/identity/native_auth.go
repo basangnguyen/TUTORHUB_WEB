@@ -23,6 +23,9 @@ var (
 )
 
 type NativeAuthConfig struct {
+	RequireAdminMFA              bool
+	OIDCDefaultEnabled           bool
+	MFATOTPEnabled               bool
 	WebAuthn                     *PasskeyProtocol
 	CookieSecure                 bool
 	EmailCodeAvailable           bool
@@ -52,6 +55,7 @@ type SignupChallengeResult struct {
 	Cookie                            *http.Cookie
 }
 type NativeSessionResult struct {
+	MFA                          *MFAChallenge
 	SessionToken, CSRFToken      string
 	ExpiresAt, AbsoluteExpiresAt time.Time
 	Persistent                   bool

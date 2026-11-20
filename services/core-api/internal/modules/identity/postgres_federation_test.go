@@ -84,10 +84,11 @@ func TestFederationRepositoryStorageFailuresAreRedacted(t *testing.T) {
 
 func TestFederationAccountAssuranceUsesStoredMaximum(t *testing.T) {
 	tx := &federationRepositoryTestTx{row: foundationTestRow{values: []any{int16(2)}}}
-	if err := requireFederationAccountAssurance(context.Background(), tx, uuid.New(), 1, time.Now()); !errors.Is(err, ErrFederationAALRequired) {
+	repository := NewPostgresRepository(nil, time.Second, nil)
+	if err := repository.requireAccountAssurance(context.Background(), tx, uuid.New(), 1, time.Now()); !errors.Is(err, ErrFederationAALRequired) {
 		t.Fatal("weak session accepted for stronger account")
 	}
-	if err := requireFederationAccountAssurance(context.Background(), tx, uuid.New(), 2, time.Now()); err != nil {
+	if err := repository.requireAccountAssurance(context.Background(), tx, uuid.New(), 2, time.Now()); err != nil {
 		t.Fatal("sufficient assurance rejected")
 	}
 }

@@ -152,10 +152,6 @@ func (service *NativeAuthService) ResendEmailChallenge(ctx context.Context, bind
 }
 
 func (service *NativeAuthService) VerifyEmailCodeLogin(ctx context.Context, binding string, input EmailCodeVerifyInput) (NativeSessionResult, error) {
-	result, err := service.newSessionTokens()
-	if err != nil {
-		return NativeSessionResult{}, err
-	}
 	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
@@ -186,12 +182,8 @@ func (service *NativeAuthService) VerifyEmailCodeLogin(ctx context.Context, bind
 	if err != nil {
 		return NativeSessionResult{}, err
 	}
-	var admin bool
-	if tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tutorhub.memberships WHERE user_id=$1 AND role='org_admin' AND status='active')`, payload.UserID).Scan(&admin) != nil {
-		return NativeSessionResult{}, ErrAuthFoundationStorage
-	}
-	result = service.sessionExpiry(result, now, input.KeepSignedIn, admin)
-	if err := service.insertNativeSession(ctx, tx, payload.UserID, identityID, &result, []string{"email_code"}, input.UserAgent, input.RemoteAddress, now); err != nil {
+	result, err := service.finishLoginFirstFactor(ctx, tx, mfaPayload{UserID: payload.UserID, IdentityID: identityID, Methods: []string{"email_code"}, KeepSignedIn: input.KeepSignedIn}, input.UserAgent, input.RemoteAddress)
+	if err != nil {
 		return NativeSessionResult{}, err
 	}
 	if err := completeNativeEmailTransaction(ctx, tx, transaction, now); err != nil {
@@ -203,71 +195,107 @@ func (service *NativeAuthService) VerifyEmailCodeLogin(ctx context.Context, bind
 	return result, nil
 }
 
-func (service *NativeAuthService) CompletePasswordRecovery(ctx context.Context, binding string, input PasswordRecoveryCompleteInput) error {
+func (service *NativeAuthService) CompletePasswordRecovery(ctx context.Context, binding string, input PasswordRecoveryCompleteInput) (*MFAChallenge, error) {
 	snapshot, displayName, snapshotProof, err := service.passwordRecoverySnapshot(ctx, binding, input)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Snapshot transactions are closed before policy/HIBP/Argon work. Invalid
 	// enrollment policy never consumes a challenge or increments OTP attempts.
 	hash, err := service.passwords.ValidateAndHash(ctx, input.NewPassword, snapshot.Email, displayName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
 	if err != nil {
-		return ErrAuthFoundationStorage
+		return nil, ErrAuthFoundationStorage
 	}
 	defer rollback(tx)
 	transaction, payload, err := service.readNativeEmailTransaction(ctx, tx, binding, "recovery", true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if payload != snapshot {
-		return ErrNativeInvalidCode
+		return nil, ErrNativeInvalidCode
 	}
 	currentDisplayName, active, err := readNativeEmailUser(ctx, tx, payload, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	matched, err := service.verifyNativeEmailCode(ctx, tx, transaction, payload, input.ChallengeID, input.Code)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !matched || !active || !snapshotProof {
 		if tx.Commit(ctx) != nil {
-			return ErrAuthFoundationStorage
+			return nil, ErrAuthFoundationStorage
 		}
-		return ErrNativeInvalidCode
+		return nil, ErrNativeInvalidCode
 	}
 	// A concurrent profile update must not bypass the policy evaluated outside
 	// locks. Roll back consumption so the owner can retry with the current name.
 	if currentDisplayName != displayName {
-		return ErrNativeInvalidCode
+		return nil, ErrNativeInvalidCode
 	}
 	now := service.now().UTC()
-	if err := lockNativeUserSessions(ctx, tx, payload.UserID); err != nil {
+	if service.config.MFATOTPEnabled {
+		challenge, err := service.beginMFA(ctx, tx, mfaPayload{
+			UserID: payload.UserID, Methods: []string{"email_code"},
+			RecoveryHash: hash, RecoveryEmail: payload.Email, RecoveryName: currentDisplayName,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if challenge != nil {
+			if err := completeNativeEmailTransaction(ctx, tx, transaction, now); err != nil {
+				return nil, err
+			}
+			if tx.Commit(ctx) != nil {
+				return nil, ErrAuthFoundationStorage
+			}
+			return challenge, nil
+		}
+	}
+	if err := service.applyPasswordRecovery(ctx, tx, payload.UserID, payload.Email, hash, now); err != nil {
+		return nil, err
+	}
+	if err := completeNativeEmailTransaction(ctx, tx, transaction, now); err != nil {
+		return nil, err
+	}
+	if tx.Commit(ctx) != nil {
+		return nil, ErrAuthFoundationStorage
+	}
+	service.dispatchPasswordChanged(ctx, payload.Email)
+	return nil, nil
+}
+
+func (service *NativeAuthService) finishMFARecovery(ctx context.Context, tx pgx.Tx, p mfaPayload, now time.Time) error {
+	name, active, err := readNativeEmailUser(ctx, tx, nativeEmailPayload{UserID: p.UserID, Email: p.RecoveryEmail}, true)
+	if err != nil {
 		return err
 	}
-	if _, err := ensureNativeEmailIdentity(ctx, tx, payload.UserID, payload.Email, now); err != nil {
+	if !active || name != p.RecoveryName || p.RecoveryHash == "" {
+		return ErrNativeInvalidCode
+	}
+	return service.applyPasswordRecovery(ctx, tx, p.UserID, p.RecoveryEmail, p.RecoveryHash, now)
+}
+
+func (service *NativeAuthService) applyPasswordRecovery(ctx context.Context, tx pgx.Tx, userID uuid.UUID, email, hash string, now time.Time) error {
+	if err := lockNativeUserSessions(ctx, tx, userID); err != nil {
 		return err
 	}
-	if err := upsertNativePassword(ctx, tx, payload.UserID, hash, now); err != nil {
+	if _, err := ensureNativeEmailIdentity(ctx, tx, userID, email, now); err != nil {
+		return err
+	}
+	if err := upsertNativePassword(ctx, tx, userID, hash, now); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE tutorhub.sessions SET revoked_at=$2,revoked_reason='password_reset'
-		WHERE user_id=$1 AND revoked_at IS NULL`, payload.UserID, now); err != nil {
+		WHERE user_id=$1 AND revoked_at IS NULL`, userID, now); err != nil {
 		return ErrAuthFoundationStorage
 	}
-	if err := completeNativeEmailTransaction(ctx, tx, transaction, now); err != nil {
-		return err
-	}
-	if tx.Commit(ctx) != nil {
-		return ErrAuthFoundationStorage
-	}
-	service.dispatchPasswordChanged(ctx, payload.Email)
 	return nil
 }
 

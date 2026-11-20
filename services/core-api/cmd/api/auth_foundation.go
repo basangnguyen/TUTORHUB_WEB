@@ -36,7 +36,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	}
 	deliveryEnabled := (auth.EmailSender != "" && auth.EmailSender != "disabled") || (auth.PhoneSender != "" && auth.PhoneSender != "disabled")
 	if pool == nil || len(auth.SessionKey) < 32 {
-		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled {
+		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled {
 			return nil, errors.New("native authentication and delivery require database and session cryptography")
 		}
 		return result, nil
@@ -75,7 +75,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	result.challenges = identity.NewChallengeService(pool, crypto, result.dispatcher)
 	// Password status remains available to authenticated OIDC users even while
 	// native sign-in methods are disabled; HTTP gates still control mutations.
-	if auth.Enabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled {
+	if auth.Enabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled {
 		var protocol *identity.PasskeyProtocol
 		if auth.PasskeysEnabled {
 			if !auth.PasskeysAvailable() {
@@ -97,8 +97,10 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 			return nil, passwordErr
 		}
 		result.native, err = identity.NewNativeAuthService(pool, crypto, passwords, result.dispatcher, identity.NativeAuthConfig{
-			WebAuthn:     protocol,
-			CookieSecure: auth.CookieSecure, LegalTermsVersion: auth.LegalTermsVersion,
+			MFATOTPEnabled: auth.MFATOTPEnabled, RequireAdminMFA: auth.RequireAdminMFA,
+			OIDCDefaultEnabled: auth.OIDCEnabled && auth.ProviderOIDCDefaultEnabled,
+			WebAuthn:           protocol,
+			CookieSecure:       auth.CookieSecure, LegalTermsVersion: auth.LegalTermsVersion,
 			SessionTTL: auth.SessionTTL, SessionAbsoluteTTL: auth.SessionAbsoluteTTL,
 			SessionPersistentAbsoluteTTL: auth.SessionPersistentAbsoluteTTL,
 			QueryTimeout:                 cfg.Database.QueryTimeout,

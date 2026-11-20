@@ -17,6 +17,8 @@ var authFoundationUpdates = map[string][]string{
 	"user_password_credentials":       {"password_hash", "hash_version", "status", "failed_attempts", "last_failed_at", "locked_until", "compromised_at", "updated_at"},
 	"user_legal_acceptances":          {},
 	"external_data_deletion_requests": {"status", "completed_at"},
+	"mfa_totp_factors":                {"status", "last_used_step", "confirmed_at", "disabled_at", "updated_at"},
+	"mfa_recovery_codes":              {"consumed_at", "invalidated_at"},
 	"webauthn_credentials":            {"sign_count", "clone_warning", "backup_eligible", "backup_state", "transports", "label", "status", "last_used_at", "revoked_at", "updated_at"},
 }
 
@@ -49,7 +51,7 @@ func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, r
         AND pg_has_role(r.oid, c.relowner, 'MEMBER')
     )
 FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
-		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "external_data_deletion_requests", "webauthn_credentials", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
+		[]string{"auth_transactions", "auth_challenges", "auth_challenge_deliveries", "user_password_credentials", "user_legal_acceptances", "external_data_deletion_requests", "webauthn_credentials", "mfa_totp_factors", "mfa_recovery_codes", "users", "sessions", "identities", "auth_flows"}).Scan(&safe)
 	if err != nil || !safe {
 		return errors.New("authentication ACL runtime role safety preflight failed")
 	}
@@ -125,7 +127,8 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
         AND has_column_privilege($1,'tutorhub.sessions','reauthenticated_at','INSERT')
         AND has_column_privilege($1,'tutorhub.sessions','reauthenticated_at','UPDATE')
         AND has_column_privilege($1,'tutorhub.sessions','auth_methods','UPDATE')
-        AND has_column_privilege($1,'tutorhub.sessions','persistent','UPDATE')`, runtimeRole).Scan(&sessionDelete, &sessionMetadataOK); err != nil || sessionDelete || !sessionMetadataOK {
+        AND has_column_privilege($1,'tutorhub.sessions','persistent','UPDATE')
+        AND NOT has_column_privilege($1,'tutorhub.sessions','assurance_level','UPDATE')`, runtimeRole).Scan(&sessionDelete, &sessionMetadataOK); err != nil || sessionDelete || !sessionMetadataOK {
 		return errors.New("session runtime privileges are invalid")
 	}
 	if err := provisionFederationColumnACL(ctx, tx, runtimeRole); err != nil {

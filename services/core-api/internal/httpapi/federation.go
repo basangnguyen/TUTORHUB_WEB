@@ -168,6 +168,10 @@ func (handlers federationHandlers) callback(w http.ResponseWriter, r *http.Reque
 		http.Redirect(w, r, strings.TrimRight(handlers.auth.config.WebOrigin, "/")+"/sign-in?"+values.Encode(), http.StatusSeeOther)
 		return
 	}
+	if result.MFA != nil {
+		handlers.auth.redirectMFA(w, r, result.MFA)
+		return
+	}
 	if result.RegistrationPending {
 		handlers.setTransactionCookie(w, identity.RegistrationTransactionCookieName(handlers.auth.config.Authentication.CookieSecure), result.RegistrationBinding, result.RegistrationExpiresAt)
 		http.Redirect(w, r, strings.TrimRight(handlers.auth.config.WebOrigin, "/")+"/sign-in?registration=pending&provider="+url.QueryEscape(provider), http.StatusSeeOther)

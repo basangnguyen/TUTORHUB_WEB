@@ -25,11 +25,11 @@ func (service *fakeNativeAuth) VerifyEmailCodeLogin(_ context.Context, binding s
 	service.emailVerifyInput = input
 	return service.session(), service.err
 }
-func (service *fakeNativeAuth) CompletePasswordRecovery(_ context.Context, binding string, input identity.PasswordRecoveryCompleteInput) error {
+func (service *fakeNativeAuth) CompletePasswordRecovery(_ context.Context, binding string, input identity.PasswordRecoveryCompleteInput) (*identity.MFAChallenge, error) {
 	service.calls++
 	service.bound = binding
 	service.recoveryInput = input
-	return service.err
+	return service.session().MFA, service.err
 }
 func (service *fakeNativeAuth) ResendEmailChallenge(ctx context.Context, binding string, flags identity.AuthMethodFlags, allowed func(context.Context, string) (bool, error)) (identity.SignupChallengeResult, error) {
 	service.methodFlags = flags

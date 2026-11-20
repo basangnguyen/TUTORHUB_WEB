@@ -58,6 +58,9 @@ func (limiter *postgresInvitationRateLimiter) Allow(
 	windowEndsAt := windowStartedAt.Add(policy.Window)
 	purpose := invitationRateLimitPurpose(action)
 	bucketHash := invitationRateLimitBucketHash(purpose, clientPrefix)
+	if action == AuthRateLimitMFAUser || action == AuthRateLimitMFAIP {
+		return limiter.allowRollingMFA(queryContext, purpose, bucketHash[:], policy)
+	}
 
 	var used int64
 	err := limiter.database.QueryRow(
@@ -119,7 +122,7 @@ func invitationRateLimitBucketHash(purpose string, clientPrefix string) [sha256.
 
 func invitationRateLimitPurpose(action InvitationRateLimitAction) string {
 	switch action {
-	case AuthRateLimitDiscoveryIP, AuthRateLimitSignupIP, AuthRateLimitPasswordFailIP, AuthRateLimitOTPSendDestination, AuthRateLimitOTPSendIP,
+	case AuthRateLimitMFAUser, AuthRateLimitMFAIP, AuthRateLimitDiscoveryIP, AuthRateLimitSignupIP, AuthRateLimitPasswordFailIP, AuthRateLimitOTPSendDestination, AuthRateLimitOTPSendIP,
 		AuthRateLimitOTPVerifyIP, AuthRateLimitDeliveryDailyEmail, AuthRateLimitDeliveryDailyPhone,
 		AuthRateLimitPasskeyOptionsIP, AuthRateLimitPasskeyVerifyIP,
 		AuthRateLimitReauthUser, AuthRateLimitReauthIP, AuthRateLimitReauthSendUser, AuthRateLimitReauthSendIP,

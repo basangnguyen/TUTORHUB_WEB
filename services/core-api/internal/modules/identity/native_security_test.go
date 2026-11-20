@@ -3,10 +3,31 @@ package identity
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestNativeMFAAccountStepUpPolicy(t *testing.T) {
+	service, db, _, p := reauthUnitFixture(t)
+	service.webauthn = &PasskeyProtocol{}
+	service.config.MFATOTPEnabled = true
+	db.totpActive, db.usablePasskey, db.passkeyCount, db.recoveryRemaining = true, true, 1, 7
+	overview, err := service.GetMySecurity(context.Background(), p)
+	if err != nil || !overview.MFAEnabled || overview.RecoveryCodesRemaining != 7 || !slices.Equal(overview.ReauthMethods, []string{"passkey", "totp"}) {
+		t.Fatal("wrong reauthentication policy for enrolled account", err)
+	}
+	if _, err := service.StartReauthEmailCode(context.Background(), p, "", nil); !errors.Is(err, ErrNativeMethodDisabled) {
+		t.Fatal("single-factor email step-up start allowed", err)
+	}
+	for _, method := range []string{"password", "email_code"} {
+		if _, err := service.Reauthenticate(context.Background(), p, "", ReauthenticateInput{Method: method, Password: "correct"}); !errors.Is(err, ErrNativeMethodDisabled) {
+			t.Fatal(method, err)
+		}
+	}
+}
 
 func TestMySecurityAvailableMethodsAndRecentExpiry(t *testing.T) {
 	for _, test := range []struct {

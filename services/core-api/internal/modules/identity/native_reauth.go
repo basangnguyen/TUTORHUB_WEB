@@ -46,8 +46,8 @@ func (service *NativeAuthService) StartReauthEmailCode(ctx context.Context, prin
 	if err != nil {
 		return SignupChallengeResult{}, err
 	}
-	if locked.AssuranceLevel > 1 {
-		return SignupChallengeResult{}, ErrNativeMethodDisabled
+	if err := service.allowSingleFactorReauth(ctx, tx, principal.User.ID, locked); err != nil {
+		return SignupChallengeResult{}, err
 	}
 	if !locked.EmailVerified || locked.Email != snapshot.email {
 		return SignupChallengeResult{}, ErrNativeVerifiedEmailRequired
@@ -152,8 +152,11 @@ func (service *NativeAuthService) Reauthenticate(ctx context.Context, principal 
 	if err := validatePrincipal(principal); err != nil {
 		return ReauthenticateResult{}, err
 	}
-	if input.Method != "password" && input.Method != "email_code" {
+	if input.Method != "password" && input.Method != "email_code" && input.Method != "totp" {
 		return ReauthenticateResult{}, ErrAuthFoundationInput
+	}
+	if input.Method == "totp" && !service.config.MFATOTPEnabled {
+		return ReauthenticateResult{}, ErrNativeMethodDisabled
 	}
 	if input.Method == "email_code" && !service.config.EmailCodeAvailable {
 		return ReauthenticateResult{}, ErrNativeMethodDisabled
@@ -196,10 +199,6 @@ func (service *NativeAuthService) Reauthenticate(ctx context.Context, principal 
 	}
 	// All password verification/rehashing runs without a DB transaction. The
 	// authoritative session, credential and lockout are checked after locking.
-	tokens, err := service.newSessionTokens()
-	if err != nil {
-		return ReauthenticateResult{}, err
-	}
 	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
@@ -211,8 +210,21 @@ func (service *NativeAuthService) Reauthenticate(ctx context.Context, principal 
 	if err != nil {
 		return ReauthenticateResult{}, err
 	}
-	if locked.AssuranceLevel > 1 {
-		return ReauthenticateResult{}, ErrNativeMethodDisabled
+	if input.Method == "totp" {
+		if err := service.useTOTP(ctx, tx, principal.User.ID, input.Code, false); err != nil {
+			return ReauthenticateResult{}, err
+		}
+		result, err := service.rotateAssuredSession(ctx, tx, principal, locked, "totp")
+		if err != nil {
+			return ReauthenticateResult{}, err
+		}
+		if tx.Commit(ctx) != nil {
+			return ReauthenticateResult{}, ErrAuthFoundationStorage
+		}
+		return result, nil
+	}
+	if err := service.allowSingleFactorReauth(ctx, tx, principal.User.ID, locked); err != nil {
+		return ReauthenticateResult{}, err
 	}
 	if input.Method == "password" {
 		if err := service.verifyLockedReauthPassword(ctx, tx, principal, snapshot, matched, replacement); err != nil {
@@ -240,7 +252,27 @@ func (service *NativeAuthService) Reauthenticate(ctx context.Context, principal 
 			return ReauthenticateResult{}, err
 		}
 	}
+	tokens, err := service.newSessionTokens()
+	if err != nil {
+		return ReauthenticateResult{}, err
+	}
 	return service.completeReauthentication(ctx, tx, principal, locked, tokens, input.Method)
+}
+
+func (service *NativeAuthService) allowSingleFactorReauth(ctx context.Context, tx pgx.Tx, userID uuid.UUID, locked lockedSecuritySession) error {
+	if locked.AssuranceLevel > 1 {
+		return ErrNativeMethodDisabled
+	}
+	if service.config.MFATOTPEnabled {
+		active, err := hasActiveTOTP(ctx, tx, userID)
+		if err != nil {
+			return err
+		}
+		if active {
+			return ErrNativeMethodDisabled
+		}
+	}
+	return nil
 }
 
 func (service *NativeAuthService) verifyLockedReauthPassword(ctx context.Context, tx pgx.Tx, principal Principal, snapshot passwordSettingsSnapshot, matched bool, replacement string) error {

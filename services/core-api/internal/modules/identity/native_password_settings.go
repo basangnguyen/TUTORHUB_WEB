@@ -11,13 +11,15 @@ import (
 const nativePasswordRecentAuthTTL = 10 * time.Minute
 
 type passwordSettingsSnapshot struct {
-	email, displayName string
-	verified           bool
-	hash, status       *string
-	updatedAt          *time.Time
-	lockedUntil        *time.Time
-	passkeyCount       int
-	usablePasskey      bool
+	email, displayName     string
+	verified               bool
+	hash, status           *string
+	updatedAt              *time.Time
+	lockedUntil            *time.Time
+	passkeyCount           int
+	usablePasskey          bool
+	totpActive             bool
+	recoveryCodesRemaining int
 }
 
 func (snapshot passwordSettingsSnapshot) active() bool {
@@ -66,6 +68,13 @@ func (service *NativeAuthService) passwordSettingsSnapshot(ctx context.Context, 
 	}
 	if err != nil {
 		return passwordSettingsSnapshot{}, ErrAuthFoundationStorage
+	}
+	if service.config.MFATOTPEnabled {
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tutorhub.mfa_totp_factors WHERE user_id=$1 AND status='active'),
+			(SELECT count(*) FROM tutorhub.mfa_recovery_codes WHERE user_id=$1 AND consumed_at IS NULL AND invalidated_at IS NULL)`, principal.User.ID).
+			Scan(&snapshot.totpActive, &snapshot.recoveryCodesRemaining); err != nil {
+			return passwordSettingsSnapshot{}, ErrAuthFoundationStorage
+		}
 	}
 	return snapshot, nil
 }
@@ -146,6 +155,11 @@ func (service *NativeAuthService) UpdateMyPassword(ctx context.Context, principa
 		return UpdateMyPasswordResult{}, err
 	}
 	now := service.now().UTC()
+	if !snapshot.active() {
+		if err := service.requireRecoveryFactorAssurance(ctx, tx, principal.User.ID, locked.assuranceLevel); err != nil {
+			return UpdateMyPasswordResult{}, err
+		}
+	}
 	if _, err := ensureNativeEmailIdentity(ctx, tx, principal.User.ID, snapshot.email, now); err != nil {
 		return UpdateMyPasswordResult{}, err
 	}
@@ -193,6 +207,7 @@ type lockedPasswordSettings struct {
 	created, expires, absolute time.Time
 	persistent                 bool
 	attempts                   int
+	assuranceLevel             int
 }
 
 func (service *NativeAuthService) lockPasswordSettings(ctx context.Context, tx pgx.Tx, principal Principal, snapshot passwordSettingsSnapshot) (lockedPasswordSettings, error) {
@@ -219,10 +234,10 @@ func (service *NativeAuthService) lockPasswordSettings(ctx context.Context, tx p
 	var version int64
 	now := service.now().UTC()
 	err = tx.QueryRow(ctx, `SELECT created_at,expires_at,absolute_expires_at,persistent,
-        GREATEST(auth_time,COALESCE(reauthenticated_at,auth_time)),context_version
+        GREATEST(auth_time,COALESCE(reauthenticated_at,auth_time)),context_version,assurance_level
         FROM tutorhub.sessions WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL
         AND expires_at>$3 AND absolute_expires_at>$3 FOR UPDATE`, principal.SessionID, principal.User.ID, now).
-		Scan(&locked.created, &locked.expires, &locked.absolute, &locked.persistent, &authenticatedAt, &version)
+		Scan(&locked.created, &locked.expires, &locked.absolute, &locked.persistent, &authenticatedAt, &version, &locked.assuranceLevel)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return locked, ErrSessionNotFound
 	}

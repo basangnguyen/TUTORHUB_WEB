@@ -23,6 +23,8 @@ type passwordSettingsTestDB struct {
 	attempts                            int
 	passkeyCount                        int
 	usablePasskey                       bool
+	totpActive                          bool
+	recoveryRemaining                   int
 }
 
 type passwordSettingsTestTx struct {
@@ -62,6 +64,10 @@ func (tx *passwordSettingsTestTx) QueryRow(_ context.Context, query string, _ ..
 	db := tx.db
 	hash, status := dummyPasswordPHC, "active"
 	switch {
+	case strings.Contains(query, "FROM tutorhub.mfa_recovery_codes"):
+		return foundationTestRow{values: []any{db.totpActive, db.recoveryRemaining}}
+	case strings.Contains(query, "FROM tutorhub.mfa_totp_factors"):
+		return foundationTestRow{values: []any{db.totpActive}}
 	case strings.Contains(query, "FROM tutorhub.users u LEFT JOIN tutorhub.user_password_credentials"):
 		var phc, credentialStatus *string
 		var updated *time.Time
@@ -76,7 +82,7 @@ func (tx *passwordSettingsTestTx) QueryRow(_ context.Context, query string, _ ..
 		if db.changedSession {
 			version = 2
 		}
-		return foundationTestRow{values: []any{db.now, db.now.Add(8 * time.Hour), db.now.Add(30 * 24 * time.Hour), db.persistent, db.authenticatedAt, version}}
+		return foundationTestRow{values: []any{db.now, db.now.Add(8 * time.Hour), db.now.Add(30 * 24 * time.Hour), db.persistent, db.authenticatedAt, version, 1}}
 	case strings.Contains(query, "FROM tutorhub.user_password_credentials WHERE"):
 		if !db.active {
 			return foundationTestRow{err: pgx.ErrNoRows}

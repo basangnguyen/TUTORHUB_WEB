@@ -206,12 +206,15 @@ func TestReauthEmailProofConsumptionAndSessionGeneration(t *testing.T) {
 
 func TestReauthInputBoundariesAndRedaction(t *testing.T) {
 	service, db, _, principal := reauthUnitFixture(t)
-	for _, method := range []string{"", "oidc", "totp"} {
+	for _, method := range []string{"", "oidc", "recovery_code"} {
 		if _, err := service.Reauthenticate(context.Background(), principal, "", ReauthenticateInput{Method: method}); !errors.Is(err, ErrAuthFoundationInput) {
 			t.Fatal("unknown proof method accepted")
 		}
 	}
 	service.config.EmailCodeAvailable = false
+	if _, err := service.Reauthenticate(context.Background(), principal, "", ReauthenticateInput{Method: "totp", Code: "123456"}); !errors.Is(err, ErrNativeMethodDisabled) {
+		t.Fatal("disabled TOTP accepted")
+	}
 	if _, err := service.StartReauthEmailCode(context.Background(), principal, "", nil); !errors.Is(err, ErrNativeMethodDisabled) {
 		t.Fatal("disabled email sender accepted")
 	}

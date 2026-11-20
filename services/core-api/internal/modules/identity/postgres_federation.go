@@ -96,14 +96,29 @@ func (repository *PostgresRepository) lockFederationSession(ctx context.Context,
 	return result, nil
 }
 
-func requireFederationAccountAssurance(ctx context.Context, tx pgx.Tx, userID uuid.UUID, assurance int16, now time.Time) error {
+func (repository *PostgresRepository) requireAccountAssurance(ctx context.Context, tx pgx.Tx, userID uuid.UUID, assurance int16, now time.Time) error {
+	if assurance >= 2 {
+		return nil
+	}
+	if repository.mfa != nil {
+		active, err := hasActiveTOTP(ctx, tx, userID)
+		if err != nil {
+			return err
+		}
+		if active {
+			return ErrFederationAALRequired
+		}
+	}
+	return requireLegacyFederationFloor(ctx, tx, userID, now)
+}
+
+// Preserve the AUTH-05A behavior for accounts outside the enrollment policy.
+func requireLegacyFederationFloor(ctx context.Context, tx pgx.Tx, userID uuid.UUID, now time.Time) error {
 	var required int16
-	// Until factor enrollment exists, the strongest active session is the
-	// persisted assurance floor. Never trust a caller-supplied assurance value.
 	if tx.QueryRow(ctx, `SELECT COALESCE(max(assurance_level),1) FROM tutorhub.sessions WHERE user_id=$1 AND revoked_at IS NULL AND expires_at>$2 AND absolute_expires_at>$2`, userID, now).Scan(&required) != nil {
 		return ErrAuthFoundationStorage
 	}
-	if assurance < required {
+	if required > 1 {
 		return ErrFederationAALRequired
 	}
 	return nil
@@ -147,7 +162,7 @@ func (repository *PostgresRepository) ConfirmLinkIntent(ctx context.Context, inp
 	if locked.ContextVersion != input.Principal.ContextVersion {
 		return Principal{}, ErrSessionContextConflict
 	}
-	if err := requireFederationAccountAssurance(ctx, tx, input.Principal.User.ID, locked.AssuranceLevel, input.Rotation.RotatedAt); err != nil {
+	if err := repository.requireAccountAssurance(ctx, tx, input.Principal.User.ID, locked.AssuranceLevel, input.Rotation.RotatedAt); err != nil {
 		return Principal{}, err
 	}
 	identityID, err := linkFederatedIdentity(ctx, tx, input.Principal.User.ID, input.Payload.ProviderSlug, claims, input.Rotation.RotatedAt)
@@ -207,7 +222,7 @@ func (repository *PostgresRepository) ReauthenticateFederated(ctx context.Contex
 	if locked.AssuranceLevel > 1 {
 		return Principal{}, ErrFederationAALRequired
 	}
-	if err := requireFederationAccountAssurance(ctx, tx, input.Flow.UserID, 1, input.Rotation.RotatedAt); err != nil {
+	if err := repository.requireAccountAssurance(ctx, tx, input.Flow.UserID, 1, input.Rotation.RotatedAt); err != nil {
 		return Principal{}, err
 	}
 	existing, err := readFederatedIdentity(ctx, tx, input.Claims, false)
@@ -298,7 +313,7 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		if err != nil {
 			return FederationLoginRecord{}, err
 		}
-		if err := requireFederationAccountAssurance(ctx, tx, input.Flow.UserID, locked.AssuranceLevel, now); err != nil {
+		if err := repository.requireAccountAssurance(ctx, tx, input.Flow.UserID, locked.AssuranceLevel, now); err != nil {
 			return FederationLoginRecord{}, err
 		}
 		identityID, err := linkFederatedIdentity(ctx, tx, input.Flow.UserID, input.ProviderSlug, input.Claims, now)
@@ -347,7 +362,20 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		if existing.Status != "active" {
 			return FederationLoginRecord{}, ErrIdentityInactive
 		}
-		if err := requireFederationAccountAssurance(ctx, tx, existing.UserID, 1, now); err != nil {
+		challenge, err := repository.beginFederatedMFA(ctx, tx, existing.UserID, existing.ID, input.ProviderSlug, input.Flow.ReturnTo)
+		if err != nil {
+			return FederationLoginRecord{}, err
+		}
+		if challenge != nil {
+			if err := refreshFederatedLoginClaims(ctx, tx, existing.UserID, existing.ID, input.Claims, now); err != nil {
+				return FederationLoginRecord{}, err
+			}
+			if tx.Commit(ctx) != nil {
+				return FederationLoginRecord{}, ErrAuthFoundationStorage
+			}
+			return FederationLoginRecord{MFA: challenge}, nil
+		}
+		if err := requireLegacyFederationFloor(ctx, tx, existing.UserID, now); err != nil {
 			return FederationLoginRecord{}, err
 		}
 		principal, err := repository.insertFederatedSession(ctx, tx, existing.UserID, existing.ID, input.Claims, input.Metadata, input.SessionAbsoluteTTL)
@@ -469,7 +497,7 @@ func linkFederatedIdentity(ctx context.Context, tx pgx.Tx, userID uuid.UUID, slu
 }
 
 func (repository *PostgresRepository) insertFederatedSession(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, claims ProviderClaims, metadata SessionMetadata, absoluteTTL time.Duration) (Principal, error) {
-	activeTenant, err := selectActiveTenant(ctx, tx, userID)
+	activeTenant, err := selectActiveTenant(ctx, tx, userID, repository.requireAdminMFA)
 	if err != nil {
 		return Principal{}, ErrAuthFoundationStorage
 	}
@@ -490,8 +518,17 @@ func (repository *PostgresRepository) insertFederatedSession(ctx context.Context
 	if err != nil {
 		return Principal{}, ErrAuthFoundationStorage
 	}
-	if _, err := tx.Exec(ctx, `UPDATE tutorhub.identities SET last_authenticated_at=$3,updated_at=$3,email_at_provider=NULLIF($4,''),email_verified=$5 WHERE id=$1 AND user_id=$2`, identityID, userID, metadata.CreatedAt, claims.Email, claims.EmailVerified); err != nil {
-		return Principal{}, ErrAuthFoundationStorage
+	if err := refreshFederatedLoginClaims(ctx, tx, userID, identityID, claims, metadata.CreatedAt); err != nil {
+		return Principal{}, err
 	}
 	return repository.loadPrincipal(ctx, tx, sessionID, userID, activeTenant)
+}
+
+// Provider mailbox evidence belongs to the linked identity, including while a
+// verified callback is waiting for its second factor.
+func refreshFederatedLoginClaims(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, claims ProviderClaims, now time.Time) error {
+	if _, err := tx.Exec(ctx, `UPDATE tutorhub.identities SET last_authenticated_at=$3,updated_at=$3,email_at_provider=NULLIF($4,''),email_verified=$5 WHERE id=$1 AND user_id=$2`, identityID, userID, now, claims.Email, claims.EmailVerified); err != nil {
+		return ErrAuthFoundationStorage
+	}
+	return nil
 }

@@ -218,6 +218,9 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 	if record.LinkPending {
 		return OAuthResult{Provider: slug, LinkPending: true, LinkBinding: binding, LinkExpiresAt: intentExpiry}, nil
 	}
+	if record.MFA != nil {
+		return OAuthResult{Provider: slug, LoginResult: LoginResult{MFA: record.MFA}}, nil
+	}
 	if record.RegistrationPending {
 		return OAuthResult{Provider: slug, RegistrationPending: true, RegistrationBinding: binding, RegistrationExpiresAt: intentExpiry}, nil
 	}

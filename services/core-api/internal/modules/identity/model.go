@@ -38,6 +38,7 @@ type LoginStart struct {
 }
 
 type LoginResult struct {
+	MFA            *MFAChallenge
 	SessionToken   string
 	CSRFToken      string
 	ExpiresAt      time.Time
@@ -157,6 +158,7 @@ type SessionRecord struct {
 }
 
 type SessionMetadata struct {
+	ReturnTo      string
 	TokenHash     []byte
 	CSRFHash      []byte
 	UserAgentHash []byte

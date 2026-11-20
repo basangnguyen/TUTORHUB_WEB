@@ -225,7 +225,7 @@ func TestSecurityResponsesCookiesAndPrincipalScope(t *testing.T) {
 }
 
 func TestReauthenticationStrictBodiesAndMissingBinding(t *testing.T) {
-	for _, body := range []string{`{}`, `{"method":"totp","code":"123456"}`, `{"method":"password","password":"x","code":"123456"}`, `{"method":"email_code","password":"x","code":"123456"}`, `{"method":"password","password":"x","email":"foreign@example.test"}`, `{"method":"password","method":"email_code","password":"x"}`} {
+	for _, body := range []string{`{}`, `{"method":"recovery_code","code":"example"}`, `{"method":"password","password":"x","code":"123456"}`, `{"method":"email_code","password":"x","code":"123456"}`, `{"method":"password","password":"x","email":"foreign@example.test"}`, `{"method":"password","method":"email_code","password":"x"}`} {
 		service := &fakeSecurityAuth{}
 		w := httptest.NewRecorder()
 		securityTestHandler(service, true, &nativeTestLimiter{}, nil).ServeHTTP(w, securityRequest(http.MethodPost, "/api/v1/auth/reauth", body))

@@ -656,7 +656,7 @@ func (repository *memoryRepository) CreateAuthenticatedSession(
 	_ context.Context,
 	claims ProviderClaims,
 	metadata SessionMetadata,
-) (Principal, error) {
+) (FederationLoginRecord, error) {
 	repository.claims = claims
 	repository.metadata = metadata
 	repository.csrfHash = metadata.CSRFHash
@@ -674,7 +674,7 @@ func (repository *memoryRepository) CreateAuthenticatedSession(
 		Memberships: []Tenant{},
 		Permissions: []string{},
 	}
-	return repository.principal, nil
+	return FederationLoginRecord{Principal: repository.principal}, nil
 }
 
 func (repository *memoryRepository) GetProfile(

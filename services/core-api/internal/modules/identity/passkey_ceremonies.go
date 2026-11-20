@@ -60,11 +60,10 @@ func (service *NativeAuthService) lockPasskeyPrincipal(ctx context.Context, tx p
 	if p == nil || (purpose != PasskeyRegistration && purpose != PasskeyReauth) {
 		return lockedSecuritySession{}, ErrAuthFoundationInput
 	}
-	locked, err := service.lockNativeSecuritySession(ctx, tx, *p)
-	if err == nil && purpose == PasskeyRegistration {
-		err = nativePasswordRecentAuthentication(locked.AuthenticatedAt, service.now().UTC())
+	if purpose == PasskeyRegistration {
+		return service.lockRecentPasskeySession(ctx, tx, *p, true)
 	}
-	return locked, err
+	return service.lockNativeSecuritySession(ctx, tx, *p)
 }
 
 func loadPasskeyUser(ctx context.Context, tx pgx.Tx, userID uuid.UUID, create bool) (PasskeyUser, error) {
@@ -245,55 +244,65 @@ func (service *NativeAuthService) FinishPasskeyRegistration(ctx context.Context,
 	return registered, nil
 }
 
+type verifiedPasskey struct {
+	UserID       uuid.UUID
+	UV           bool
+	CredentialID []byte
+}
+
 // Inspect clientData and authenticatorData before consulting credential existence.
 // A revoked credential still has an owner, so it can never produce a Signal hint.
-func (service *NativeAuthService) verifyPasskeyAssertion(ctx context.Context, tx pgx.Tx, session webauthn.SessionData, raw json.RawMessage, p *Principal) (uuid.UUID, bool, error) {
+func (service *NativeAuthService) verifyPasskeyAssertion(ctx context.Context, tx pgx.Tx, session webauthn.SessionData, raw json.RawMessage, p *Principal) (verifiedPasskey, error) {
 	assertion, err := service.webauthn.ParseAssertion(session, raw)
 	if err != nil {
-		return uuid.Nil, false, ErrInvalidPasskey
+		return verifiedPasskey{}, ErrInvalidPasskey
 	}
 	var userID uuid.UUID
 	if p == nil {
 		if len(assertion.Response.UserHandle) != 64 {
-			return uuid.Nil, false, ErrInvalidPasskey
+			return verifiedPasskey{}, ErrInvalidPasskey
 		}
 		userID, err = lookupPasskeyOwner(ctx, tx, assertion.RawID)
 		if err != nil {
-			return uuid.Nil, false, err
+			return verifiedPasskey{}, err
 		}
 		if err = lockPasskeyUser(ctx, tx, userID); err != nil {
-			return uuid.Nil, false, err
+			return verifiedPasskey{}, err
 		}
 	} else {
 		userID = p.User.ID
 	}
 	user, err := loadPasskeyUser(ctx, tx, userID, false)
 	if err != nil {
-		return uuid.Nil, false, err
+		return verifiedPasskey{}, err
 	}
 	if len(assertion.Response.UserHandle) > 0 && !bytes.Equal(user.Handle, assertion.Response.UserHandle) {
-		return uuid.Nil, false, ErrInvalidPasskey
+		return verifiedPasskey{}, ErrInvalidPasskey
 	}
 	credential, err := service.webauthn.VerifyAssertion(user, session, assertion)
 	if err != nil {
-		return uuid.Nil, false, ErrInvalidPasskey
+		return verifiedPasskey{}, ErrInvalidPasskey
 	}
 	uv := assertion.Response.AuthenticatorData.Flags.HasUserVerified()
 	if p != nil && !uv {
-		return uuid.Nil, false, ErrInvalidPasskey
+		return verifiedPasskey{}, ErrInvalidPasskey
 	}
 	err = recordPasskeyAssertion(ctx, tx, userID, credential, service.now().UTC())
-	return userID, uv, err
+	return verifiedPasskey{userID, uv, credential.ID}, err
 }
 
 func (service *NativeAuthService) FinishPasskeyLogin(ctx context.Context, binding string, assertion json.RawMessage, keep bool, userAgent, remote string) (NativeSessionResult, error) {
 	var result NativeSessionResult
 	err := service.finishPasskey(ctx, PasskeyLogin, nil, binding, func(ctx context.Context, tx pgx.Tx, session webauthn.SessionData, _ lockedSecuritySession) error {
-		owner, uv, err := service.verifyPasskeyAssertion(ctx, tx, session, assertion, nil)
+		proof, err := service.verifyPasskeyAssertion(ctx, tx, session, assertion, nil)
 		if err != nil {
 			return err
 		}
-		result, err = service.issuePasskeySession(ctx, tx, owner, uv, keep, userAgent, remote)
+		if proof.UV {
+			result, err = service.issueLoginSession(ctx, tx, proof.UserID, uuid.Nil, []string{"passkey"}, 2, keep, userAgent, remote)
+		} else {
+			result, err = service.finishLoginFirstFactor(ctx, tx, mfaPayload{UserID: proof.UserID, Methods: []string{"passkey"}, PasskeyCredential: proof.CredentialID, KeepSignedIn: keep}, userAgent, remote)
+		}
 		return err
 	})
 	if err != nil {
@@ -305,11 +314,11 @@ func (service *NativeAuthService) FinishPasskeyLogin(ctx context.Context, bindin
 func (service *NativeAuthService) FinishPasskeyReauth(ctx context.Context, p Principal, binding string, assertion json.RawMessage) (ReauthenticateResult, error) {
 	var result ReauthenticateResult
 	err := service.finishPasskey(ctx, PasskeyReauth, &p, binding, func(ctx context.Context, tx pgx.Tx, session webauthn.SessionData, locked lockedSecuritySession) error {
-		if _, _, err := service.verifyPasskeyAssertion(ctx, tx, session, assertion, &p); err != nil {
+		if _, err := service.verifyPasskeyAssertion(ctx, tx, session, assertion, &p); err != nil {
 			return err
 		}
 		var err error
-		result, err = service.rotatePasskeySession(ctx, tx, p, locked)
+		result, err = service.rotateAssuredSession(ctx, tx, p, locked, "passkey")
 		return err
 	})
 	if err != nil {

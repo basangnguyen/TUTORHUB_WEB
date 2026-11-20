@@ -32,10 +32,14 @@ type revokeOtherSessionsResponse struct {
 }
 
 func (handlers nativeAuthHandlers) securityPrincipal(w http.ResponseWriter, r *http.Request, mutation bool) (identity.NativeSecurityAPI, identity.Principal, bool) {
+	return handlers.securityPrincipalEnabled(w, r, mutation, handlers.auth.config.Authentication.DeviceManagementEnabled)
+}
+
+func (handlers nativeAuthHandlers) securityPrincipalEnabled(w http.ResponseWriter, r *http.Request, mutation, enabled bool) (identity.NativeSecurityAPI, identity.Principal, bool) {
 	setPrivateResponseHeaders(w)
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	if !handlers.auth.available(w, r) || !handlers.available(w, r, handlers.auth.config.Authentication.DeviceManagementEnabled) {
+	if !handlers.auth.available(w, r) || !handlers.available(w, r, enabled) {
 		return nil, identity.Principal{}, false
 	}
 	service, ok := handlers.service.(identity.NativeSecurityAPI)
@@ -74,7 +78,8 @@ func (handlers nativeAuthHandlers) allowSecurityMutation(w http.ResponseWriter, 
 }
 
 func (handlers nativeAuthHandlers) mySecurity(w http.ResponseWriter, r *http.Request) {
-	service, principal, ok := handlers.securityPrincipal(w, r, false)
+	auth := handlers.auth.config.Authentication
+	service, principal, ok := handlers.securityPrincipalEnabled(w, r, false, auth.DeviceManagementEnabled || auth.MFATOTPEnabled)
 	if !ok {
 		return
 	}
@@ -167,11 +172,18 @@ func (handlers nativeAuthHandlers) reauthenticate(w http.ResponseWriter, r *http
 		writeProblem(w, r, http.StatusForbidden, "Forbidden", "The request origin is not allowed.")
 		return
 	}
-	service, principal, ok := handlers.securityPrincipal(w, r, true)
+	auth := handlers.auth.config.Authentication
+	enabled := auth.DeviceManagementEnabled
+	userRate, ipRate := AuthRateLimitReauthUser, AuthRateLimitReauthIP
+	if body.Method == "totp" {
+		enabled = auth.MFATOTPEnabled
+		userRate, ipRate = AuthRateLimitMFAUser, AuthRateLimitMFAIP
+	}
+	service, principal, ok := handlers.securityPrincipalEnabled(w, r, true, enabled)
 	if !ok {
 		return
 	}
-	if !handlers.allowSecurityMutation(w, r, principal, AuthRateLimitReauthUser, AuthRateLimitReauthIP) {
+	if !handlers.allowSecurityMutation(w, r, principal, userRate, ipRate) {
 		return
 	}
 	if body.Assertion != nil {
@@ -181,6 +193,12 @@ func (handlers nativeAuthHandlers) reauthenticate(w http.ResponseWriter, r *http
 	input := identity.ReauthenticateInput{Method: body.Method}
 	binding := ""
 	switch body.Method {
+	case "totp":
+		if body.Password != nil || body.ChallengeID != nil || body.Code == nil || !validTOTPRequest(*body.Code) {
+			handlers.writeError(w, r, identity.ErrAuthFoundationInput)
+			return
+		}
+		input.Code = *body.Code
 	case "password":
 		if body.Password == nil || body.ChallengeID != nil || body.Code != nil {
 			handlers.writeError(w, r, identity.ErrAuthFoundationInput)
@@ -211,6 +229,18 @@ func (handlers nativeAuthHandlers) reauthenticate(w http.ResponseWriter, r *http
 		handlers.clearTransactionCookie(w)
 	}
 	handlers.writeReauthentication(w, result)
+}
+
+func validTOTPRequest(code string) bool {
+	if len(code) != 6 {
+		return false
+	}
+	for _, digit := range code {
+		if digit < '0' || digit > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (h nativeAuthHandlers) reauthenticatePasskey(w http.ResponseWriter, r *http.Request, body reauthenticateRequest) {

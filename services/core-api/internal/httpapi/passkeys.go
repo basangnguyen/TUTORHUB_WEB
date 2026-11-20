@@ -159,6 +159,9 @@ func (h nativeAuthHandlers) passkeyLogin(w http.ResponseWriter, r *http.Request)
 		h.writePasskeyError(w, r, err)
 		return
 	}
+	if h.writeMFAChallenge(w, result.MFA) {
+		return
+	}
 	h.setSession(w, result)
 	h.clearTransactionCookie(w)
 	writeJSON(h.auth.logger, w, http.StatusOK, nativeAuthenticationResponse{Status: "authenticated"})

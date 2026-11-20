@@ -48,7 +48,7 @@ func (service *NativeAuthService) insertNativeSession(ctx context.Context, tx pg
 }
 
 func (service *NativeAuthService) insertAssuredSession(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, result *NativeSessionResult, methods []string, assurance int, userAgent, remote string, now time.Time) error {
-	activeTenant, err := selectActiveTenant(ctx, tx, userID)
+	activeTenant, err := selectActiveTenant(ctx, tx, userID, service.config.RequireAdminMFA && assurance < 2)
 	if err != nil {
 		return ErrAuthFoundationStorage
 	}
@@ -137,10 +137,6 @@ func (service *NativeAuthService) PasswordLogin(ctx context.Context, input Passw
 			return NativeSessionResult{}, err
 		}
 	}
-	result, err := service.newSessionTokens()
-	if err != nil {
-		return NativeSessionResult{}, err
-	}
 	ctx, cancel := context.WithTimeout(ctx, service.queryTimeout())
 	defer cancel()
 	tx, err := service.database.Begin(ctx)
@@ -196,10 +192,6 @@ func (service *NativeAuthService) PasswordLogin(ctx context.Context, input Passw
 		}
 		return NativeSessionResult{}, ErrNativeInvalidCredentials
 	}
-	var admin bool
-	if tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tutorhub.memberships WHERE user_id=$1 AND role='org_admin' AND status='active')`, snapshot.userID).Scan(&admin) != nil {
-		return NativeSessionResult{}, ErrAuthFoundationStorage
-	}
 	if replacement != "" {
 		_, err = tx.Exec(ctx, `UPDATE tutorhub.user_password_credentials SET failed_attempts=0,locked_until=NULL,last_failed_at=NULL,password_hash=$2,hash_version=hash_version+1,updated_at=$3 WHERE user_id=$1`, snapshot.userID, replacement, now)
 	} else {
@@ -208,8 +200,8 @@ func (service *NativeAuthService) PasswordLogin(ctx context.Context, input Passw
 	if err != nil {
 		return NativeSessionResult{}, ErrAuthFoundationStorage
 	}
-	result = service.sessionExpiry(result, now, input.KeepSignedIn, admin)
-	if err := service.insertNativeSession(ctx, tx, snapshot.userID, identityID, &result, []string{"pwd"}, input.UserAgent, input.RemoteAddress, now); err != nil {
+	result, err := service.finishLoginFirstFactor(ctx, tx, mfaPayload{UserID: snapshot.userID, IdentityID: identityID, Methods: []string{"pwd"}, KeepSignedIn: input.KeepSignedIn}, input.UserAgent, input.RemoteAddress)
+	if err != nil {
 		return NativeSessionResult{}, err
 	}
 	if tx.Commit(ctx) != nil {

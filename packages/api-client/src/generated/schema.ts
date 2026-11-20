@@ -89,7 +89,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Verify an email code and create a new session
-     * @description Requires AUTH_METHOD_EMAIL_CODE_ENABLED. Atomically consumes the challenge and transaction, adds a verified native email identity when needed, and creates a session. Administrators are capped at 24 hours. Clears the transaction cookie on success. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     * @description Consumes the email code, then issues a session or a five-minute MFA transaction according to the account's active factors. Administrators are capped at 24 hours. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
      */
     readonly post: operations["verifyEmailCodeLogin"];
     readonly delete?: never;
@@ -209,6 +209,66 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/auth/mfa": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read the current five-minute multi-factor challenge
+     * @description Returns the available methods and remaining lifetime after first-factor proof. A missing, expired or consumed browser binding returns 404. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly get: operations["getPendingMFA"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/mfa/passkey/options": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Begin user-verified passkey proof for a multi-factor challenge
+     * @description Returns options restricted to the account bound to the MFA transaction. User verification is required. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["startMFAPasskey"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/auth/mfa/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Complete a multi-factor login or password reset
+     * @description Checks the bound transaction and second factor. Login issues AAL2 session cookies. Password recovery resets the password and revokes sessions. Success clears the transaction cookie. Verification is limited per IP and to five attempts per account per five minutes. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["verifyMFA"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/auth/oauth/{provider}/callback": {
     readonly parameters: {
       readonly query?: never;
@@ -218,7 +278,7 @@ export type paths = {
     };
     /**
      * Complete a provider-bound single-use OAuth flow
-     * @description The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject or a new Microsoft subject without an email verified by xms_edov=true creates a registration_tx and redirects to /sign-in?registration=pending&provider=<provider>. Successful login sets session and CSRF cookies.
+     * @description The provider and optional iss must match the single-use flow. Errors redirect to /sign-in?error=<fixed_code>. An unlinked identity creates an owner-bound link_tx. A new Facebook subject or a new Microsoft subject without an email verified by xms_edov=true creates a registration_tx and redirects to /sign-in?registration=pending&provider=<provider>. Accounts with active TOTP receive a browser-bound MFA transaction and redirect to /sign-in?mfa=pending before session issuance.
      */
     readonly get: operations["completeOAuth"];
     readonly put?: never;
@@ -331,7 +391,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Verify a discoverable assertion and start a session
-     * @description Consumes the browser-bound transaction and verifies the signed assertion. User verification grants AAL2. User presence without verification grants AAL1. Successful login sets session and CSRF cookies and clears auth_tx. Rate limit is 30 requests per IP prefix per fifteen minutes.
+     * @description Consumes the browser-bound transaction and verifies the signed assertion. User verification grants AAL2. User presence alone requires a second factor for accounts with active TOTP and otherwise grants AAL1. Rate limit is 30 requests per IP prefix per fifteen minutes.
      */
     readonly post: operations["verifyPasskeyAssertion"];
     readonly delete?: never;
@@ -371,7 +431,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Reset a password and revoke every existing session
-     * @description Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Password policy validation runs before OTP consumption. Successful reset revokes every session, clears session, CSRF and transaction cookies, and sends a password-changed notice. Does not sign the user in. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     * @description Requires AUTH_METHOD_PASSWORD_ENABLED and AUTH_METHOD_EMAIL_CODE_ENABLED. Password policy validation runs before OTP consumption. When MFA is enabled, accounts protected by an active TOTP or usable passkey require a second factor before the password changes. A completed reset revokes every session, clears session, CSRF and transaction cookies and sends a password-changed notice.
      */
     readonly post: operations["completePasswordRecovery"];
     readonly delete?: never;
@@ -516,7 +576,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Reauthenticate and rotate session and CSRF cookies
-     * @description Requires a session, CSRF and exact Origin. Password and email methods require AUTH_DEVICE_MANAGEMENT_ENABLED. Passkeys require AUTH_PASSKEYS_ENABLED and user verification for AAL2. Email codes and passkey assertions require a single-use auth_tx cookie bound to the current user and session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens, preserves cookie lifetime and applies the org_admin 24-hour cap.
+     * @description Requires a session, CSRF and exact Origin. Accounts with active MFA and sessions at AAL2 require TOTP or a user-verified passkey. Password and email methods require AUTH_DEVICE_MANAGEMENT_ENABLED. Email codes and passkey assertions use a single-use auth_tx cookie bound to the current user and session. Success grants ten minutes of recent authentication, rotates session and CSRF tokens and applies the org_admin 24-hour cap.
      */
     readonly post: operations["reauthenticate"];
     readonly delete?: never;
@@ -2157,6 +2217,86 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/me/mfa/recovery-codes": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Replace the account recovery codes
+     * @description Requires a recent AAL2 session. Invalidates all previous codes and returns the ten replacements once. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["regenerateRecoveryCodes"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/mfa/totp": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    /**
+     * Disable the account authenticator
+     * @description Requires a recent AAL2 session. Invalidates all recovery codes. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly delete: operations["disableTOTP"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/mfa/totp/confirm": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Activate a pending authenticator
+     * @description Requires recent authentication and a fresh six-digit TOTP. An account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). Rotates session and CSRF cookies, issues ten single-use recovery codes and revokes weaker sessions. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["confirmTOTP"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/me/mfa/totp/enroll": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create a pending authenticator enrollment
+     * @description Requires recent authentication. An account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). The enrollment secret and otpauth URI are returned only by this call. All responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     */
+    readonly post: operations["enrollTOTP"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/me/passkeys": {
     readonly parameters: {
       readonly query?: never;
@@ -2189,7 +2329,7 @@ export type paths = {
     readonly post?: never;
     /**
      * Revoke an active passkey
-     * @description Requires CSRF, exact Origin and authentication within ten minutes. No request body is needed. Soft-revokes the passkey when another active sign-in method remains.
+     * @description Requires CSRF, exact Origin and authentication within ten minutes. No request body is needed. When TOTP MFA is enabled, revocation requires AAL2 (403 auth_assurance_required). Soft-revokes the passkey when another active sign-in method remains.
      */
     readonly delete: operations["revokeMyPasskey"];
     readonly options?: never;
@@ -2212,7 +2352,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Begin registration of a discoverable passkey
-     * @description Requires CSRF, exact Origin and authentication within ten minutes. Sets a five-minute auth_tx cookie bound to the user and session. Returns creation options with residentKey required, userVerification preferred and attestation none.
+     * @description Requires CSRF, exact Origin and authentication within ten minutes. When TOTP MFA is enabled, an account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). Sets a five-minute auth_tx cookie bound to the user and session. Returns creation options with residentKey required, userVerification preferred and attestation none.
      */
     readonly post: operations["startPasskeyRegistration"];
     readonly delete?: never;
@@ -2232,7 +2372,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Verify attestation and register a passkey
-     * @description Requires CSRF, exact Origin and recent authentication. Consumes the browser-bound registration transaction, verifies attestation and stores the credential and its label.
+     * @description Requires CSRF, exact Origin and recent authentication. When TOTP MFA is enabled, an account with an active passkey or TOTP requires AAL2 (403 auth_assurance_required). Consumes the browser-bound registration transaction, verifies attestation and stores the credential and its label.
      */
     readonly post: operations["verifyPasskeyRegistration"];
     readonly delete?: never;
@@ -2256,7 +2396,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Set or change a password after recent authentication
-     * @description Requires password authentication enabled, a session, CSRF and authentication within ten minutes. Active credentials require the current password; first enrollment requires verified email. Hashing occurs before database locks. Atomically replaces credentials, revokes other sessions and rotates the current session and CSRF cookies while preserving its lifetime. A password-changed notice is sent after commit. Responses use Cache-Control private, no-store.
+     * @description Requires password authentication enabled, a session, CSRF and authentication within ten minutes. An active credential requires the current password. First enrollment requires verified email. When TOTP MFA is enabled, first enrollment on an account with an active passkey or TOTP also requires AAL2 (403 auth_assurance_required). Hashing occurs before database locks. Atomically replaces credentials, revokes other sessions and rotates the current session and CSRF cookies while preserving its lifetime. A password-changed notice is sent after commit. Responses use Cache-Control private, no-store.
      */
     readonly post: operations["updateMyPassword"];
     readonly delete?: never;
@@ -3678,7 +3818,7 @@ export type components = {
       };
     };
     readonly AuthMFARequiredResponse: {
-      readonly methods: readonly ("passkey" | "totp" | "recovery_code")[];
+      readonly methods: components["schemas"]["MFAMethods"];
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -5719,6 +5859,35 @@ export type components = {
     };
     /** @enum {string} */
     readonly MessageState: "active" | "deleted";
+    readonly MFAMethods: readonly ("totp" | "recovery_code" | "passkey")[];
+    readonly MFAStateResponse: {
+      readonly expires_in_seconds: number;
+      readonly methods: components["schemas"]["MFAMethods"];
+    };
+    readonly MFAVerifyRequest:
+      | {
+          readonly code: string;
+          /** @constant */
+          readonly method: "totp";
+        }
+      | {
+          readonly code: string;
+          /** @constant */
+          readonly method: "recovery_code";
+        }
+      | {
+          readonly assertion: components["schemas"]["PasskeyAssertion"];
+          /** @constant */
+          readonly method: "passkey";
+        };
+    readonly MFAVerifyResponse:
+      | {
+          /** @description Server-validated local return path from the first factor. */
+          readonly return_to?: string;
+          /** @constant */
+          readonly status: "authenticated";
+        }
+      | components["schemas"]["PasswordResetResponse"];
     readonly MyLoginMethodsResponse: {
       readonly identities: readonly components["schemas"]["LoginMethodIdentity"][];
       /** @description Active passkeys counted separately from linked identities. Older servers may omit this field. */
@@ -5767,18 +5936,19 @@ export type components = {
     readonly MySecurityResponse: {
       readonly email_verified: boolean;
       readonly has_password: boolean;
-      /** @enum {boolean} */
-      readonly mfa_enabled: false;
+      readonly mfa_enabled: boolean;
       /** @description Active passkeys owned by the current user. Older servers may omit this field. */
       readonly passkey_count?: number;
       readonly reauth_methods: readonly (
-        "passkey" | "password" | "email_code"
+        "passkey" | "totp" | "password" | "email_code"
       )[];
       /**
        * Format: date-time
        * @description GREATEST(auth_time, reauthenticated_at) plus ten minutes, or null when no longer effective.
        */
       readonly recent_auth_expires_at: string | null;
+      /** @description Number of currently valid recovery codes. */
+      readonly recovery_codes_remaining?: number;
     };
     readonly MySession: {
       readonly auth_methods: readonly string[];
@@ -6137,12 +6307,21 @@ export type components = {
       readonly password: string;
     };
     readonly ReauthenticateRequest:
+      | components["schemas"]["ReauthenticateTOTPRequest"]
       | components["schemas"]["ReauthenticatePasswordRequest"]
       | components["schemas"]["ReauthenticateEmailCodeRequest"]
       | components["schemas"]["ReauthenticatePasskeyRequest"];
     readonly ReauthenticateResponse: {
       /** Format: date-time */
       readonly recent_auth_expires_at: string;
+    };
+    readonly ReauthenticateTOTPRequest: {
+      readonly code: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      readonly method: "totp";
     };
     readonly RecoverMediaSpaceRequest: {
       /** Format: uuid */
@@ -6152,6 +6331,9 @@ export type components = {
       /** Format: int64 */
       readonly expected_space_version: number;
       readonly idempotency_key: string;
+    };
+    readonly RecoveryCodesResponse: {
+      readonly recovery_codes: readonly string[];
     };
     readonly ReopenAvailabilityPollRequest: {
       /** Format: date-time */
@@ -6511,6 +6693,16 @@ export type components = {
     };
     /** @enum {string} */
     readonly TenantStatus: "active" | "suspended" | "archived";
+    readonly TOTPCodeRequest: {
+      readonly code: string;
+    };
+    readonly TOTPEnrollmentResponse: {
+      readonly account_name: string;
+      readonly issuer: string;
+      readonly otpauth_uri: string;
+      /** @description Base32 encoding of the secret for this enrollment. */
+      readonly secret: string;
+    };
     readonly TransferClassOwnershipRequest: {
       /** Format: int64 */
       readonly expected_version: number;
@@ -7093,7 +7285,7 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description Authenticated with new session cookies; MFA continuation reserved for later slices */
+      /** @description Authenticated with new session cookies or awaiting a second factor */
       readonly 200: {
         headers: {
           readonly "Set-Cookie"?: string;
@@ -7300,6 +7492,103 @@ export interface operations {
           readonly "application/json": components["schemas"]["LogoutResponse"];
         };
       };
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly getPendingMFA: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Successful verification response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MFAStateResponse"];
+        };
+      };
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly startMFAPasskey: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful verification response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PasskeyRequestOptions"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly verifyMFA: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MFAVerifyRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful verification response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MFAVerifyResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
@@ -7516,7 +7805,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly "application/json": components["schemas"]["AuthAuthenticatedResponse"];
+          readonly "application/json": components["schemas"]["NativeAuthenticationResponse"];
         };
       };
       readonly 400: components["responses"]["BadRequestResponse"];
@@ -7570,7 +7859,7 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description Authentication result; AUTH-02A returns authenticated, with MFA continuation reserved for later slices */
+      /** @description Authenticated with new session cookies or awaiting a second factor */
       readonly 200: {
         headers: {
           readonly "Set-Cookie"?: string;
@@ -7614,7 +7903,7 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description Password reset without a new session; MFA continuation reserved for later slices */
+      /** @description Password reset without a new session or awaiting a second factor */
       readonly 200: {
         headers: {
           readonly "Set-Cookie"?: string;
@@ -11348,6 +11637,152 @@ export interface operations {
       readonly default: components["responses"]["ProblemResponse"];
     };
   };
+  readonly regenerateRecoveryCodes: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful verification response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["RecoveryCodesResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly disableTOTP: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Authenticator disabled */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly confirmTOTP: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["TOTPCodeRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful verification response */
+      readonly 200: {
+        headers: {
+          readonly "Set-Cookie"?: string;
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["RecoveryCodesResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 429: components["responses"]["AuthRateLimitedResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly enrollTOTP: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        readonly "Sec-Fetch-Site"?: components["parameters"]["PreAuthFetchSite"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmptyAuthRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Successful verification response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["TOTPEnrollmentResponse"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 415: components["responses"]["ProblemResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
   readonly listMyPasskeys: {
     readonly parameters: {
       readonly query?: never;
@@ -11682,7 +12117,7 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      /** @description CSRF, recent authentication (auth_recent_authentication_required) or verified email required */
+      /** @description CSRF, recent authentication (auth_recent_authentication_required), verified email or AAL2 (auth_assurance_required) required */
       readonly 403: {
         headers: {
           readonly [name: string]: unknown;

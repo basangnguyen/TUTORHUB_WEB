@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/mail"
 	"path"
@@ -36,12 +37,14 @@ const (
 )
 
 var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
+var ErrAdminMFARequired = errors.New("administrator workspace requires AAL2")
 var supportedProfileLocales = map[string]struct{}{
 	"en": {},
 	"vi": {},
 }
 
 type ServiceConfig struct {
+	RequireAdminMFA         bool
 	FlowTTL                 time.Duration
 	SessionTTL              time.Duration
 	SessionAbsoluteTTL      time.Duration
@@ -293,7 +296,8 @@ func (service *Service) CompleteLogin(
 	expiresAt := now.Add(service.config.SessionTTL)
 	absoluteAt := now.Add(service.config.SessionAbsoluteTTL)
 
-	_, err = service.repository.CreateAuthenticatedSession(ctx, claims, SessionMetadata{
+	record, err := service.repository.CreateAuthenticatedSession(ctx, claims, SessionMetadata{
+		ReturnTo:      flow.ReturnTo,
 		TokenHash:     service.crypto.Digest(sessionPurpose, sessionToken),
 		CSRFHash:      service.crypto.Digest(csrfPurpose, csrfToken),
 		UserAgentHash: service.crypto.Digest(userAgentPurpose, input.UserAgent),
@@ -305,6 +309,9 @@ func (service *Service) CompleteLogin(
 	})
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("create authenticated session: %w", err)
+	}
+	if record.MFA != nil {
+		return LoginResult{MFA: record.MFA}, nil
 	}
 
 	return LoginResult{
@@ -472,6 +479,10 @@ func (service *Service) CreateTenant(
 	if principal.SessionID == uuid.Nil || principal.User.ID == uuid.Nil {
 		return TenantSessionResult{}, ErrSessionNotFound
 	}
+	// The creator becomes the active org administrator of the new tenant.
+	if service.config.RequireAdminMFA && principal.AssuranceLevel < 2 {
+		return TenantSessionResult{}, ErrAdminMFARequired
+	}
 	authorizedSourceTenantID := uuid.Nil
 	if len(principal.Memberships) != 0 {
 		if principal.ActiveTenant == nil {
@@ -614,6 +625,13 @@ func (service *Service) SwitchActiveTenant(
 	if tenantID == uuid.Nil {
 		return TenantSessionResult{}, ErrInvalidTenant
 	}
+	if service.config.RequireAdminMFA && principal.AssuranceLevel < 2 {
+		for _, membership := range principal.Memberships {
+			if membership.ID == tenantID && policy.OrganizationRole(membership.Role) == policy.OrganizationRoleAdmin {
+				return TenantSessionResult{}, ErrAdminMFARequired
+			}
+		}
+	}
 
 	return service.rotateTenantSession(
 		ctx,
@@ -734,6 +752,9 @@ func (service *Service) authorizeTenant(
 	}
 	if tenantID == uuid.Nil {
 		return tenancy.Context{}, ErrTenantNotFound
+	}
+	if service.config.RequireAdminMFA && principal.ActiveTenant != nil && principal.ActiveTenant.ID == tenantID && policy.OrganizationRole(principal.ActiveTenant.Role) == policy.OrganizationRoleAdmin && principal.AssuranceLevel < 2 {
+		return tenancy.Context{}, ErrAdminMFARequired
 	}
 
 	subject := policy.Subject{ActorID: principal.User.ID}
