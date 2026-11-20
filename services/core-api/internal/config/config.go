@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -83,6 +84,7 @@ var validLogLevels = map[string]struct{}{
 }
 
 type Config struct {
+	redactedConfig
 	Environment           string
 	Port                  string
 	ListenHost            string
@@ -117,6 +119,7 @@ type DatabaseConfig struct {
 }
 
 type AuthenticationConfig struct {
+	redactedConfig
 	Enabled                      bool
 	OIDCEnabled                  bool
 	IssuerURL                    string
@@ -173,6 +176,10 @@ type AuthenticationConfig struct {
 	EmailSender                  string
 	SMTPAddr                     string
 	PhoneSender                  string
+	PhoneFallbackSender          string
+	ZNS                          ZNSConfig
+	SMSBrandname                 SMSBrandnameConfig
+	Twilio                       TwilioConfig
 	DeliveryBudgetApproved       bool
 	EmailDailyQuota              int
 	PhoneOTPDailyQuota           int
@@ -182,6 +189,29 @@ type AuthenticationConfig struct {
 	PhoneStaleAfter              time.Duration
 	PhoneReclaimAfter            time.Duration
 	E2EIPRateLimitMultiplier     int
+}
+
+// Configurations containing credentials must stay opaque in diagnostics, even
+// when an enclosing config is logged through a structured JSON handler.
+type redactedConfig struct{}
+
+func (redactedConfig) String() string       { return "[redacted]" }
+func (redactedConfig) GoString() string     { return "[redacted]" }
+func (redactedConfig) LogValue() slog.Value { return slog.StringValue("[redacted]") }
+
+type ZNSConfig struct {
+	redactedConfig
+	APIURL, AccessToken, TemplateID, OTPParam string
+}
+
+type SMSBrandnameConfig struct {
+	redactedConfig
+	APIURL, APIToken, Sender, Template string
+}
+
+type TwilioConfig struct {
+	redactedConfig
+	APIBaseURL, AccountSID, AuthToken, From, Template string
 }
 
 type LiveKitConfig struct {

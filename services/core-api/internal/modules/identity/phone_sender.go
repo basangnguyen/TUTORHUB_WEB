@@ -31,7 +31,7 @@ func NewPhoneSenderRouter(routes map[int][]PhoneRoute) (*PhoneSenderRouter, erro
 				return nil, ErrAuthFoundationInput
 			}
 			switch route.Sender.Channel() {
-			case DeliverySMS, "whatsapp", "zalo_zns", "voice":
+			case DeliverySMS, "whatsapp", DeliveryZaloZNS, "voice":
 			default:
 				return nil, ErrAuthFoundationInput
 			}
@@ -101,7 +101,7 @@ func (r *PhoneSenderRouter) send(ctx context.Context, message ChallengeMessage, 
 		if ctx.Err() != nil {
 			return DeliveryReceipt{phoneAttempts: attempts}, ErrAuthDeliveryFailed
 		}
-		if i > 0 && budget != nil && !budget.AllowDelivery(ctx, DeliverySMS) {
+		if i > 0 && (budget == nil || !budget.AllowDelivery(ctx, DeliverySMS)) {
 			// All previous sends failed. No unbudgeted fallback is attempted.
 			return DeliveryReceipt{phoneAttempts: attempts}, errPhoneFallbackQuota
 		}

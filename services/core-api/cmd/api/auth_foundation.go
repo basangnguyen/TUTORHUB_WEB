@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nyaruka/phonenumbers"
 	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/httpapi"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
@@ -29,8 +30,8 @@ type authFoundationRuntime struct {
 func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.InvitationRateLimiter) (*authFoundationRuntime, error) {
 	result := &authFoundationRuntime{}
 	auth := cfg.Authentication
-	if auth.PhoneSender != "" && auth.PhoneSender != "disabled" && auth.PhoneSender != "devinbox" {
-		return nil, errors.New("selected phone delivery adapter requires AUTH-11")
+	if err := auth.ValidatePhoneRouting(cfg.Environment); err != nil {
+		return nil, err
 	}
 	if auth.EmailSender != "" && auth.EmailSender != "disabled" && auth.EmailSender != "devinbox" && auth.EmailSender != "smtp" {
 		return nil, errors.New("selected email delivery adapter is unavailable")
@@ -47,7 +48,6 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 		return nil, errors.New("initialize authentication foundation cryptography")
 	}
 	var email identity.EmailSender = identity.DisabledSender{}
-	var phone identity.PhoneChallengeSender = identity.DisabledSender{}
 	if auth.EmailSender == "devinbox" || auth.PhoneSender == "devinbox" {
 		result.inbox, err = devinbox.New(cfg.Environment, 200, 10*time.Minute)
 		if err != nil {
@@ -56,13 +56,11 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 		if auth.EmailSender == "devinbox" {
 			email = identity.NewDevinboxSender(result.inbox, identity.DeliveryEmail)
 		}
-		if auth.PhoneSender == "devinbox" {
-			phone, err = identity.NewDevinboxPhoneRouter(result.inbox, auth.PhoneAllowedCountries)
-			if err != nil {
-				result.close()
-				return nil, err
-			}
-		}
+	}
+	phone, err := configuredPhoneSender(cfg.Environment, auth, result.inbox)
+	if err != nil {
+		result.close()
+		return nil, err
 	}
 	if auth.EmailSender == "smtp" {
 		email, err = identity.NewSMTPSender(cfg.Environment, auth.SMTPAddr)
@@ -124,6 +122,52 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 		}
 	}
 	return result, nil
+}
+
+func configuredPhoneSender(environment string, auth config.AuthenticationConfig, inbox *devinbox.Inbox) (identity.PhoneChallengeSender, error) {
+	switch auth.PhoneSender {
+	case "", "disabled":
+		return identity.DisabledSender{}, nil
+	case "devinbox":
+		return identity.NewDevinboxPhoneRouter(inbox, auth.PhoneAllowedCountries)
+	}
+
+	var candidates []identity.PhoneRoute
+	for _, provider := range []string{auth.PhoneSender, auth.PhoneFallbackSender} {
+		var sender identity.PhoneChallengeSender
+		var err error
+		switch provider {
+		case "", "disabled":
+			continue
+		case "zns":
+			sender, err = identity.NewZaloZNSSender(environment, auth.ZNS)
+		case "sms_brandname":
+			sender, err = identity.NewSMSBrandnameSender(environment, auth.SMSBrandname)
+		case "twilio":
+			sender, err = identity.NewTwilioSMSSender(environment, auth.Twilio, auth.PhoneAllowedCountries)
+		default:
+			return nil, errors.New("unsupported phone delivery provider")
+		}
+		if err != nil {
+			return nil, err
+		}
+		candidates = append(candidates, identity.PhoneRoute{Provider: provider, Sender: sender})
+	}
+	routes := make(map[int][]identity.PhoneRoute)
+	for _, country := range auth.PhoneAllowedCountries {
+		code := phonenumbers.GetCountryCodeForRegion(country)
+		if _, exists := routes[code]; exists {
+			continue
+		}
+		var chain []identity.PhoneRoute
+		for _, route := range candidates {
+			if route.Sender.Supports(code) {
+				chain = append(chain, route)
+			}
+		}
+		routes[code] = chain
+	}
+	return identity.NewPhoneSenderRouter(routes)
 }
 
 func phoneLoginAvailable(auth config.AuthenticationConfig) bool {

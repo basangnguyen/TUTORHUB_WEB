@@ -115,6 +115,67 @@ test("paid delivery requires explicit budget approval in every environment", () 
   }
 });
 
+test("phone fallback requires its own budget approval and a distinct paid primary", () => {
+  for (const APP_ENV of ["development", "test", "staging", "production"]) {
+    for (const fallback of ["sms_brandname", "twilio"]) {
+      const enabled = {
+        APP_ENV,
+        AUTH_PHONE_SENDER: "zns",
+        AUTH_PHONE_FALLBACK_SENDER: fallback,
+        AUTH_DELIVERY_BUDGET_APPROVED: "true",
+      };
+      assert.deepEqual(validateAuthDeliveryEnvironment(enabled), []);
+      for (const approval of [undefined, "false", "1", "TRUE"]) {
+        assert.match(
+          validateAuthDeliveryEnvironment({
+            ...enabled,
+            AUTH_DELIVERY_BUDGET_APPROVED: approval,
+          }).join("\n"),
+          /AUTH_PHONE_FALLBACK_SENDER requires AUTH_DELIVERY_BUDGET_APPROVED=true/,
+        );
+      }
+      for (const primary of ["disabled", "devinbox", fallback]) {
+        assert.match(
+          validateAuthDeliveryEnvironment({
+            ...enabled,
+            AUTH_PHONE_SENDER: primary,
+          }).join("\n"),
+          /AUTH_PHONE_FALLBACK_SENDER requires a distinct paid/,
+        );
+      }
+    }
+  }
+  for (const fallback of ["disabled", "", " "])
+    assert.deepEqual(
+      validateAuthDeliveryEnvironment({ AUTH_PHONE_FALLBACK_SENDER: fallback }),
+      [],
+    );
+  for (const fallback of ["zns", "devinbox", "unknown"])
+    assert.match(
+      validateAuthDeliveryEnvironment({
+        AUTH_PHONE_FALLBACK_SENDER: fallback,
+      }).join("\n"),
+      /AUTH_PHONE_FALLBACK_SENDER is unsupported/,
+    );
+});
+
+test("repository example must explicitly disable phone fallback", async () => {
+  const source = await readFile(
+    new URL("../.env.example", import.meta.url),
+    "utf8",
+  );
+  const { environment } = parseAuthEnvironment(source);
+  for (const fallback of [undefined, "", "twilio"]) {
+    assert.match(
+      validateAuthDeliveryEnvironment(
+        { ...environment, AUTH_PHONE_FALLBACK_SENDER: fallback },
+        { safeDefaults: true },
+      ).join("\n"),
+      /AUTH_PHONE_FALLBACK_SENDER differs from the approved default/,
+    );
+  }
+});
+
 test("local inbox and unauthenticated smtp cannot be enabled in staging or production", () => {
   for (const APP_ENV of ["staging", "production"]) {
     for (const AUTH_EMAIL_SENDER of ["devinbox", "smtp"]) {

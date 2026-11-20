@@ -60,6 +60,8 @@ export function validateAuthDeliveryEnvironment(
   if (!["development", "test", "staging", "production"].includes(appEnv))
     issues.push("APP_ENV is unsupported");
   const local = appEnv === "development" || appEnv === "test";
+  const phoneSender = (environment.AUTH_PHONE_SENDER ?? "disabled").trim();
+  const fallback = environment.AUTH_PHONE_FALLBACK_SENDER?.trim() || "disabled";
   const hashConcurrency = environment.PASSWORD_HASH_MAX_CONCURRENCY ?? "2";
   if (!/^(?:[1-9]|[12][0-9]|3[0-2])$/.test(hashConcurrency))
     issues.push("PASSWORD_HASH_MAX_CONCURRENCY must be between 1 and 32");
@@ -80,8 +82,12 @@ export function validateAuthDeliveryEnvironment(
       "AUTH_PHONE_SENDER",
       ["disabled", "devinbox", "zns", "sms_brandname", "twilio"],
     ],
+    ["AUTH_PHONE_FALLBACK_SENDER", ["disabled", "sms_brandname", "twilio"]],
   ]) {
-    const sender = environment[key] ?? "disabled";
+    const sender =
+      key === "AUTH_PHONE_FALLBACK_SENDER"
+        ? fallback
+        : (environment[key] ?? "disabled").trim();
     if (!allowed.includes(sender)) issues.push(`${key} is unsupported`);
     if (!local && ["devinbox", "smtp"].includes(sender))
       issues.push(`${key} local adapters require development or test`);
@@ -93,6 +99,14 @@ export function validateAuthDeliveryEnvironment(
     if (safeDefaults && sender !== "disabled")
       issues.push(`${key} must default to disabled`);
   }
+  if (
+    fallback !== "disabled" &&
+    (fallback === phoneSender ||
+      !["zns", "sms_brandname", "twilio"].includes(phoneSender))
+  )
+    issues.push(
+      "AUTH_PHONE_FALLBACK_SENDER requires a distinct paid AUTH_PHONE_SENDER",
+    );
   if (!local && environment.AUTH_SMTP_ADDR)
     issues.push("AUTH_SMTP_ADDR is only allowed in development or test");
   if (environment.AUTH_EMAIL_SENDER === "smtp" && !environment.AUTH_SMTP_ADDR)
@@ -116,6 +130,7 @@ export function validateAuthDeliveryEnvironment(
       AUTH_DELIVERY_BUDGET_APPROVED: "false",
       AUTH_EMAIL_SENDER: "disabled",
       AUTH_PHONE_SENDER: "disabled",
+      AUTH_PHONE_FALLBACK_SENDER: "disabled",
       AUTH_SMTP_ADDR: "",
       AUTH_EMAIL_DAILY_QUOTA: "200",
       AUTH_PHONE_OTP_DAILY_QUOTA: "50",

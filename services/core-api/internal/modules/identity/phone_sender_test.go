@@ -3,9 +3,12 @@ package identity
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/tutorhub-v2/core-api/internal/config"
 	"github.com/tutorhub-v2/core-api/internal/platform/devinbox"
 )
 
@@ -39,13 +42,17 @@ func TestPhoneSenderRouterFallbackAndCountry(t *testing.T) {
 	if ch != "zalo_zns" || p != "zns" {
 		t.Fatal("wrong planned primary")
 	}
-	r, err := router.SendChallenge(ctx, m)
+	r, err := router.send(ctx, m, foundationTestBudget(true))
 	if err != nil || r.Channel != DeliverySMS || r.Provider != "sms_brandname" || len(r.phoneAttempts) != 2 || primary.calls != 1 || fallback.calls != 1 {
 		t.Fatal("wrong fallback receipt or attempts")
 	}
 	r, err = router.send(ctx, m, foundationTestBudget(false))
 	if !errors.Is(err, errPhoneFallbackQuota) || len(r.phoneAttempts) != 1 || fallback.calls != 1 {
 		t.Fatal("fallback bypassed its own delivery budget")
+	}
+	r, err = router.SendChallenge(ctx, m)
+	if !errors.Is(err, errPhoneFallbackQuota) || len(r.phoneAttempts) != 1 || fallback.calls != 1 {
+		t.Fatal("missing fallback budget allowed a second attempt")
 	}
 	primary.err = nil
 	r, err = router.SendChallenge(ctx, m)
@@ -73,5 +80,47 @@ func TestDevinboxPhoneRoutesAndReleaseNotice(t *testing.T) {
 	items := inbox.List()
 	if len(items) != 1 || items[0].Purpose != "phone_released" || items[0].Code != "" || items[0].ChallengeID != "" || items[0].Destination != "owner@example.test" {
 		t.Fatal("release notice was not delivered privately to prior owner")
+	}
+}
+
+func TestDirectPhoneAdapterAuditLabels(t *testing.T) {
+	for _, tc := range []struct {
+		sender   PhoneChallengeSender
+		channel  DeliveryChannel
+		provider string
+	}{
+		{&ZaloZNSSender{}, DeliveryZaloZNS, "zns"},
+		{&SMSBrandnameSender{}, DeliverySMS, "sms_brandname"},
+		{&TwilioSMSSender{}, DeliverySMS, "twilio"},
+		{&phoneTestSender{channel: DeliverySMS}, DeliverySMS, "disabled"},
+	} {
+		d := &DeliveryDispatcher{phone: tc.sender}
+		ch, p := d.plannedRoute(DeliverySMS, "+84912345678")
+		if ch != tc.channel || p != tc.provider {
+			t.Fatalf("incorrect audit labels for %T", tc.sender)
+		}
+	}
+	if _, err := NewPhoneSenderRouter(map[int][]PhoneRoute{
+		84: {{Provider: "untrusted", Sender: &phoneTestSender{channel: DeliverySMS}}},
+	}); err == nil {
+		t.Fatal("unknown audit provider accepted")
+	}
+}
+
+func TestDirectZNSReceivesPhysicalChannel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"error":0}`))
+	}))
+	t.Cleanup(server.Close)
+	sender, err := NewZaloZNSSender("test", config.ZNSConfig{APIURL: server.URL, AccessToken: "fixture", TemplateID: "fixture"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := &DeliveryDispatcher{phone: sender}
+	receipt, err := d.sendPhoneChallenge(context.Background(), ChallengeMessage{
+		Channel: DeliverySMS, Destination: "+84912345678", Code: "123456", ExpiresAt: time.Now().Add(time.Minute),
+	})
+	if err != nil || receipt.Channel != DeliveryZaloZNS || receipt.Provider != "zns" {
+		t.Fatal("direct ZNS delivery failed for a logical phone challenge")
 	}
 }

@@ -21,8 +21,9 @@ import (
 type DeliveryChannel string
 
 const (
-	DeliveryEmail DeliveryChannel = "email"
-	DeliverySMS   DeliveryChannel = "sms"
+	DeliveryEmail   DeliveryChannel = "email"
+	DeliverySMS     DeliveryChannel = "sms"
+	DeliveryZaloZNS DeliveryChannel = "zalo_zns"
 )
 
 var (
@@ -313,9 +314,14 @@ func (dispatcher *DeliveryDispatcher) provider(channel DeliveryChannel) string {
 		return "devinbox"
 	case *SMTPSender:
 		return "smtp"
+	case *ZaloZNSSender:
+		return "zns"
+	case *SMSBrandnameSender:
+		return "sms_brandname"
+	case *TwilioSMSSender:
+		return "twilio"
 	default:
-		// Injected test adapters use the disabled provider label, never a raw
-		// provider-controlled string. Future paid adapters extend this switch.
+		// Only server-owned provider labels can enter the audit table.
 		return "disabled"
 	}
 }
@@ -326,7 +332,23 @@ func (dispatcher *DeliveryDispatcher) plannedRoute(channel DeliveryChannel, dest
 			return routes[0].Sender.Channel(), routes[0].Provider
 		}
 	}
-	return channel, dispatcher.provider(channel)
+	provider := dispatcher.provider(channel)
+	switch provider {
+	case "zns", "sms_brandname", "twilio":
+		return dispatcher.phone.Channel(), provider
+	}
+	return channel, provider
+}
+
+func (dispatcher *DeliveryDispatcher) sendPhoneChallenge(ctx context.Context, message ChallengeMessage) (DeliveryReceipt, error) {
+	if router, ok := dispatcher.phone.(*PhoneSenderRouter); ok {
+		return router.send(ctx, message, dispatcher.budget)
+	}
+	message.Channel, _ = dispatcher.plannedRoute(message.Channel, message.Destination)
+	if message.Channel != dispatcher.phone.Channel() {
+		return DeliveryReceipt{}, ErrAuthDeliveryDisabled
+	}
+	return dispatcher.phone.SendChallenge(ctx, message)
 }
 
 func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
@@ -357,12 +379,8 @@ func (dispatcher *DeliveryDispatcher) deliver(job deliveryJob) {
 			receipt, err = dispatcher.email.SendNotice(ctx, *job.notice)
 		} else if job.message.Channel == DeliveryEmail {
 			receipt, err = dispatcher.email.SendChallenge(ctx, job.message)
-		} else if router, ok := dispatcher.phone.(*PhoneSenderRouter); ok {
-			receipt, err = router.send(ctx, job.message, dispatcher.budget)
-		} else if job.message.Channel == dispatcher.phone.Channel() {
-			receipt, err = dispatcher.phone.SendChallenge(ctx, job.message)
 		} else {
-			err = ErrAuthDeliveryDisabled
+			receipt, err = dispatcher.sendPhoneChallenge(ctx, job.message)
 		}
 		cancel()
 		switch {
