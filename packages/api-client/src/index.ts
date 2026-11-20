@@ -115,6 +115,9 @@ export type AuthIdentifierDiscoverRequest =
   components["schemas"]["AuthIdentifierDiscoverRequest"];
 export type AuthIdentifierDiscoverResponse =
   components["schemas"]["AuthIdentifierDiscoverResponse"];
+export type SSOConnection = components["schemas"]["SSOConnection"];
+export type SSODomain = components["schemas"]["SSODomain"];
+export type SSOChallenge = components["schemas"]["SSOChallenge"];
 export type CurrentUser = components["schemas"]["MeResponse"];
 export type CSRFResponse = components["schemas"]["CSRFResponse"];
 export type LogoutResponse = components["schemas"]["LogoutResponse"];
@@ -738,7 +741,12 @@ export function getLoginURL(
 
 export function buildOAuthStartURL(
   provider: OAuthProvider,
-  input: { returnTo?: string; intent?: "login" | "reauth" } = {},
+  input: {
+    returnTo?: string;
+    intent?: "login" | "reauth";
+    loginHint?: string;
+    domain?: string;
+  } = {},
   options: Pick<APIRequestOptions, "baseUrl"> = {},
 ): string {
   const baseUrl = resolveBaseUrl(options.baseUrl ?? "/api");
@@ -750,6 +758,8 @@ export function buildOAuthStartURL(
   );
   startURL.searchParams.set("return_to", input.returnTo ?? "/app/home");
   startURL.searchParams.set("intent", input.intent ?? "login");
+  if (input.loginHint) startURL.searchParams.set("login_hint", input.loginHint);
+  if (input.domain) startURL.searchParams.set("domain", input.domain);
   return startURL.toString();
 }
 

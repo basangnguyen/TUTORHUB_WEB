@@ -30,6 +30,9 @@ type authFoundationRuntime struct {
 func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.InvitationRateLimiter) (*authFoundationRuntime, error) {
 	result := &authFoundationRuntime{}
 	auth := cfg.Authentication
+	if auth.SSODomainsEnabled && !auth.Enabled {
+		return nil, errors.New("school SSO requires authentication")
+	}
 	if err := auth.ValidatePhoneRouting(cfg.Environment); err != nil {
 		return nil, err
 	}
@@ -38,7 +41,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	}
 	deliveryEnabled := (auth.EmailSender != "" && auth.EmailSender != "disabled") || (auth.PhoneSender != "" && auth.PhoneSender != "disabled")
 	if pool == nil || len(auth.SessionKey) < 32 {
-		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.PhoneEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled {
+		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.PhoneEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled || auth.SSODomainsEnabled {
 			return nil, errors.New("native authentication and delivery require database and session cryptography")
 		}
 		return result, nil
@@ -100,6 +103,7 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 			return nil, passwordErr
 		}
 		result.native, err = identity.NewNativeAuthService(pool, crypto, passwords, result.dispatcher, identity.NativeAuthConfig{
+			SSO:                   identity.SSORealmConfig{Enabled: auth.SSODomainsEnabled, GoogleEnabled: auth.ProviderGoogleEnabled, MicrosoftEnabled: auth.ProviderMicrosoftEnabled},
 			PhoneEnabled:          auth.PhoneEnabled,
 			PhoneLoginUnavailable: !phoneLoginAvailable(auth),
 			PhoneAllowedCountries: auth.PhoneAllowedCountries,

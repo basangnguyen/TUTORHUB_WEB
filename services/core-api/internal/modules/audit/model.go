@@ -13,6 +13,15 @@ import (
 type Action string
 
 const (
+	ActionTenantSSOConnectionCreate Action = "tenant.sso_connection.create"
+	ActionTenantSSOConnectionUpdate Action = "tenant.sso_connection.update"
+	ActionTenantSSODomainCreate     Action = "tenant.sso_domain.create"
+	ActionTenantSSODomainRotate     Action = "tenant.sso_domain.rotate"
+	ActionTenantSSODomainVerify     Action = "tenant.sso_domain.verify"
+	ActionTenantSSODomainDisable    Action = "tenant.sso_domain.disable"
+)
+
+const (
 	ActionTenantCreate                Action = "tenant.create"
 	ActionTenantUpdate                Action = "tenant.update"
 	ActionTenantArchive               Action = "tenant.archive"
@@ -189,7 +198,13 @@ var forbiddenMetadataKeyPattern = regexp.MustCompile(
 )
 
 var actionCatalog = map[Action]struct{}{
-	ActionTenantCreate: {}, ActionTenantUpdate: {}, ActionTenantArchive: {}, ActionTenantSwitch: {},
+	ActionTenantSSOConnectionCreate: {},
+	ActionTenantSSOConnectionUpdate: {},
+	ActionTenantSSODomainCreate:     {},
+	ActionTenantSSODomainRotate:     {},
+	ActionTenantSSODomainVerify:     {},
+	ActionTenantSSODomainDisable:    {},
+	ActionTenantCreate:              {}, ActionTenantUpdate: {}, ActionTenantArchive: {}, ActionTenantSwitch: {},
 	ActionTenantFeatureControlUpdate: {},
 	ActionMembershipInvitationCreate: {}, ActionMembershipInvitationRevoke: {},
 	ActionMembershipInvitationAccept: {}, ActionMembershipInvitationExpire: {},
@@ -243,6 +258,12 @@ var actionCatalog = map[Action]struct{}{
 }
 
 var domainEventActions = map[string]Action{
+	"tenant.sso_connection.created":               ActionTenantSSOConnectionCreate,
+	"tenant.sso_connection.updated":               ActionTenantSSOConnectionUpdate,
+	"tenant.sso_domain.created":                   ActionTenantSSODomainCreate,
+	"tenant.sso_domain.rotated":                   ActionTenantSSODomainRotate,
+	"tenant.sso_domain.verified":                  ActionTenantSSODomainVerify,
+	"tenant.sso_domain.disabled":                  ActionTenantSSODomainDisable,
 	"tenant.created":                              ActionTenantCreate,
 	"tenant.updated":                              ActionTenantUpdate,
 	"tenant.archived":                             ActionTenantArchive,

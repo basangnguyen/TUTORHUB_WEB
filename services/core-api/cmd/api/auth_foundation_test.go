@@ -244,11 +244,11 @@ func TestDeviceManagementStartupRequiresRuntimeAndDoesNotEnableOIDC(t *testing.T
 
 // The parent DSN is only used to create an isolated database and tear it down.
 // Runtime traffic (including the daily limiter) uses a role-bound pool.
-func newPaidPhoneTestDatabase(t *testing.T) (owner, runtime *pgxpool.Pool) {
+func newAuthTestDatabase(t *testing.T, envKey, prefix string) (owner, runtime *pgxpool.Pool) {
 	t.Helper()
-	parentDSN := os.Getenv("AUTH11_TEST_POSTGRES_ADMIN_URL")
+	parentDSN := os.Getenv(envKey)
 	if parentDSN == "" || os.Getenv("AUTH_TEST_DISPOSABLE") != "true" {
-		t.Skip("requires AUTH11_TEST_POSTGRES_ADMIN_URL and AUTH_TEST_DISPOSABLE=true")
+		t.Skipf("requires %s and AUTH_TEST_DISPOSABLE=true", envKey)
 	}
 	ctx := t.Context()
 	parent, err := pgxpool.New(ctx, parentDSN)
@@ -256,7 +256,7 @@ func newPaidPhoneTestDatabase(t *testing.T) (owner, runtime *pgxpool.Pool) {
 		t.Fatal("invalid disposable owner connection")
 	}
 	t.Cleanup(parent.Close)
-	name := "auth11_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	name := prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
 	dbName := pgx.Identifier{name}.Sanitize()
 	roleName := name + "_runtime"
 	role := pgx.Identifier{roleName}.Sanitize()
@@ -378,7 +378,7 @@ func seedPaidPhoneLogin(t *testing.T, cfg config.Config, pool *pgxpool.Pool, pho
 }
 
 func TestPaidPhonePostgresDelivery(t *testing.T) {
-	owner, pool := newPaidPhoneTestDatabase(t)
+	owner, pool := newAuthTestDatabase(t, "AUTH11_TEST_POSTGRES_ADMIN_URL", "auth11_")
 	cfg := config.Config{Environment: "test", Authentication: config.AuthenticationConfig{
 		Enabled: true, PhoneEnabled: true, PasswordEnabled: true, PhoneSender: "zns", PhoneFallbackSender: "sms_brandname",
 		PhoneAllowedCountries: []string{"VN"}, PhoneOTPDailyQuota: 2, DeliveryBudgetApproved: true,

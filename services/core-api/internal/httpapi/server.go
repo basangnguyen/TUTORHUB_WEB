@@ -35,6 +35,7 @@ type Options struct {
 	Clock                 func() time.Time
 	Identity              identity.ServiceAPI
 	NativeAuth            identity.NativeAuthAPI
+	SchoolSSO             SchoolSSOAdmin
 	Classroom             classroom.ServiceAPI
 	ClassSessions         classroom.SessionServiceAPI
 	ClassSessionSeries    classroom.SessionSeriesServiceAPI
@@ -110,6 +111,7 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 	// Account settings and factor enrollment remain reachable when an existing
 	// administrator session must step up to use its workspace.
 	accountAuth := auth
+	schoolSSOHandlers{auth: accountAuth, service: options.SchoolSSO}.register(mux, options.Audit)
 	auth.tenantAccess = true
 	federation := federationHandlers{auth: accountAuth, limiter: options.AuthRateLimiter}
 	nativeAuth := nativeAuthHandlers{auth: accountAuth, service: options.NativeAuth, limiter: options.AuthRateLimiter}
@@ -176,7 +178,8 @@ func NewHandlerWithOptions(cfg config.Config, logger *slog.Logger, options Optio
 		),
 	)
 	mux.Handle("/api/v1/auth/providers", authFoundationResponseHeaders(requireMethod(http.MethodGet, authProvidersHandler(cfg.Authentication, logger))))
-	mux.Handle("/api/v1/auth/identifier/discover", authFoundationResponseHeaders(requireMethod(http.MethodPost, preAuthGuard(cfg.WebOrigin, authIdentifierHandler(logger, options.AuthRateLimiter, options.Clock)))))
+	realms, _ := options.NativeAuth.(identity.SSORealmDiscoverer)
+	mux.Handle("/api/v1/auth/identifier/discover", authFoundationResponseHeaders(requireMethod(http.MethodPost, preAuthGuard(cfg.WebOrigin, authIdentifierHandler(logger, options.AuthRateLimiter, options.Clock, cfg.Authentication.SSODomainsEnabled, realms)))))
 	if cfg.Environment == "development" || cfg.Environment == "test" {
 		mux.Handle("/api/v1/dev/auth-inbox", authFoundationResponseHeaders(devAuthInboxHandler(cfg, logger, options.AuthInbox)))
 	}

@@ -26,7 +26,7 @@ type fakeFederationService struct {
 	callbackResult            identity.OAuthResult
 }
 
-func (s *fakeFederationService) BeginOAuth(_ context.Context, provider, returnTo, intent string, p identity.Principal) (identity.LoginStart, error) {
+func (s *fakeFederationService) BeginOAuth(_ context.Context, provider, returnTo, intent string, p identity.Principal, _ ...identity.OAuthStartHints) (identity.LoginStart, error) {
 	s.calls++
 	s.provider = provider
 	s.intent = intent

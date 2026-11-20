@@ -474,6 +474,7 @@ func run() int {
 	}
 
 	var identityService identity.ServiceAPI
+	var schoolSSO httpapi.SchoolSSOAdmin
 	var enrollmentService classroom.EnrollmentServiceAPI
 	if cfg.Authentication.Enabled {
 		if pool == nil {
@@ -496,15 +497,21 @@ func run() int {
 			cfg.Authentication.EmailCodeEnabled && cfg.Authentication.EmailSender != "" && cfg.Authentication.EmailSender != "disabled",
 			cfg.Authentication.PhoneStaleAfter)
 		var mfaService *identity.NativeAuthService
-		if cfg.Authentication.MFATOTPEnabled {
+		if cfg.Authentication.MFATOTPEnabled || cfg.Authentication.SSODomainsEnabled {
 			var ok bool
 			mfaService, ok = authFoundation.native.(*identity.NativeAuthService)
 			if !ok || mfaService == nil {
-				logger.Error("TOTP requires the native authentication service")
+				logger.Error("account assurance and school SSO require the native authentication service")
 				return 1
 			}
 		}
 		repository.ConfigureAccountAssurance(mfaService, cfg.Authentication.RequireAdminMFA)
+		var schoolDomains identity.SSORealmDiscoverer
+		if cfg.Authentication.SSODomainsEnabled {
+			schoolDomains = mfaService
+			mfaService.ConfigureSSOMemberCapacity(featureControlEnforcer)
+			schoolSSO = identity.NewSchoolSSOService(mfaService, nil, cfg.Authentication.ProviderGoogleEnabled, cfg.Authentication.ProviderMicrosoftEnabled)
+		}
 		configuredService, err := identity.NewService(
 			repository,
 			provider,
@@ -529,6 +536,7 @@ func run() int {
 			return 1
 		}
 		if err := configuredService.ConfigureFederation(registry, identity.FederationConfig{
+			SchoolDomains: schoolDomains,
 			SignupEnabled: cfg.Authentication.SignupEnabled, LegalTermsVersion: cfg.Authentication.LegalTermsVersion,
 		}); err != nil {
 			logger.Error("initialize federation service")
@@ -764,6 +772,7 @@ func run() int {
 		AuthRateLimiter:       authRateLimiter,
 		AuthInbox:             authFoundation.inbox,
 		NativeAuth:            authFoundation.native,
+		SchoolSSO:             schoolSSO,
 		Media:                 mediaService,
 		MediaSpaces:           mediaLifecycleService,
 		MediaJoinAttempts:     mediaJoinAttemptService,

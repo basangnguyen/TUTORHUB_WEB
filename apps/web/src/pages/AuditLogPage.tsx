@@ -51,6 +51,12 @@ const emptyDraft: AuditFilterDraft = {
 };
 
 const auditActions = [
+  "tenant.sso_connection.create",
+  "tenant.sso_connection.update",
+  "tenant.sso_domain.create",
+  "tenant.sso_domain.rotate",
+  "tenant.sso_domain.verify",
+  "tenant.sso_domain.disable",
   "tenant.create",
   "tenant.update",
   "tenant.archive",
@@ -97,6 +103,12 @@ const auditActions = [
 ] as const satisfies readonly AuditAction[];
 
 const actionKeys: Record<AuditAction, TranslationKey> = {
+  "tenant.sso_connection.create": "audit.action.ssoConnectionCreate",
+  "tenant.sso_connection.update": "audit.action.ssoConnectionUpdate",
+  "tenant.sso_domain.create": "audit.action.ssoDomainCreate",
+  "tenant.sso_domain.rotate": "audit.action.ssoDomainRotate",
+  "tenant.sso_domain.verify": "audit.action.ssoDomainVerify",
+  "tenant.sso_domain.disable": "audit.action.ssoDomainDisable",
   "tenant.create": "audit.action.tenantCreate",
   "tenant.update": "audit.action.tenantUpdate",
   "tenant.archive": "audit.action.tenantArchive",
@@ -143,6 +155,8 @@ const actionKeys: Record<AuditAction, TranslationKey> = {
 };
 
 const resourceTypeKeys: Readonly<Record<string, TranslationKey>> = {
+  tenant_sso_connection: "audit.resource.ssoConnection",
+  tenant_sso_domain: "audit.resource.ssoDomain",
   tenant: "audit.resource.tenant",
   membership_invitation: "audit.resource.membershipInvitation",
   class: "audit.resource.class",

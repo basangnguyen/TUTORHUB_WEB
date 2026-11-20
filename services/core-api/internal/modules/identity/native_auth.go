@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tutorhub-v2/core-api/internal/modules/featurecontrol"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -23,6 +24,7 @@ var (
 )
 
 type NativeAuthConfig struct {
+	SSO                          SSORealmConfig
 	PhoneEnabled                 bool
 	PhoneLoginUnavailable        bool
 	PhoneAllowedCountries        []string
@@ -99,6 +101,7 @@ type NativePasswordService interface {
 }
 
 type NativeAuthService struct {
+	ssoMemberCapacity     featurecontrol.Enforcer
 	webauthn              *PasskeyProtocol
 	database              Database
 	crypto                *Crypto
@@ -163,6 +166,9 @@ func (service *NativeAuthService) StartEmailSignup(ctx context.Context, input Si
 		return SignupChallengeResult{}, ErrAuthFoundationStorage
 	}
 	defer rollback(tx)
+	if err := service.allowLocalEmail(ctx, tx, email, true); err != nil {
+		return SignupChallengeResult{}, err
+	}
 	var existing bool
 	if tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tutorhub.users WHERE lower(email)=$1)`, email).Scan(&existing) != nil {
 		return SignupChallengeResult{}, ErrAuthFoundationStorage
@@ -346,6 +352,9 @@ func (service *NativeAuthService) readSignup(ctx context.Context, tx pgx.Tx, bin
 	email, err := NormalizeSignupEmail(payload.Email)
 	if err != nil || email != payload.Email {
 		return AuthTransaction{}, signupPayload{}, nil, ErrNativeSignupUnavailable
+	}
+	if err := service.allowLocalEmail(ctx, tx, email, lock); err != nil {
+		return AuthTransaction{}, signupPayload{}, nil, err
 	}
 	return transaction, payload, ipHash, nil
 }

@@ -44,6 +44,9 @@ func (service *NativeAuthService) startNativeEmail(ctx context.Context, input Si
 		return SignupChallengeResult{}, ErrAuthFoundationStorage
 	}
 	defer rollback(tx)
+	if err := service.allowLocalEmail(ctx, tx, email, false); err != nil {
+		return SignupChallengeResult{}, err
+	}
 	payload := nativeEmailPayload{Email: email, Purpose: purpose}
 	err = tx.QueryRow(ctx, `SELECT id FROM tutorhub.users WHERE lower(email)=$1 AND status='active'`, email).Scan(&payload.UserID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -64,6 +67,9 @@ func (service *NativeAuthService) startNativeEmail(ctx context.Context, input Si
 		VALUES($1,$2,$3,'pending',$4,$5,$6,$7,$8)`, transaction.ID, service.crypto.Digest("auth-tx-binding", binding), kind,
 		nullUUID(payload.UserID), ciphertext, service.ipDigest(input.RemoteAddress), now, transaction.ExpiresAt); err != nil {
 		return SignupChallengeResult{}, ErrAuthFoundationStorage
+	}
+	if err := service.allowLocalEmail(ctx, tx, email, true); err != nil {
+		return SignupChallengeResult{}, err
 	}
 	challenge, job, err := service.challenges.issueLocked(ctx, tx, transaction, ChallengeInput{
 		Purpose: purpose, Channel: DeliveryEmail, Destination: email, Deliverable: payload.UserID != uuid.Nil && input.DestinationAllowed,
@@ -138,6 +144,9 @@ func (service *NativeAuthService) ResendEmailChallenge(ctx context.Context, bind
 	if err != nil {
 		return SignupChallengeResult{}, err
 	}
+	if err := service.allowLocalEmail(ctx, tx, payload.Email, true); err != nil {
+		return SignupChallengeResult{}, err
+	}
 	challenge, job, err := service.challenges.issueLocked(ctx, tx, transaction, ChallengeInput{
 		Purpose: payload.Purpose, Channel: DeliveryEmail, Destination: payload.Email, Deliverable: active && allowed,
 	})
@@ -165,6 +174,9 @@ func (service *NativeAuthService) VerifyEmailCodeLogin(ctx context.Context, bind
 	}
 	_, active, err := readNativeEmailUser(ctx, tx, payload, true)
 	if err != nil {
+		return NativeSessionResult{}, err
+	}
+	if err := service.allowLocalEmail(ctx, tx, payload.Email, true); err != nil {
 		return NativeSessionResult{}, err
 	}
 	matched, err := service.verifyNativeEmailCode(ctx, tx, transaction, payload, input.ChallengeID, input.Code)
@@ -222,6 +234,9 @@ func (service *NativeAuthService) CompletePasswordRecovery(ctx context.Context, 
 	}
 	currentDisplayName, active, err := readNativeEmailUser(ctx, tx, payload, true)
 	if err != nil {
+		return nil, err
+	}
+	if err := service.allowLocalEmail(ctx, tx, payload.Email, true); err != nil {
 		return nil, err
 	}
 	matched, err := service.verifyNativeEmailCode(ctx, tx, transaction, payload, input.ChallengeID, input.Code)
@@ -405,6 +420,9 @@ func (service *NativeAuthService) readNativeEmailTransaction(ctx context.Context
 	email, err := NormalizeSignupEmail(payload.Email)
 	if err != nil || email != payload.Email || (kind == "login" && payload.Purpose != "login_code") || (kind == "recovery" && payload.Purpose != "password_recovery") {
 		return AuthTransaction{}, nativeEmailPayload{}, ErrNativeInvalidCode
+	}
+	if err := service.allowLocalEmail(ctx, tx, email, false); err != nil {
+		return AuthTransaction{}, nativeEmailPayload{}, err
 	}
 	return transaction, payload, nil
 }

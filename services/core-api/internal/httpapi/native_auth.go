@@ -251,6 +251,8 @@ func (handlers nativeAuthHandlers) writeError(w http.ResponseWriter, r *http.Req
 	status, title, detail := http.StatusInternalServerError, "Authentication failed", "The authentication request could not be completed."
 	code := ""
 	switch {
+	case errors.Is(err, identity.ErrSSORequired):
+		status, title, detail, code = http.StatusForbidden, "School SSO required", "Sign in with your school's identity provider.", "auth_sso_required"
 	case errors.Is(err, identity.ErrNativeInvalidCode):
 		status, title, detail, code = http.StatusUnauthorized, "Verification failed", "Invalid or expired verification code.", "auth_invalid_verification_code"
 	case errors.Is(err, identity.ErrFederationAALRequired):

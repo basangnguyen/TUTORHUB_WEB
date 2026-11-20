@@ -16,12 +16,13 @@ import (
 const mfaTTL = 5 * time.Minute
 
 // The encrypted continuation binds the authenticated first factor and requested
-// action to the browser transaction. Federation stores only local identifiers.
+// action to the browser transaction, including any signed school proof.
 type mfaPayload struct {
 	TransactionID, UserID, IdentityID              uuid.UUID
 	Methods                                        []string
 	KeepSignedIn                                   bool
 	ReturnTo, Provider                             string
+	School                                         schoolLoginContext `json:",omitzero"`
 	RecoveryHash, RecoveryEmail, RecoveryName      string
 	FactorID                                       uuid.UUID
 	PasswordDigest, EmailDigest, PasskeyCredential []byte
@@ -81,6 +82,9 @@ func (s *NativeAuthService) emailGeneration(ctx context.Context, tx pgx.Tx, p mf
 	}
 	if err != nil {
 		return nil, ErrAuthFoundationStorage
+	}
+	if err := s.allowLocalEmail(ctx, tx, email, true); err != nil {
+		return nil, err
 	}
 	return s.crypto.Digest("mfa-email-generation-v1", email), nil
 }
@@ -286,7 +290,7 @@ func (s *NativeAuthService) validateMFAFirstFactor(ctx context.Context, tx pgx.T
 		return s.validateMFAFederatedIdentity(ctx, tx, p.UserID, p.IdentityID, p.Provider)
 	case "pwd", "email_code":
 		if p.RecoveryHash != "" {
-			return nil
+			return s.allowLocalEmail(ctx, tx, p.RecoveryEmail, true)
 		} // finishMFARecovery rechecks the mailbox and profile.
 		generation, err := s.emailGeneration(ctx, tx, p)
 		if err != nil {
@@ -376,9 +380,27 @@ func (s *NativeAuthService) VerifyMFA(ctx context.Context, binding string, input
 		if !slices.Contains(methods, input.Method) {
 			methods = append(methods, input.Method)
 		}
+		if p.Methods[0] == "fed" {
+			realm, err := s.checkSchoolLogin(ctx, tx, p.UserID, p.School)
+			if err != nil {
+				return result, err
+			}
+			if err := joinSchoolTenant(ctx, tx, realm, p.UserID, s.ssoMemberCapacity, now); err != nil {
+				return result, err
+			}
+		}
 		session, err := s.issueLoginSession(ctx, tx, p.UserID, p.IdentityID, methods, 2, p.KeepSignedIn, input.UserAgent, input.RemoteAddress)
 		if err != nil {
 			return result, err
+		}
+		if s.config.SSO.Enabled && p.School.Proof != nil {
+			id, err := s.schoolSessionForToken(ctx, tx, p.UserID, session.SessionToken)
+			if err != nil {
+				return result, err
+			}
+			if err := saveSchoolReceipt(ctx, tx, s.crypto, p.UserID, id, p.School.Proof, now); err != nil {
+				return result, err
+			}
 		}
 		result = MFAVerifyResult{Session: session, ReturnTo: p.ReturnTo}
 	}

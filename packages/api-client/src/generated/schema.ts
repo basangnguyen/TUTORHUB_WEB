@@ -109,7 +109,7 @@ export type paths = {
     readonly put?: never;
     /**
      * Classify identifier syntax without revealing account existence
-     * @description Requires same-origin JSON requests. Returns only syntax classification and a future SSO domain policy placeholder. Does not look up accounts or individual authentication methods. Responses use Cache-Control no-store and Referrer-Policy no-referrer.
+     * @description Classifies the identifier and returns public school routing for verified domains with an enabled connection and provider. All addresses on a domain receive the same policy. With AUTH_SSO_DOMAINS_ENABLED off, only required=false is returned. Responses use Cache-Control no-store and Referrer-Policy no-referrer.
      */
     readonly post: operations["discoverAuthIdentifier"];
     readonly delete?: never;
@@ -3473,6 +3473,150 @@ export type paths = {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/api/v1/tenants/{tenant_id}/sso-connections": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    /**
+     * List connections for the active school
+     * @description Reads require an active org_admin in the path tenant. The deployment flag AUTH_SSO_DOMAINS_ENABLED controls availability.
+     */
+    readonly get: operations["listSchoolSSOConnections"];
+    readonly put?: never;
+    /**
+     * Create a disabled school connection
+     * @description Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+     */
+    readonly post: operations["createSchoolSSOConnection"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/sso-connections/{connection_id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly connection_id: components["parameters"]["SSOConnectionID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /**
+     * Update the school connection and its sign-in policy
+     * @description Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Enabling enforcement requires an enabled provider, a verified domain and a usable administrator sign-in route.
+     */
+    readonly patch: operations["updateSchoolSSOConnection"];
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/sso-domains": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    /**
+     * List domains for the active school
+     * @description Reads require an active org_admin in the path tenant. The deployment flag AUTH_SSO_DOMAINS_ENABLED controls availability.
+     */
+    readonly get: operations["listSchoolSSODomains"];
+    readonly put?: never;
+    /**
+     * Register a domain and issue its DNS TXT challenge
+     * @description Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+     */
+    readonly post: operations["createSchoolSSODomain"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/disable": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly domain_id: components["parameters"]["SSODomainID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Disable the domain and release its routing claim
+     * @description Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+     */
+    readonly post: operations["disableSchoolSSODomain"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/rotate": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly domain_id: components["parameters"]["SSODomainID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Rotate the DNS challenge of a pending domain
+     * @description Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+     */
+    readonly post: operations["rotateSchoolSSODomain"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly domain_id: components["parameters"]["SSODomainID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Verify school ownership using the DNS TXT challenge
+     * @description Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+     */
+    readonly post: operations["verifySchoolSSODomain"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/api/v1/webhooks/livekit": {
     readonly parameters: {
       readonly query?: never;
@@ -3823,6 +3967,12 @@ export type components = {
     };
     /** @enum {string} */
     readonly AuditAction:
+      | "tenant.sso_connection.create"
+      | "tenant.sso_connection.update"
+      | "tenant.sso_domain.create"
+      | "tenant.sso_domain.rotate"
+      | "tenant.sso_domain.verify"
+      | "tenant.sso_domain.disable"
       | "tenant.create"
       | "tenant.update"
       | "tenant.archive"
@@ -3918,7 +4068,11 @@ export type components = {
       readonly kind: "email" | "phone" | "invalid";
       readonly sso: {
         /** @constant */
-        readonly required: false;
+        readonly available?: true;
+        readonly domain?: string;
+        /** @enum {string} */
+        readonly provider?: "google" | "microsoft";
+        readonly required: boolean;
       };
     };
     readonly AuthMFARequiredResponse: {
@@ -4973,6 +5127,16 @@ export type components = {
        */
       readonly accept_url: string;
       readonly invitation: components["schemas"]["MembershipInvitation"];
+    };
+    readonly CreateSSOConnectionRequest: {
+      readonly allowed_org_ids: readonly string[];
+      /** @enum {string} */
+      readonly kind: "google_workspace" | "entra";
+    };
+    readonly CreateSSODomainRequest: {
+      /** Format: uuid */
+      readonly connection_id: string;
+      readonly domain: string;
     };
     readonly CreateStudyMeetingRequest: {
       readonly class_id: string | null;
@@ -6652,6 +6816,54 @@ export type components = {
      * @enum {string}
      */
     readonly SessionSelfRSVPState: "accepted" | "tentative" | "declined";
+    readonly SSOChallenge: {
+      readonly domain: components["schemas"]["SSODomain"];
+      /** @description Absolute DNS owner _tutorhub-challenge.<domain>. */
+      readonly txt_name: string;
+      /** @description One-time configuration value. Publish this full tutorhub-site-verification= value as a TXT record. */
+      readonly txt_value: string;
+    };
+    readonly SSOConnection: {
+      readonly allowed_org_ids: readonly string[];
+      /** @enum {string|null} */
+      readonly auto_join_role: "student" | null;
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly enforce_sso: boolean;
+      /** Format: uuid */
+      readonly id: string;
+      /** @enum {string} */
+      readonly kind: "google_workspace" | "entra";
+      /** @enum {string} */
+      readonly status: "enabled" | "disabled";
+      /** Format: uuid */
+      readonly tenant_id: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    readonly SSOConnectionList: {
+      readonly items: readonly components["schemas"]["SSOConnection"][];
+    };
+    readonly SSODomain: {
+      /** Format: uuid */
+      readonly connection_id: string;
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly domain: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** @enum {string} */
+      readonly status: "pending" | "verified" | "disabled";
+      /** Format: uuid */
+      readonly tenant_id: string;
+      /** Format: date-time */
+      readonly updated_at: string;
+      /** Format: date-time */
+      readonly verified_at: string | null;
+    };
+    readonly SSODomainList: {
+      readonly items: readonly components["schemas"]["SSODomain"][];
+    };
     readonly StudyMeeting: {
       readonly cancelled_at: string | null;
       readonly class_id: string | null;
@@ -6969,6 +7181,14 @@ export type components = {
       /** @constant */
       readonly notice_version: "p5-collab-19-v1";
     };
+    readonly UpdateSSOConnectionRequest: {
+      readonly allowed_org_ids?: readonly string[];
+      /** @enum {string|null} */
+      readonly auto_join_role?: "student" | null;
+      readonly enforce_sso?: boolean;
+      /** @enum {string} */
+      readonly status?: "enabled" | "disabled";
+    };
     readonly UpdateStudyMeetingRequest: {
       readonly class_id: string | null;
       /** Format: date-time */
@@ -7176,6 +7396,15 @@ export type components = {
         readonly "application/json": components["schemas"]["AuthSignupChallengeResponse"];
       };
     };
+    /** @description Origin, CSRF or assurance requirements were not met, or the verified school domain requires SSO (auth_sso_required) for this email sign-in, signup or recovery flow. */
+    readonly AuthLocalForbiddenResponse: {
+      headers: {
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/problem+json": components["schemas"]["Problem"];
+      };
+    };
     /** @description Authentication attempt, resend cooldown or transaction send limit exceeded */
     readonly AuthRateLimitedResponse: {
       headers: {
@@ -7305,6 +7534,9 @@ export type components = {
     readonly PreAuthFetchSite: "same-origin";
     /** @description Must exactly match the Web origin; browsers set this header automatically. */
     readonly PreAuthOrigin: string;
+    readonly SSOConnectionID: string;
+    readonly SSODomainID: string;
+    readonly SSOTenantID: string;
     /** @description Opaque canonical control-plane document identifier; never a provider document name. */
     readonly WhiteboardDocumentID: string;
   };
@@ -7360,7 +7592,7 @@ export interface operations {
     readonly responses: {
       readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
       readonly 400: components["responses"]["ProblemResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -7407,7 +7639,7 @@ export interface operations {
     readonly responses: {
       readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
       readonly 400: components["responses"]["ProblemResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -7451,7 +7683,7 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -7729,7 +7961,7 @@ export interface operations {
       };
       readonly 400: components["responses"]["BadRequestResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
@@ -7754,7 +7986,7 @@ export interface operations {
     };
     readonly requestBody?: never;
     readonly responses: {
-      /** @description Success return path, pending registration, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable) */
+      /** @description Success return path, pending registration, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, auth_sso_required, rate_limited, temporarily_unavailable). School SSO checks the signed email and organization claims for the requested domain before granting tenant access. */
       readonly 303: {
         headers: {
           readonly Location?: string;
@@ -7767,7 +7999,11 @@ export interface operations {
   readonly beginOAuth: {
     readonly parameters: {
       readonly query?: {
+        /** @description Verified school domain for this provider. The Google Workspace hd hint guides account selection. The server validates organization and verified email claims at callback. */
+        readonly domain?: string;
         readonly intent?: "login" | "reauth";
+        /** @description Plain email address to suggest at the selected identity provider. */
+        readonly login_hint?: string;
         readonly return_to?: string;
       };
       readonly header?: never;
@@ -8025,7 +8261,7 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -8069,7 +8305,7 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -8095,7 +8331,7 @@ export interface operations {
     readonly responses: {
       readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
       readonly 400: components["responses"]["ProblemResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -8187,7 +8423,7 @@ export interface operations {
       };
       readonly 400: components["responses"]["BadRequestResponse"];
       readonly 401: components["responses"]["UnauthorizedResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
@@ -8214,7 +8450,7 @@ export interface operations {
     readonly responses: {
       readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
       readonly 400: components["responses"]["BadRequestResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
@@ -8241,7 +8477,7 @@ export interface operations {
     readonly responses: {
       readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
       readonly 400: components["responses"]["BadRequestResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
@@ -8540,7 +8776,7 @@ export interface operations {
           readonly "application/problem+json": components["schemas"]["Problem"];
         };
       };
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -8566,7 +8802,7 @@ export interface operations {
     readonly responses: {
       readonly 202: components["responses"]["AuthChallengeAcceptedResponse"];
       readonly 400: components["responses"]["ProblemResponse"];
-      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 403: components["responses"]["AuthLocalForbiddenResponse"];
       readonly 415: components["responses"]["ProblemResponse"];
       readonly 429: components["responses"]["AuthRateLimitedResponse"];
       readonly 503: components["responses"]["AuthUnavailableResponse"];
@@ -14617,6 +14853,294 @@ export interface operations {
       readonly 404: components["responses"]["NotFoundResponse"];
       readonly 409: components["responses"]["ConflictResponse"];
       readonly 503: components["responses"]["ProblemResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listSchoolSSOConnections: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description List connections for the active school */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSOConnectionList"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createSchoolSSOConnection: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateSSOConnectionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Create a disabled school connection */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSOConnection"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly updateSchoolSSOConnection: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        readonly connection_id: components["parameters"]["SSOConnectionID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["UpdateSSOConnectionRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Update the school connection and its sign-in policy */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSOConnection"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly listSchoolSSODomains: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description List domains for the active school */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSODomainList"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly createSchoolSSODomain: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateSSODomainRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description Register a domain and issue its DNS TXT challenge */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSOChallenge"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly disableSchoolSSODomain: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        readonly domain_id: components["parameters"]["SSODomainID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": Record<string, never>;
+      };
+    };
+    readonly responses: {
+      /** @description Disable the domain and release its routing claim */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSODomain"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly rotateSchoolSSODomain: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        readonly domain_id: components["parameters"]["SSODomainID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": Record<string, never>;
+      };
+    };
+    readonly responses: {
+      /** @description Rotate the DNS challenge of a pending domain */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSOChallenge"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
+      readonly default: components["responses"]["ProblemResponse"];
+    };
+  };
+  readonly verifySchoolSSODomain: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Must exactly match the Web origin; browsers set this header automatically. */
+        readonly Origin: components["parameters"]["PreAuthOrigin"];
+        /** @description Double-submit CSRF token bound to the active authenticated session. */
+        readonly "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      };
+      readonly path: {
+        readonly domain_id: components["parameters"]["SSODomainID"];
+        readonly tenant_id: components["parameters"]["SSOTenantID"];
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": Record<string, never>;
+      };
+    };
+    readonly responses: {
+      /** @description Verify school ownership using the DNS TXT challenge */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SSODomain"];
+        };
+      };
+      readonly 400: components["responses"]["BadRequestResponse"];
+      readonly 401: components["responses"]["UnauthorizedResponse"];
+      readonly 403: components["responses"]["ForbiddenResponse"];
+      readonly 404: components["responses"]["NotFoundResponse"];
+      readonly 409: components["responses"]["ConflictResponse"];
+      readonly 503: components["responses"]["AuthUnavailableResponse"];
       readonly default: components["responses"]["ProblemResponse"];
     };
   };

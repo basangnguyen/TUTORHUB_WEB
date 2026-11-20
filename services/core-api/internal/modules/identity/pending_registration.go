@@ -207,6 +207,9 @@ func (service *NativeAuthService) issueRegistrationChallenge(ctx context.Context
 	if resend && r.payload.OTPEmail != email {
 		return SignupChallengeResult{}, ErrAuthTransactionUnavailable
 	}
+	if err := service.allowLocalEmail(ctx, tx, email, true); err != nil {
+		return SignupChallengeResult{}, err
+	}
 	challenge, job, err := service.challenges.issueLocked(ctx, tx, r.AuthTransaction, ChallengeInput{Purpose: "signup_email", Channel: DeliveryEmail, Destination: email, Deliverable: allowed})
 	if err != nil {
 		return SignupChallengeResult{}, err
@@ -259,6 +262,9 @@ func (service *NativeAuthService) CompleteRegistration(ctx context.Context, bind
 	if r.ID != snapshot.ID || r.payload.FederationIdentityPayload != snapshot.payload.FederationIdentityPayload || r.payload.OTPEmail == "" {
 		return RegistrationResult{}, ErrAuthTransactionUnavailable
 	}
+	if err := service.allowLocalEmail(ctx, tx, r.payload.OTPEmail, false); err != nil {
+		return RegistrationResult{}, err
+	}
 
 	var bound bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM tutorhub.auth_challenges WHERE id=$1 AND transaction_id=$2
@@ -294,6 +300,11 @@ func (service *NativeAuthService) CompleteRegistration(ctx context.Context, bind
 	}
 	userID, created, err := registrationOwner(ctx, tx, r.payload.OTPEmail, input.SignupEnabled, now)
 	if err != nil {
+		return RegistrationResult{}, err
+	}
+	// Match the administration lock order: account first, then policy. The
+	// final read protects both account creation and an existing owner's link.
+	if err := service.allowLocalEmail(ctx, tx, r.payload.OTPEmail, true); err != nil {
 		return RegistrationResult{}, err
 	}
 	var result RegistrationResult

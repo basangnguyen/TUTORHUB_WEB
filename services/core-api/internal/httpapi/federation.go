@@ -96,9 +96,11 @@ func (handlers federationHandlers) start(w http.ResponseWriter, r *http.Request)
 	if !handlers.allow(w, r, AuthRateLimitOAuthStartIP, federationIP(r)) {
 		return
 	}
-	query := r.URL.Query()
-	if len(query["return_to"]) > 1 || len(query["intent"]) > 1 {
-		writeProblem(w, r, http.StatusBadRequest, "Invalid request", "Provide one return path and intent.")
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil || len(query["return_to"]) > 1 || len(query["intent"]) > 1 ||
+		len(query["login_hint"]) > 1 || len(query["domain"]) > 1 ||
+		(query.Has("login_hint") && query.Get("login_hint") == "") || (query.Has("domain") && query.Get("domain") == "") {
+		writeProblem(w, r, http.StatusBadRequest, "Invalid request", "Provide valid authentication parameters once.")
 		return
 	}
 	intent := query.Get("intent")
@@ -116,7 +118,11 @@ func (handlers federationHandlers) start(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-	result, err := service.BeginOAuth(r.Context(), provider, query.Get("return_to"), intent, principal)
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Cache-Control", "no-store")
+	result, err := service.BeginOAuth(r.Context(), provider, query.Get("return_to"), intent, principal, identity.OAuthStartHints{
+		LoginHint: query.Get("login_hint"), Domain: query.Get("domain"),
+	})
 	if err != nil {
 		handlers.writeError(w, r, err, false)
 		return
@@ -186,6 +192,8 @@ func (handlers federationHandlers) callback(w http.ResponseWriter, r *http.Reque
 
 func federationCallbackError(err error) string {
 	switch {
+	case errors.Is(err, identity.ErrSSORequired):
+		return "auth_sso_required"
 	case errors.Is(err, identity.ErrFederationSignupDisabled):
 		return "signup_disabled"
 	case errors.Is(err, identity.ErrVerifiedEmailRequired):

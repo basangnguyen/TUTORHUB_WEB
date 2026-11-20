@@ -22,6 +22,12 @@ var (
 type FederationConfig struct {
 	SignupEnabled     bool
 	LegalTermsVersion string
+	SchoolDomains     SSORealmDiscoverer
+}
+
+type OAuthStartHints struct {
+	LoginHint string
+	Domain    string
 }
 
 type OAuthResult struct {
@@ -48,7 +54,7 @@ type LinkIntentResult struct {
 }
 
 type FederationAPI interface {
-	BeginOAuth(context.Context, string, string, string, Principal) (LoginStart, error)
+	BeginOAuth(context.Context, string, string, string, Principal, ...OAuthStartHints) (LoginStart, error)
 	CompleteOAuth(context.Context, string, CallbackInput) (OAuthResult, error)
 	BeginProviderIdentityLink(context.Context, Principal, string) (LoginStart, error)
 	GetLinkIntent(context.Context, string) (LinkIntentView, error)
@@ -83,6 +89,7 @@ func supportsPendingRegistration(slug string) bool {
 type FederationLoginParams struct {
 	Claims                                         ProviderClaims
 	ProviderSlug                                   string
+	SchoolDomain                                   string
 	Flow                                           StoredFlow
 	Metadata                                       SessionMetadata
 	SignupEnabled                                  bool

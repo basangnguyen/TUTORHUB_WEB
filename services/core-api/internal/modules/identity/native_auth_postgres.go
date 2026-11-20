@@ -97,6 +97,9 @@ func (service *NativeAuthService) passwordSnapshot(ctx context.Context, email st
 	}
 	defer rollback(tx)
 	var snapshot nativePasswordSnapshot
+	if err := service.allowLocalEmail(ctx, tx, email, false); err != nil {
+		return snapshot, err
+	}
 	err = tx.QueryRow(ctx, `SELECT u.id,u.status,u.email_verified_at,c.password_hash,c.status,c.locked_until,
 		(SELECT i.id FROM tutorhub.identities i WHERE i.user_id=u.id AND i.kind='email'
 		 AND i.provider='urn:tutorhub:email' AND i.status='active' AND i.email_verified=true
@@ -156,6 +159,9 @@ func (service *NativeAuthService) PasswordLogin(ctx context.Context, input Passw
 		return NativeSessionResult{}, ErrAuthFoundationStorage
 	}
 	var identityID uuid.UUID
+	if err := service.allowLocalEmail(ctx, tx, email, true); err != nil {
+		return NativeSessionResult{}, err
+	}
 	err = tx.QueryRow(ctx, `SELECT id FROM tutorhub.identities WHERE id=$1 AND user_id=$2 AND kind='email' AND provider='urn:tutorhub:email'
 		AND status='active' AND email_verified=true AND lower(email_at_provider)=$3 FOR UPDATE`, snapshot.identityID.UUID, snapshot.userID, email).Scan(&identityID)
 	if errors.Is(err, pgx.ErrNoRows) {

@@ -25,7 +25,7 @@ func (service *Service) ConfigureFederation(registry *ProviderRegistry, cfg Fede
 	return nil
 }
 
-func (service *Service) BeginOAuth(ctx context.Context, slug, returnTo, intent string, principal Principal) (LoginStart, error) {
+func (service *Service) BeginOAuth(ctx context.Context, slug, returnTo, intent string, principal Principal, hints ...OAuthStartHints) (LoginStart, error) {
 	if _, err := service.registry.lookup(slug); err != nil {
 		return LoginStart{}, err
 	}
@@ -49,7 +49,21 @@ func (service *Service) BeginOAuth(ctx context.Context, slug, returnTo, intent s
 	} else {
 		principal = Principal{}
 	}
-	return service.beginProviderFlow(ctx, slug, normalized, intent, principal)
+	if len(hints) > 1 {
+		return LoginStart{}, ErrInvalidAuthFlow
+	}
+	var options url.Values
+	var schoolDomain string
+	if len(hints) == 1 {
+		options, err = service.schoolOAuthOptions(ctx, slug, intent, hints[0])
+		if err != nil {
+			return LoginStart{}, err
+		}
+		if hints[0].Domain != "" {
+			schoolDomain, _ = NormalizeSSODomain(hints[0].Domain)
+		}
+	}
+	return service.beginProviderFlow(ctx, slug, normalized, intent, principal, options, schoolDomain)
 }
 
 func (service *Service) BeginProviderIdentityLink(ctx context.Context, principal Principal, slug string) (LoginStart, error) {
@@ -63,10 +77,10 @@ func (service *Service) BeginProviderIdentityLink(ctx context.Context, principal
 	if err := service.requireRecentAuthentication(principal); err != nil {
 		return LoginStart{}, err
 	}
-	return service.beginProviderFlow(ctx, slug, identityLinkReturnTo, flowPurposeIdentityLink, principal)
+	return service.beginProviderFlow(ctx, slug, identityLinkReturnTo, flowPurposeIdentityLink, principal, nil, "")
 }
 
-func (service *Service) beginProviderFlow(ctx context.Context, slug, returnTo, purpose string, principal Principal) (LoginStart, error) {
+func (service *Service) beginProviderFlow(ctx context.Context, slug, returnTo, purpose string, principal Principal, options url.Values, schoolDomain string) (LoginStart, error) {
 	entry, err := service.registry.lookup(slug)
 	if err != nil {
 		return LoginStart{}, err
@@ -87,7 +101,13 @@ func (service *Service) beginProviderFlow(ctx context.Context, slug, returnTo, p
 	if err != nil {
 		return LoginStart{}, ErrAuthFoundationStorage
 	}
-	ciphertext, err := service.crypto.Encrypt(verifier)
+	// PKCE verifiers are base64url. The encrypted flow also binds an explicit
+	// school destination to this browser/state across the provider round trip.
+	sealedContext := verifier
+	if schoolDomain != "" {
+		sealedContext += "|" + schoolDomain
+	}
+	ciphertext, err := service.crypto.Encrypt(sealedContext)
 	if err != nil {
 		return LoginStart{}, ErrAuthFoundationStorage
 	}
@@ -99,14 +119,19 @@ func (service *Service) beginProviderFlow(ctx context.Context, slug, returnTo, p
 		return LoginStart{}, ErrAuthFoundationStorage
 	}
 	authorization := entry.Provider.AuthorizationURL(state, nonce, PKCEChallenge(verifier))
-	if purpose == "reauth" {
+	if purpose == "reauth" || len(options) != 0 {
 		parsed, err := url.Parse(authorization)
 		if err != nil {
 			return LoginStart{}, ErrProviderExchange
 		}
 		query := parsed.Query()
-		query.Set("prompt", "login")
-		query.Set("max_age", "0")
+		if purpose == "reauth" {
+			query.Set("prompt", "login")
+			query.Set("max_age", "0")
+		}
+		for key := range options {
+			query.Set(key, options.Get(key))
+		}
 		parsed.RawQuery = query.Encode()
 		authorization = parsed.String()
 	}
@@ -137,6 +162,7 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 	if err != nil {
 		return OAuthResult{}, ErrInvalidAuthFlow
 	}
+	verifier, schoolDomain, _ := strings.Cut(verifier, "|")
 	claims, err := entry.Provider.ExchangeAndVerify(ctx, input.Code, verifier)
 	if err != nil {
 		return OAuthResult{}, ErrProviderExchange
@@ -205,7 +231,7 @@ func (service *Service) CompleteOAuth(ctx context.Context, slug string, input Ca
 	intentExpiry := now.Add(AuthTransactionTTL)
 	metadata := SessionMetadata{TokenHash: rotation.TokenHash, CSRFHash: rotation.CSRFHash, UserAgentHash: service.crypto.Digest(userAgentPurpose, input.UserAgent), DeviceLabel: DeviceLabel(input.UserAgent), IPPrefix: IPPrefix(input.RemoteAddress), CreatedAt: now, ExpiresAt: now.Add(service.config.SessionTTL), AbsoluteAt: now.Add(service.config.SessionAbsoluteTTL)}
 	record, err := repository.CompleteFederatedLogin(ctx, FederationLoginParams{
-		Claims: claims, ProviderSlug: slug, Flow: flow, Metadata: metadata,
+		Claims: claims, ProviderSlug: slug, SchoolDomain: schoolDomain, Flow: flow, Metadata: metadata,
 		SignupEnabled: service.federation.SignupEnabled, LegalTermsVersion: service.federation.LegalTermsVersion,
 		LinkBindingHash: service.crypto.Digest(linkBindingPurpose, binding), LinkPayloadCiphertext: ciphertext,
 		RegistrationBindingHash: service.crypto.Digest(registrationBindingPurpose, binding),

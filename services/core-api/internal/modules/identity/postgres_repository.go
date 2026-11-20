@@ -224,7 +224,14 @@ func (repository *PostgresRepository) CreateAuthenticatedSession(
 		return FederationLoginRecord{}, err
 	}
 
-	challenge, err := repository.beginFederatedMFA(queryContext, transaction, userID, identityID, "oidc", metadata.ReturnTo)
+	var school schoolLoginContext
+	if repository.mfa != nil && repository.mfa.config.SSO.Enabled {
+		school.ClaimedDomain = SSOEmailDomain(claims.Email)
+		if _, err := repository.mfa.checkSchoolLogin(queryContext, transaction, userID, school); err != nil {
+			return FederationLoginRecord{}, err
+		}
+	}
+	challenge, err := repository.beginFederatedMFA(queryContext, transaction, userID, identityID, "oidc", metadata.ReturnTo, school)
 	if err != nil {
 		return FederationLoginRecord{}, err
 	}
@@ -1666,7 +1673,7 @@ func (repository *PostgresRepository) LinkIdentity(
 	if err := lockIdentityUser(queryContext, transaction, userID); err != nil {
 		return ExternalIdentity{}, err
 	}
-	if repository.mfa != nil {
+	if repository.mfa != nil && repository.mfa.config.MFATOTPEnabled {
 		active, err := hasActiveTOTP(queryContext, transaction, userID)
 		if err != nil {
 			return ExternalIdentity{}, err
@@ -1852,7 +1859,7 @@ FOR UPDATE`,
 
 	methods := repository.loginMethods
 	methods.passkeys = repository.passkeysEnabled
-	methods.mfa = repository.mfa != nil
+	methods.mfa = repository.mfa != nil && repository.mfa.config.MFATOTPEnabled
 	if err := requireAnotherLoginMethod(queryContext, transaction, userID, identityID, uuid.Nil, methods, unlinkedAt); err != nil {
 		return err
 	}

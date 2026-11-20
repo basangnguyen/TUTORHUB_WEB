@@ -100,7 +100,7 @@ func (repository *PostgresRepository) requireAccountAssurance(ctx context.Contex
 	if assurance >= 2 {
 		return nil
 	}
-	if repository.mfa != nil {
+	if repository.mfa != nil && repository.mfa.config.MFATOTPEnabled {
 		active, err := hasActiveTOTP(ctx, tx, userID)
 		if err != nil {
 			return err
@@ -332,6 +332,11 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 	if input.Flow.Purpose != "" && input.Flow.Purpose != flowPurposeLogin {
 		return FederationLoginRecord{}, ErrInvalidAuthFlow
 	}
+	school := schoolLoginContext{RequestedDomain: input.SchoolDomain}
+	if repository.mfa != nil && repository.mfa.config.SSO.Enabled {
+		school.ClaimedDomain = SSOEmailDomain(input.Claims.Email)
+		school.Proof = schoolProof(input.ProviderSlug, input.Claims)
+	}
 	existing, lookupErr := readFederatedIdentity(ctx, tx, input.Claims, false)
 	if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
 		return FederationLoginRecord{}, ErrAuthFoundationStorage
@@ -350,6 +355,10 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		if existing.Status == "erased" {
 			return FederationLoginRecord{}, ErrIdentityInactive
 		}
+		realm, err := repository.mfa.checkSchoolLogin(ctx, tx, existing.UserID, school)
+		if err != nil {
+			return FederationLoginRecord{}, err
+		}
 		if existing.Status == "unlinked" {
 			if err := insertFederationLinkIntent(ctx, tx, existing.UserID, input); err != nil {
 				return FederationLoginRecord{}, err
@@ -362,7 +371,7 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		if existing.Status != "active" {
 			return FederationLoginRecord{}, ErrIdentityInactive
 		}
-		challenge, err := repository.beginFederatedMFA(ctx, tx, existing.UserID, existing.ID, input.ProviderSlug, input.Flow.ReturnTo)
+		challenge, err := repository.beginFederatedMFA(ctx, tx, existing.UserID, existing.ID, input.ProviderSlug, input.Flow.ReturnTo, school)
 		if err != nil {
 			return FederationLoginRecord{}, err
 		}
@@ -378,7 +387,7 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		if err := requireLegacyFederationFloor(ctx, tx, existing.UserID, now); err != nil {
 			return FederationLoginRecord{}, err
 		}
-		principal, err := repository.insertFederatedSession(ctx, tx, existing.UserID, existing.ID, input.Claims, input.Metadata, input.SessionAbsoluteTTL)
+		principal, err := repository.insertFederatedSession(ctx, tx, existing.UserID, existing.ID, input.Claims, input.Metadata, input.SessionAbsoluteTTL, realm, school.Proof)
 		if err != nil {
 			return FederationLoginRecord{}, err
 		}
@@ -388,6 +397,9 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		return FederationLoginRecord{Principal: principal}, nil
 	}
 	if !input.Claims.EmailVerified {
+		if _, err := repository.mfa.checkSchoolLogin(ctx, tx, uuid.Nil, school); err != nil {
+			return FederationLoginRecord{}, err
+		}
 		// For a new subject, only a trusted provider email or a TutorHub OTP
 		// can select the email for signup or an existing owner's link intent.
 		if _, err := tx.Exec(ctx, `INSERT INTO tutorhub.auth_transactions
@@ -417,10 +429,14 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 			if err != nil {
 				return FederationLoginRecord{}, err
 			}
+			realm, err := repository.mfa.checkSchoolLogin(ctx, tx, userID, school)
+			if err != nil {
+				return FederationLoginRecord{}, err
+			}
 			if _, err := tx.Exec(ctx, `INSERT INTO tutorhub.user_legal_acceptances(user_id,document_kind,version,accepted_at) VALUES($1,'user_agreement',$2,$3),($1,'privacy_policy',$2,$3)`, userID, input.LegalTermsVersion, now); err != nil {
 				return FederationLoginRecord{}, ErrAuthFoundationStorage
 			}
-			principal, err := repository.insertFederatedSession(ctx, tx, userID, identityID, input.Claims, input.Metadata, input.SessionAbsoluteTTL)
+			principal, err := repository.insertFederatedSession(ctx, tx, userID, identityID, input.Claims, input.Metadata, input.SessionAbsoluteTTL, realm, school.Proof)
 			if err != nil {
 				return FederationLoginRecord{}, err
 			}
@@ -437,6 +453,9 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		}
 	}
 	if err := lockActiveTenantUser(ctx, tx, userID); err != nil {
+		return FederationLoginRecord{}, err
+	}
+	if _, err := repository.mfa.checkSchoolLogin(ctx, tx, userID, school); err != nil {
 		return FederationLoginRecord{}, err
 	}
 	if err := insertFederationLinkIntent(ctx, tx, userID, input); err != nil {
@@ -496,7 +515,10 @@ func linkFederatedIdentity(ctx context.Context, tx pgx.Tx, userID uuid.UUID, slu
 	return existing.ID, nil
 }
 
-func (repository *PostgresRepository) insertFederatedSession(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, claims ProviderClaims, metadata SessionMetadata, absoluteTTL time.Duration) (Principal, error) {
+func (repository *PostgresRepository) insertFederatedSession(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, claims ProviderClaims, metadata SessionMetadata, absoluteTTL time.Duration, realm *schoolRealm, proof *schoolFederationProof) (Principal, error) {
+	if err := joinSchoolTenant(ctx, tx, realm, userID, repository.controls, metadata.CreatedAt); err != nil {
+		return Principal{}, err
+	}
 	activeTenant, err := selectActiveTenant(ctx, tx, userID, repository.requireAdminMFA)
 	if err != nil {
 		return Principal{}, ErrAuthFoundationStorage
@@ -520,6 +542,11 @@ func (repository *PostgresRepository) insertFederatedSession(ctx context.Context
 	}
 	if err := refreshFederatedLoginClaims(ctx, tx, userID, identityID, claims, metadata.CreatedAt); err != nil {
 		return Principal{}, err
+	}
+	if proof != nil && admin {
+		if err := saveSchoolReceipt(ctx, tx, repository.mfa.crypto, userID, sessionID, proof, metadata.CreatedAt); err != nil {
+			return Principal{}, err
+		}
 	}
 	return repository.loadPrincipal(ctx, tx, sessionID, userID, activeTenant)
 }

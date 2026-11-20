@@ -14,7 +14,7 @@ import (
 
 func TestPasswordMigrationRoundTripBackfillAndPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 6); err != nil {
+	if err := migrationrunner.Down(ctx, url, 7); err != nil {
 		t.Fatal("prepare disposable ledger 43")
 	}
 	version, err := migrationrunner.CurrentVersion(ctx, url)
@@ -54,15 +54,15 @@ func TestPasswordMigrationRoundTripBackfillAndPreflight(t *testing.T) {
 			t.Fatal("apply password migration")
 		}
 		version, err := migrationrunner.CurrentVersion(ctx, url)
-		if err != nil || version.Number != 49 || version.Dirty {
-			t.Fatal("password migration must finish at clean ledger 49")
+		if err != nil || version.Number != 50 || version.Dirty {
+			t.Fatal("password migration must finish at clean ledger 50")
 		}
 		var actual time.Time
 		if err := pool.QueryRow(ctx, `SELECT email_verified_at FROM tutorhub.users WHERE id=$1`, userID).Scan(&actual); err != nil || !actual.Equal(verifiedAt) {
 			t.Fatal("verification backfill must use earliest matching active verified identity")
 		}
 		if cycle == 0 {
-			if err := migrationrunner.Down(ctx, url, 6); err != nil {
+			if err := migrationrunner.Down(ctx, url, 7); err != nil {
 				t.Fatal("empty password migration rollback")
 			}
 		}

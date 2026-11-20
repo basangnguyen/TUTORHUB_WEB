@@ -36,10 +36,8 @@ type authIdentifierRequest struct {
 }
 
 type authIdentifierResponse struct {
-	Kind string `json:"kind"`
-	SSO  struct {
-		Required bool `json:"required"`
-	} `json:"sso"`
+	Kind string            `json:"kind"`
+	SSO  identity.SSORoute `json:"sso"`
 }
 
 // preAuthGuard applies the browser boundary before any pre-session mutation.
@@ -103,7 +101,7 @@ func authProvidersHandler(cfg config.AuthenticationConfig, logger *slog.Logger) 
 	})
 }
 
-func authIdentifierHandler(logger *slog.Logger, limiter InvitationRateLimiter, clock func() time.Time) http.Handler {
+func authIdentifierHandler(logger *slog.Logger, limiter InvitationRateLimiter, clock func() time.Time, ssoEnabled bool, realms identity.SSORealmDiscoverer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		prefix := identity.IPPrefix(r.RemoteAddr)
 		if prefix == "" {
@@ -124,9 +122,20 @@ func authIdentifierHandler(logger *slog.Logger, limiter InvitationRateLimiter, c
 			writeProblem(w, r, http.StatusBadRequest, "Invalid request", "Provide one identifier of at most 320 bytes.")
 			return
 		}
-		// Deliberately no account lookup, echo or hint: syntax classification reveals
-		// neither account existence nor an individual's enrolled login methods.
-		writeJSON(logger, w, http.StatusOK, authIdentifierResponse{Kind: classifyAuthIdentifier(input.Identifier)})
+		result := authIdentifierResponse{Kind: classifyAuthIdentifier(input.Identifier)}
+		if ssoEnabled && result.Kind == "email" {
+			if realms == nil {
+				writeProblem(w, r, http.StatusServiceUnavailable, "Service unavailable", "Authentication discovery is temporarily unavailable.")
+				return
+			}
+			route, err := realms.DiscoverSSORealm(r.Context(), identity.SSOEmailDomain(strings.TrimSpace(input.Identifier)))
+			if err != nil {
+				writeProblem(w, r, http.StatusServiceUnavailable, "Service unavailable", "Authentication discovery is temporarily unavailable.")
+				return
+			}
+			result.SSO = route
+		}
+		writeJSON(logger, w, http.StatusOK, result)
 	})
 }
 

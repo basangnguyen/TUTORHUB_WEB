@@ -198,7 +198,7 @@ paths:
       operationId: discoverAuthIdentifier
       summary: Classify identifier syntax without revealing account existence
       security: []
-      description: Requires same-origin JSON requests. Returns only syntax classification and a future SSO domain policy placeholder. Does not look up accounts or individual authentication methods. Responses use Cache-Control no-store and Referrer-Policy no-referrer.
+      description: Classifies the identifier and returns public school routing for verified domains with an enabled connection and provider. All addresses on a domain receive the same policy. With AUTH_SSO_DOMAINS_ENABLED off, only required=false is returned. Responses use Cache-Control no-store and Referrer-Policy no-referrer.
       parameters:
         - name: Origin
           in: header
@@ -275,7 +275,7 @@ paths:
         "400":
           $ref: "#/components/responses/ProblemResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -320,7 +320,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -350,7 +350,7 @@ paths:
         "400":
           $ref: "#/components/responses/ProblemResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -395,7 +395,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -495,7 +495,7 @@ paths:
         "401":
           $ref: "#/components/responses/UnauthorizedResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "404":
           $ref: "#/components/responses/NotFoundResponse"
         "409":
@@ -1407,7 +1407,7 @@ paths:
         "400":
           $ref: "#/components/responses/ProblemResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -1644,7 +1644,7 @@ paths:
         "400":
           $ref: "#/components/responses/ProblemResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -1687,7 +1687,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -1731,7 +1731,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "415":
           $ref: "#/components/responses/ProblemResponse"
         "429":
@@ -1807,6 +1807,14 @@ paths:
       description: Uses PKCE S256, nonce, state and a browser-binding cookie. Reauthentication is available for oidc and google, requires an existing session and requests prompt=login and max_age=0. Unknown or disabled providers return 404. return_to is validated by the existing server return-path sanitizer.
       parameters:
         - $ref: "#/components/parameters/FederationProvider"
+        - name: login_hint
+          in: query
+          description: Plain email address to suggest at the selected identity provider.
+          schema: { type: string, format: email, maxLength: 254 }
+        - name: domain
+          in: query
+          description: Verified school domain for this provider. The Google Workspace hd hint guides account selection. The server validates organization and verified email claims at callback.
+          schema: { type: string, maxLength: 253 }
         - name: return_to
           in: query
           schema:
@@ -1865,7 +1873,7 @@ paths:
             type: string
       responses:
         "303":
-          description: Success return path, pending registration, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, rate_limited, temporarily_unavailable)
+          description: Success return path, pending registration, pending link confirmation, or a fixed sign-in error (authentication_failed, signup_disabled, email_unverified, provider_unavailable, assurance_required, auth_sso_required, rate_limited, temporarily_unavailable). School SSO checks the signed email and organization claims for the requested domain before granting tenant access.
           headers:
             Location:
               schema:
@@ -1913,7 +1921,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequestResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "404":
           $ref: "#/components/responses/NotFoundResponse"
         "415":
@@ -1945,7 +1953,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequestResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "404":
           $ref: "#/components/responses/NotFoundResponse"
         "415":
@@ -1983,7 +1991,7 @@ paths:
         "401":
           $ref: "#/components/responses/UnauthorizedResponse"
         "403":
-          $ref: "#/components/responses/ForbiddenResponse"
+          $ref: "#/components/responses/AuthLocalForbiddenResponse"
         "404":
           $ref: "#/components/responses/NotFoundResponse"
         "415":
@@ -2509,6 +2517,297 @@ paths:
           $ref: "#/components/responses/NotFoundResponse"
         "409":
           $ref: "#/components/responses/ConflictResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/sso-connections:
+    parameters:
+      - $ref: "#/components/parameters/SSOTenantID"
+    get:
+      operationId: listSchoolSSOConnections
+      summary: List connections for the active school
+      description: Reads require an active org_admin in the path tenant. The deployment flag AUTH_SSO_DOMAINS_ENABLED controls availability.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: List connections for the active school
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOConnectionList"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createSchoolSSOConnection
+      summary: Create a disabled school connection
+      description: Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSSOConnectionRequest"
+      responses:
+        "201":
+          description: Create a disabled school connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOConnection"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/sso-connections/{connection_id}:
+    parameters:
+      - $ref: "#/components/parameters/SSOTenantID"
+      - $ref: "#/components/parameters/SSOConnectionID"
+    patch:
+      operationId: updateSchoolSSOConnection
+      summary: Update the school connection and its sign-in policy
+      description: Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Enabling enforcement requires an enabled provider, a verified domain and a usable administrator sign-in route.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSSOConnectionRequest"
+      responses:
+        "200":
+          description: Update the school connection and its sign-in policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOConnection"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/sso-domains:
+    parameters:
+      - $ref: "#/components/parameters/SSOTenantID"
+    get:
+      operationId: listSchoolSSODomains
+      summary: List domains for the active school
+      description: Reads require an active org_admin in the path tenant. The deployment flag AUTH_SSO_DOMAINS_ENABLED controls availability.
+      security:
+        - SessionCookie: []
+      responses:
+        "200":
+          description: List domains for the active school
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSODomainList"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+    post:
+      operationId: createSchoolSSODomain
+      summary: Register a domain and issue its DNS TXT challenge
+      description: Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSSODomainRequest"
+      responses:
+        "201":
+          description: Register a domain and issue its DNS TXT challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOChallenge"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/rotate:
+    parameters:
+      - $ref: "#/components/parameters/SSOTenantID"
+      - $ref: "#/components/parameters/SSODomainID"
+    post:
+      operationId: rotateSchoolSSODomain
+      summary: Rotate the DNS challenge of a pending domain
+      description: Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: Rotate the DNS challenge of a pending domain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOChallenge"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/verify:
+    parameters:
+      - $ref: "#/components/parameters/SSOTenantID"
+      - $ref: "#/components/parameters/SSODomainID"
+    post:
+      operationId: verifySchoolSSODomain
+      summary: Verify school ownership using the DNS TXT challenge
+      description: Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: Verify school ownership using the DNS TXT challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSODomain"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
+        default:
+          $ref: "#/components/responses/ProblemResponse"
+  /api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/disable:
+    parameters:
+      - $ref: "#/components/parameters/SSOTenantID"
+      - $ref: "#/components/parameters/SSODomainID"
+    post:
+      operationId: disableSchoolSSODomain
+      summary: Disable the domain and release its routing claim
+      description: Requires an active org_admin in the path tenant, CSRF and recent authentication within ten minutes. Account and administrator MFA policies apply.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+        - $ref: "#/components/parameters/PreAuthOrigin"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          description: Disable the domain and release its routing claim
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSODomain"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundResponse"
+        "409":
+          $ref: "#/components/responses/ConflictResponse"
+        "503":
+          $ref: "#/components/responses/AuthUnavailableResponse"
         default:
           $ref: "#/components/responses/ProblemResponse"
   /api/v1/tenants/{tenant_id}/capabilities:
@@ -9701,6 +10000,21 @@ components:
       name: tutorhub_session
       description: Opaque TutorHub BFF session cookie; secure deployments use the __Host- prefix.
   parameters:
+    SSOTenantID:
+      name: tenant_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SSOConnectionID:
+      name: connection_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SSODomainID:
+      name: domain_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     PasskeyID:
       name: passkey_id
       in: path
@@ -9866,6 +10180,12 @@ components:
             $ref: "#/components/schemas/Problem"
     UnauthorizedResponse:
       description: Authentication is missing, expired, or invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    AuthLocalForbiddenResponse:
+      description: Origin, CSRF or assurance requirements were not met, or the verified school domain requires SSO (auth_sso_required) for this email sign-in, signup or recovery flow.
       content:
         application/problem+json:
           schema:
@@ -10927,7 +11247,135 @@ components:
           properties:
             required:
               type: boolean
-              const: false
+            available:
+              type: boolean
+              const: true
+            provider:
+              type: string
+              enum: [google, microsoft]
+            domain:
+              type: string
+              maxLength: 253
+    CreateSSOConnectionRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, allowed_org_ids]
+      properties:
+        kind: { type: string, enum: [google_workspace, entra] }
+        allowed_org_ids:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 253 }
+    UpdateSSOConnectionRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        status: { type: string, enum: [enabled, disabled] }
+        allowed_org_ids:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 253 }
+        enforce_sso: { type: boolean }
+        auto_join_role: { type: [string, "null"], enum: [student, null] }
+    CreateSSODomainRequest:
+      type: object
+      additionalProperties: false
+      required: [connection_id, domain]
+      properties:
+        connection_id: { type: string, format: uuid }
+        domain: { type: string, minLength: 3, maxLength: 253 }
+    SSOConnection:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          tenant_id,
+          kind,
+          status,
+          allowed_org_ids,
+          enforce_sso,
+          auto_join_role,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        kind: { type: string, enum: [google_workspace, entra] }
+        status: { type: string, enum: [enabled, disabled] }
+        allowed_org_ids:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 253 }
+        enforce_sso: { type: boolean }
+        auto_join_role: { type: [string, "null"], enum: [student, null] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    SSODomain:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          tenant_id,
+          connection_id,
+          domain,
+          status,
+          verified_at,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        connection_id: { type: string, format: uuid }
+        domain: { type: string, minLength: 3, maxLength: 253 }
+        status: { type: string, enum: [pending, verified, disabled] }
+        verified_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    SSOChallenge:
+      type: object
+      additionalProperties: false
+      required: [domain, txt_name, txt_value]
+      properties:
+        domain: { $ref: "#/components/schemas/SSODomain" }
+        txt_name:
+          {
+            type: string,
+            description: "Absolute DNS owner _tutorhub-challenge.<domain>.",
+          }
+        txt_value:
+          {
+            type: string,
+            description: "One-time configuration value. Publish this full tutorhub-site-verification= value as a TXT record.",
+          }
+    SSOConnectionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SSOConnection"
+    SSODomainList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SSODomain"
     OrganizationRole:
       type: string
       enum: [org_admin, teacher, student, guest]
@@ -12598,6 +13046,12 @@ components:
     AuditAction:
       type: string
       enum:
+        - tenant.sso_connection.create
+        - tenant.sso_connection.update
+        - tenant.sso_domain.create
+        - tenant.sso_domain.rotate
+        - tenant.sso_domain.verify
+        - tenant.sso_domain.disable
         - tenant.create
         - tenant.update
         - tenant.archive

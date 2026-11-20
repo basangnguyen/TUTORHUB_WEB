@@ -69,6 +69,20 @@ func (service *NativeAuthService) rotateAssuredSession(ctx context.Context, tx p
 	if err != nil || cmd.RowsAffected() != 1 {
 		return ReauthenticateResult{}, ErrAuthFoundationStorage
 	}
+	if service.config.SSO.Enabled {
+		newID, err := service.schoolSessionForToken(ctx, tx, p.User.ID, tokens.SessionToken)
+		if err != nil {
+			return ReauthenticateResult{}, err
+		}
+		// Step-up replaces the session ID. Carry forward only its unexpired
+		// school proof with the original expiry; step-up cannot refresh it.
+		if _, err := tx.Exec(ctx, `INSERT INTO tutorhub.auth_transactions(binding_hash,kind,state,user_id,session_id,payload_ciphertext,created_at,expires_at,completed_at)
+			SELECT $1,kind,state,user_id,$2,payload_ciphertext,created_at,expires_at,completed_at FROM tutorhub.auth_transactions
+			WHERE binding_hash=$3 AND kind='login' AND state='completed' AND user_id=$4 AND session_id=$5 AND expires_at>$6`,
+			schoolReceiptBinding(service.crypto, p.User.ID, newID), newID, schoolReceiptBinding(service.crypto, p.User.ID, p.SessionID), p.User.ID, p.SessionID, now); err != nil {
+			return ReauthenticateResult{}, ErrAuthFoundationStorage
+		}
+	}
 	cmd, err = tx.Exec(ctx, `UPDATE tutorhub.sessions SET revoked_at=$3,revoked_reason=$4 WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL`, p.SessionID, p.User.ID, now, method+"_reauthenticated")
 	if err != nil || cmd.RowsAffected() != 1 {
 		return ReauthenticateResult{}, ErrAuthFoundationStorage

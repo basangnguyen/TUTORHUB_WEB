@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/tutorhub-v2/core-api/internal/config"
+	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/platform/devinbox"
 )
 
@@ -178,6 +179,82 @@ func TestAuthDiscoveryRateLimitAndDatabaseFailure(t *testing.T) {
 	NewHandlerWithOptions(authFoundationConfig(), nil, Options{AuthRateLimiter: limiter}).ServeHTTP(w, authDiscoveryRequest(`{"identifier":"a@example.test"}`))
 	if w.Code != 503 || strings.Contains(w.Body.String(), "private database error") {
 		t.Fatal("database failure must fail closed and redact details")
+	}
+}
+
+type schoolDiscoveryStub struct {
+	fakeNativeAuth
+	domains []string
+}
+
+func (s *schoolDiscoveryStub) DiscoverSSORealm(_ context.Context, domain string) (identity.SSORoute, error) {
+	s.domains = append(s.domains, domain)
+	switch domain {
+	case "campus.test":
+		return identity.SSORoute{Required: true, Available: true, Provider: "google", Domain: domain}, nil
+	case "unavailable.test":
+		return identity.SSORoute{}, errors.New("private database diagnostic")
+	default:
+		return identity.SSORoute{}, nil
+	}
+}
+
+func TestSSOIdentifierDiscoveryUsesOnlyEmailDomain(t *testing.T) {
+	service := &schoolDiscoveryStub{}
+	cfg := authFoundationConfig()
+	cfg.Authentication.SSODomainsEnabled = true
+	handler := NewHandlerWithOptions(cfg, nil, Options{NativeAuth: service})
+	for _, address := range []string{"existing@CAMPUS.test", "missing@campus.test"} {
+		w := httptest.NewRecorder()
+		body, _ := json.Marshal(authIdentifierRequest{Identifier: address})
+		handler.ServeHTTP(w, authDiscoveryRequest(string(body)))
+		if w.Code != 200 || w.Body.String() != "{\"kind\":\"email\",\"sso\":{\"required\":true,\"available\":true,\"provider\":\"google\",\"domain\":\"campus.test\"}}\n" {
+			t.Fatalf("unexpected route for school address: %d %s", w.Code, w.Body.String())
+		}
+	}
+	for _, tc := range []struct{ id, kind string }{
+		{"somebody@other.test", "email"}, {"+84912345678", "phone"}, {"bad", "invalid"},
+	} {
+		w := httptest.NewRecorder()
+		body, _ := json.Marshal(authIdentifierRequest{Identifier: tc.id})
+		handler.ServeHTTP(w, authDiscoveryRequest(string(body)))
+		if w.Code != 200 || w.Body.String() != "{\"kind\":\""+tc.kind+"\",\"sso\":{\"required\":false}}\n" {
+			t.Fatalf("unexpected fallback: %d %s", w.Code, w.Body.String())
+		}
+	}
+	if strings.Join(service.domains, ",") != "campus.test,campus.test,other.test" {
+		t.Fatalf("unexpected discovery inputs: %v", service.domains)
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, authDiscoveryRequest(`{"identifier":"someone@unavailable.test"}`))
+	if w.Code != 503 || strings.Contains(w.Body.String(), "private database") {
+		t.Fatal("storage failure disclosed details or silently returned an available sign-in")
+	}
+	cfg.Authentication.SSODomainsEnabled = false
+	handler = NewHandlerWithOptions(cfg, nil, Options{NativeAuth: service})
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, authDiscoveryRequest(`{"identifier":"existing@campus.test"}`))
+	if w.Code != 200 || w.Body.String() != "{\"kind\":\"email\",\"sso\":{\"required\":false}}\n" || len(service.domains) != 4 {
+		t.Fatal("flag-off discovery queried the domain registry or changed its response")
+	}
+}
+
+func TestSSOLocalAuthProblemIsUniform(t *testing.T) {
+	cfg := nativeTestConfig()
+	cfg.Authentication.EmailCodeEnabled = true
+	h := nativeTestHandler(cfg, &fakeNativeAuth{err: identity.ErrSSORequired}, &nativeTestLimiter{}, nil)
+	for _, email := range []string{"existing@campus.test", "unknown@campus.test"} {
+		for _, endpoint := range []string{"signup/email/start", "email-code/start", "password/recovery/start", "password/login"} {
+			body := `{"email":"` + email + `"}`
+			if endpoint == "password/login" {
+				body = `{"identifier":"` + email + `","password":"fixture"}`
+			}
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, nativeRequest("/api/v1/auth/"+endpoint, body, false))
+			if w.Code != 403 || !strings.Contains(w.Body.String(), `"code":"auth_sso_required"`) || strings.Contains(w.Body.String(), email) || len(w.Result().Cookies()) != 0 {
+				t.Errorf("%s returned %d %s", endpoint, w.Code, w.Body.String())
+			}
+		}
 	}
 }
 
