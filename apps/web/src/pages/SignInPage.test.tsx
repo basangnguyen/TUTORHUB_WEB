@@ -328,7 +328,7 @@ describe("SignInPage", () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(
-      screen.getByText(/^By continuing, you agree to the/),
+      screen.getByText(/^By signing in, you agree to the/),
     ).toBeInTheDocument();
   });
 
@@ -3011,7 +3011,10 @@ describe("SignInPage AUTH-05B Google federation", () => {
     api.getAuthProviders.mockResolvedValue(GOOGLE_PROVIDERS);
     await renderSignIn();
 
-    const consent = screen.getByText(/^By continuing, you agree to the/);
+    const consent = screen.getByText(/^By signing in, you agree to the/);
+    expect(consent).toHaveTextContent(
+      "By signing in, you agree to the User Agreement and Privacy Policy of TutorHub.",
+    );
     const agreement = within(consent).getByRole("button", {
       name: "User Agreement",
     });
@@ -3046,8 +3049,10 @@ describe("SignInPage AUTH-05B Google federation", () => {
       screen.getByRole("button", { name: "Đăng nhập bằng Google" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/^Bằng việc tiếp tục, bạn đồng ý với/),
-    ).toBeInTheDocument();
+      screen.getByText(/^Bằng việc đăng nhập, bạn đồng ý với/),
+    ).toHaveTextContent(
+      "Bằng việc đăng nhập, bạn đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư của TutorHub.",
+    );
   });
 
   it.each([
@@ -3211,7 +3216,7 @@ describe("SignInPage AUTH-07B Microsoft federation", () => {
     expect(signInMock).not.toHaveBeenCalled();
     // The consent line accompanies the social group, like Google/Facebook.
     expect(
-      screen.getByText(/^By continuing, you agree to the/),
+      screen.getByText(/^By signing in, you agree to the/),
     ).toBeInTheDocument();
   });
 

@@ -43,7 +43,7 @@ const personalTenantID = "9188040d-6c67-4c5b-b112-36a304b66dad";
 const labels = {
   microsoft: /^(?:Đăng nhập bằng Microsoft|Sign in with Microsoft)$/,
   consent:
-    /^(?:Bằng việc tiếp tục, bạn đồng ý với|By continuing, you agree to the)/,
+    /^(?:Bằng việc đăng nhập, bạn đồng ý với|By signing in, you agree to the)/,
   completeTitle:
     /^(?:Hoàn tất đăng ký bằng Microsoft|Finish signing up with Microsoft)$/,
   hint: /(?:Gợi ý từ Microsoft|Suggested by Microsoft)/,

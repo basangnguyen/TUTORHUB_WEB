@@ -48,7 +48,7 @@ const labels = {
   microsoft: /^(?:Đăng nhập bằng Microsoft|Sign in with Microsoft)$/,
   facebook: /^(?:Tiếp tục với Facebook|Continue with Facebook)$/,
   consent:
-    /^(?:Bằng việc tiếp tục, bạn đồng ý với|By continuing, you agree to the)/,
+    /^(?:Bằng việc đăng nhập, bạn đồng ý với|By signing in, you agree to the)/,
   linkTitle:
     /^(?:Liên kết Google với tài khoản TutorHub|Link Google to your TutorHub account)$/,
   linkSignIn:

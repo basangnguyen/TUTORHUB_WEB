@@ -240,7 +240,8 @@ const en = {
     "Enter your email to receive a 6-digit code, then choose a new password.",
   passwordResetDone:
     "Your password has been reset and all your sessions were signed out. Please log in again with your new password.",
-  socialLegalLead: "By continuing, you agree to the ",
+  // Names the action every login button shares ("sign in"), not "continue".
+  socialLegalLead: "By signing in, you agree to the ",
   socialLegalTail: " of TutorHub.",
   callbackSignupDisabled:
     "New accounts can't be created with this sign-in option right now. Log in with the method you used before or contact your administrator.",
@@ -431,7 +432,7 @@ const vi: SignInCopy = {
     "Nhập email để nhận mã 6 chữ số, sau đó chọn mật khẩu mới.",
   passwordResetDone:
     "Mật khẩu đã được đặt lại và mọi phiên đăng nhập của bạn đã bị đăng xuất. Vui lòng đăng nhập lại bằng mật khẩu mới.",
-  socialLegalLead: "Bằng việc tiếp tục, bạn đồng ý với ",
+  socialLegalLead: "Bằng việc đăng nhập, bạn đồng ý với ",
   socialLegalTail: " của TutorHub.",
   callbackSignupDisabled:
     "Hiện chưa thể tạo tài khoản mới bằng phương thức này. Hãy đăng nhập bằng phương thức bạn đã dùng trước đây hoặc liên hệ quản trị viên.",
@@ -1811,7 +1812,7 @@ export interface LoginFormProps {
    */
   sessionPersistence?: "persistent" | "optIn";
   /**
-   * UI-AUTH-04: the consent line ("By continuing, you agree to…") closes the
+   * UI-AUTH-04: the consent line ("By signing in, you agree to…") closes the
    * panel even without social buttons (default true). /account-link omits it.
    */
   showLegalNotice?: boolean;

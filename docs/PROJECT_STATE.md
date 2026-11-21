@@ -4,18 +4,28 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                               |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-22                                                                                                                                               |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                           |
-| Nhánh làm việc       | `main`                                                                                                                                                   |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                              |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                                |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                                 |
-| Task `DONE` gần nhất | `UI-AUTH-05` Đổi nội dung Hero `/sign-in`, bỏ nhãn Enterprise & dòng phụ dưới logo, chuyển nút mắt sang nhấn giữ để hiện mật khẩu                        |
-| Mốc repository mới   | Neon `staging` ở `52 false` + exact runtime/maintenance ACL; Chromium E2E `12/12` + `1/1` `p2-08` (`UI-AUTH-05`); `@tutorhub/web` `919/919` (`100` file) |
-| Task hiện tại        | Xác nhận auto-deploy `UI-AUTH-05` trên `https://tutorhub.vn/sign-in` và theo dõi canary Public Beta (Email OTP Resend + Google + Microsoft + Passkey)    |
-| Task tiếp theo       | Lập lịch job hàng giờ `cmd/auth-maintenance` (GitHub Actions/cron), đối soát `Q12` trước khi gỡ ZITADEL; hoãn Facebook (chờ Meta duyệt) & `+84` ZNS      |
+| Thuộc tính           | Trạng thái                                                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ngày cập nhật        | 2026-11-22                                                                                                                                             |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                         |
+| Nhánh làm việc       | `main`                                                                                                                                                 |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                            |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                              |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                               |
+| Task `DONE` gần nhất | `UI-AUTH-06` Đồng bộ dòng pháp lý cuối form `/sign-in` theo hành động đăng nhập (`Bằng việc đăng nhập...` / `By signing in...`)                        |
+| Mốc repository mới   | Neon `staging` ở `52 false` + exact runtime/maintenance ACL; Chromium E2E `12/12` `auth-05+07` + `1/1` `p2-08`; `@tutorhub/web` `919/919` (`100` file) |
+| Task hiện tại        | Xác nhận auto-deploy `UI-AUTH-06` trên `https://tutorhub.vn/sign-in` và theo dõi canary Public Beta (Email OTP Resend + Google + Microsoft + Passkey)  |
+| Task tiếp theo       | Lập lịch job hàng giờ `cmd/auth-maintenance` (GitHub Actions/cron), đối soát `Q12` trước khi gỡ ZITADEL; hoãn Facebook (chờ Meta duyệt) & `+84` ZNS    |
+
+### Checkpoint `UI-AUTH-06` Đồng bộ Dòng Pháp lý Cuối Form `/sign-in` Theo Hành động Đăng nhập (`DONE`) — 2026-11-22
+
+Claude Code cập nhật `socialLegalLead` trên `/sign-in` theo câu chốt của chủ dự án để khớp 100% với nhãn hành động trên các nút đăng nhập (_sign-in-wrap_); Gatekeeper (Antigravity) review diff, kiểm chứng độc lập `pnpm verify` và chạy bộ Playwright Chromium E2E `auth-05` + `auth-07` + `p2-08` trên cụm PostgreSQL 17.12 loopback disposable:
+
+- **Nội dung đồng ý mới (`SignInPage.tsx`, `SignInPage.test.tsx`, `SignInPage.passkeys.test.tsx`, `AccountLinkPage.test.tsx`, `e2e/auth-05-google-federation.spec.ts`, `e2e/auth-07-microsoft.spec.ts`)**:
+  - `vi`: `"Bằng việc đăng nhập, bạn đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư của TutorHub."`
+  - `en`: `"By signing in, you agree to the User Agreement and Privacy Policy of TutorHub."`
+  - Dùng chung chữ nối `termsJoin` (`" và "` / `" and "`), xác nhận không còn sót chuỗi `"Bằng việc tiếp tục"` / `"By continuing"` trong `apps/` và `e2e/`.
+- **Bằng chứng Gatekeeper**: `pnpm verify` PASS (`@tutorhub/web` **`919/919`** trên `100` file, `@tutorhub/api-client` **`131/131`**, `security:bundle` `209` file, Storybook build, Go `40` package + `go vet`) và `pnpm exec tsc -p tsconfig.e2e.json --noEmit` PASS. Trên Chromium thật + cụm **PostgreSQL 17.12 loopback disposable** (migration `52`): `auth-05` + `auth-07` **`12/12` PASS** và `p2-08` **`1/1` PASS**.
 
 ### Checkpoint `UI-AUTH-05` Đổi Tiêu đề Hero `/sign-in`, Bỏ Nhãn Enterprise / Tagline Logo & Nhấn Giữ Nút Mắt Hiện Mật Khẩu (`DONE`) — 2026-11-22
 

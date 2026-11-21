@@ -465,7 +465,7 @@ describe("AccountLinkPage signed out", () => {
       screen.getByRole("checkbox", { name: "Keep me signed in" }),
     ).not.toBeChecked();
     expect(screen.queryByRole("checkbox", { name: "Remember Me" })).toBeNull();
-    expect(screen.queryByText(/^By continuing, you agree to the/)).toBeNull();
+    expect(screen.queryByText(/^By signing in, you agree to the/)).toBeNull();
     expect(storageSnapshot()).not.toContain(MASKED);
   });
 

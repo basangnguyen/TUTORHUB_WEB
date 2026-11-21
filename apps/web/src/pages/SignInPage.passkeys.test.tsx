@@ -294,7 +294,7 @@ describe("SignInPage passkeys", () => {
       screen.getByRole("button", { name: "Sign in with Google" }),
       screen.getByRole("button", { name: "Sign in with Microsoft" }),
       button,
-      screen.getByText(/^By continuing, you agree to the/),
+      screen.getByText(/^By signing in, you agree to the/),
     ];
     for (let index = 1; index < order.length; index += 1) {
       expect(
