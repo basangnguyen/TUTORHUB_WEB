@@ -385,7 +385,7 @@ describe("web shell", () => {
     expect(
       await screen.findByRole(
         "heading",
-        { level: 1, name: "Nền tảng gia sư ứng dụng AI" },
+        { level: 1, name: "Nền tảng học online thông minh" },
         { timeout: 5000 },
       ),
     ).toBeInTheDocument();

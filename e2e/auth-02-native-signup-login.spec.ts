@@ -30,8 +30,8 @@ const labels = {
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
-  showPassword: /^(?:Hiện mật khẩu|Show password)$/,
-  hidePassword: /^(?:Ẩn mật khẩu|Hide password)$/,
+  holdToShowPassword:
+    /^(?:Nhấn giữ để hiện mật khẩu|Press and hold to show password)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   codeSent:
     /(?:mã xác thực 6 chữ số đã được gửi|a 6-digit verification code has been sent)/,
@@ -179,7 +179,7 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
       page.locator(".sign-in__panel").getByRole("checkbox"),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: labels.showPassword }),
+      page.getByRole("button", { name: labels.holdToShowPassword }),
     ).toHaveAttribute("aria-pressed", "false");
     await expectNoBlockingAxeViolations(page, "login view");
 
@@ -270,13 +270,16 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
       .fill(`unknown.${randomBytes(4).toString("hex")}@example.test`);
     const passwordField = page.getByLabel(labels.password);
     await passwordField.fill("not-the-right-password");
-    // The eye button reveals the password; submitting hides it again.
-    await page.getByRole("button", { name: labels.showPassword }).click();
+    // Holding the eye button reveals the password; releasing hides it again.
+    const eye = page.getByRole("button", { name: labels.holdToShowPassword });
+    await eye.hover();
+    await page.mouse.down();
     await expect(passwordField).toHaveAttribute("type", "text");
-    await expect(
-      page.getByRole("button", { name: labels.hidePassword }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(eye).toHaveAttribute("aria-pressed", "true");
     await expectNoBlockingAxeViolations(page, "login password shown");
+    await page.mouse.up();
+    await expect(passwordField).toHaveAttribute("type", "password");
+    await expect(eye).toHaveAttribute("aria-pressed", "false");
     await page.getByRole("button", { name: labels.logIn }).click();
     await expect(passwordField).toHaveAttribute("type", "password");
 

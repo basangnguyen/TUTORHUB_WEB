@@ -30,7 +30,7 @@
   margin: 0;
 }
 
-/* ---------- Left column: badge, title, slider ---------- */
+/* ---------- Left column: title, slider ---------- */
 
 .sign-in__hero {
   display: flex;
@@ -43,24 +43,9 @@
   text-align: center;
 }
 
-.sign-in__badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 18px;
-  border: 1px solid var(--sign-in-border);
-  border-radius: 9999px;
-  background: #fff;
-  /* AUTH-05B Axe: #047857 keeps 5.48:1 on white (WCAG AA small text). */
-  color: #047857;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
 .sign-in .sign-in__title {
   max-width: 22ch;
-  margin: 18px 0 0;
+  margin: 0;
   color: var(--sign-in-text);
   font-size: 26px;
   font-weight: 700;
@@ -350,22 +335,19 @@
   object-fit: contain;
 }
 
-.sign-in__brand-text {
-  min-width: 0;
-}
-
+/*
+ * Wordmark sits alone beside the 48px logo: trim the line box to cap height
+ * and baseline so flex centering lines the letters up with the logo's middle
+ * whichever system font loads. Browsers without text-box fall back to normal
+ * line-box centering (about 1px lower).
+ */
 .sign-in .sign-in__brand-name {
+  min-width: 0;
   color: var(--sign-in-text);
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1.1;
-}
-
-.sign-in .sign-in__brand-tagline {
-  margin-top: 3px;
-  color: var(--sign-in-text-muted);
-  font-size: 12px;
-  line-height: 1.3;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
 }
 
 /* AUTH-02B: #047857 keeps 5.48:1 on white (WCAG AA); #10b981 was 2.54:1. */
@@ -501,9 +483,15 @@
   transition:
     background-color 160ms ease,
     color 160ms ease;
+  /* Press-and-hold reveal: no scroll, text selection or iOS callout on hold. */
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.sign-in-input-group__toggle:hover {
+.sign-in-input-group__toggle:hover,
+.sign-in-input-group__toggle[aria-pressed="true"] {
   background: #f3f4f6;
   color: #111827;
 }
@@ -1603,7 +1591,6 @@
 @media (forced-colors: active) {
   .sign-in-button,
   .sign-in-input,
-  .sign-in__badge,
   .sign-in-slider__arrow,
   .sign-in-slider__rotation,
   .sign-in-legal__button,

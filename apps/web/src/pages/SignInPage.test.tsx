@@ -235,17 +235,17 @@ describe("SignInPage", () => {
   it("renders the TutorHub V1 login layout with static auth assets", async () => {
     await renderSignIn();
 
-    expect(screen.getByText("TutorHub Enterprise")).toBeInTheDocument();
+    expect(screen.queryByText("TutorHub Enterprise")).not.toBeInTheDocument();
     const title = screen.getByRole("heading", {
       level: 1,
-      name: "AI-Powered Tutoring Platform",
+      name: "Smart Online Learning Platform",
     });
-    expect(within(title).getByText("AI-Powered")).toHaveClass(
+    expect(within(title).getByText("Smart")).toHaveClass(
       "sign-in__title-accent",
     );
     expect(
       screen.getByText(
-        "Manage classes, match tutors, and track schedules in one intelligent platform.",
+        "Join classes, connect with tutors, and track your schedule, all in one place.",
       ),
     ).toBeInTheDocument();
 
@@ -266,12 +266,8 @@ describe("SignInPage", () => {
       within(slider).getByRole("button", { name: "Next slide" }),
     ).toBeInTheDocument();
 
-    expect(screen.getByText("TutorHub")).toBeInTheDocument();
-    expect(
-      screen.getByText("Tutoring Platform", {
-        selector: ".sign-in__brand-tagline",
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("TutorHub")).toHaveClass("sign-in__brand-name");
+    expect(screen.queryByText("Tutoring Platform")).not.toBeInTheDocument();
     expect(
       document.querySelector('img[src="/images/auth/logomoi.png"]'),
     ).toHaveAttribute("width", "48");
@@ -294,7 +290,7 @@ describe("SignInPage", () => {
 
     // UI-AUTH-04 (option A): no "Keep me signed in" / "Remember Me".
     expect(screen.queryByRole("checkbox")).toBeNull();
-    // Decorative icons sit inside the fields; the eye button reveals the password.
+    // Decorative icons sit inside the fields; holding the eye button reveals the password.
     for (const field of [identifier, password]) {
       const icon = field.parentElement?.querySelector(
         ".sign-in-input-group__icon",
@@ -302,7 +298,7 @@ describe("SignInPage", () => {
       expect(icon).toHaveAttribute("aria-hidden", "true");
     }
     expect(
-      screen.getByRole("button", { name: "Show password" }),
+      screen.getByRole("button", { name: "Press and hold to show password" }),
     ).toHaveAttribute("aria-pressed", "false");
     // "Forgot password" sits right under the main button.
     const forgot = screen.getByRole("button", { name: "Forgot password" });
@@ -342,7 +338,7 @@ describe("SignInPage", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Nền tảng gia sư ứng dụng AI",
+        name: "Nền tảng học online thông minh",
       }),
     ).toBeInTheDocument();
     expect(
@@ -1293,8 +1289,7 @@ const NATIVE_COPY = {
     otp: "OTP code",
     password: "Password",
     identifier: "Email or username",
-    showPassword: "Show password",
-    hidePassword: "Hide password",
+    holdToShowPassword: "Press and hold to show password",
     useOtp: "Log in with OTP",
     usePassword: "Log in with password",
     terms: "I have read and agree to the User Agreement and Privacy Policy",
@@ -1328,8 +1323,7 @@ const NATIVE_COPY = {
     otp: "Mã OTP",
     password: "Mật khẩu",
     identifier: "Email hoặc tên đăng nhập",
-    showPassword: "Hiện mật khẩu",
-    hidePassword: "Ẩn mật khẩu",
+    holdToShowPassword: "Nhấn giữ để hiện mật khẩu",
     useOtp: "Đăng nhập với OTP",
     usePassword: "Đăng nhập bằng mật khẩu",
     terms:
@@ -1828,7 +1822,7 @@ describe.each(["en", "vi"] as const)(
       expect(window.sessionStorage.length).toBe(0);
     });
 
-    it("reveals the password on demand and hides it again on submit and method switches", async () => {
+    it("reveals the password only while the eye button is held", async () => {
       api.getAuthProviders.mockResolvedValue({
         ...NATIVE_PROVIDERS,
         email_code_enabled: true,
@@ -1836,33 +1830,75 @@ describe.each(["en", "vi"] as const)(
       api.loginWithPassword.mockRejectedValue(apiError(401));
       await renderSignIn({ language });
       const field = loginFields();
-      const toggle = screen.getByRole("button", { name: copy.showPassword });
-      expect(toggle).toHaveAttribute("type", "button");
-      expect(toggle).toHaveAttribute("aria-pressed", "false");
-      expect(toggle).toHaveAttribute("aria-controls", field.password.id);
-      expect(field.password).toHaveAttribute("type", "password");
+      const eye = screen.getByRole("button", {
+        name: copy.holdToShowPassword,
+      });
+      const expectHidden = () => {
+        expect(field.password).toHaveAttribute("type", "password");
+        expect(eye).toHaveAttribute("aria-pressed", "false");
+      };
+      const expectShown = () => {
+        expect(field.password).toHaveAttribute("type", "text");
+        expect(eye).toHaveAttribute("aria-pressed", "true");
+      };
+      expect(eye).toHaveAttribute("type", "button");
+      expect(eye).toHaveAttribute("aria-controls", field.password.id);
+      expect(eye).toHaveAttribute("title", copy.holdToShowPassword);
+      expectHidden();
 
-      fireEvent.click(toggle);
-      expect(field.password).toHaveAttribute("type", "text");
-      expect(toggle).toHaveAccessibleName(copy.hidePassword);
-      expect(toggle).toHaveAttribute("aria-pressed", "true");
-      fireEvent.click(toggle);
-      expect(field.password).toHaveAttribute("type", "password");
-      expect(toggle).toHaveAccessibleName(copy.showPassword);
+      // Pointer: shown while held, hidden on release; a click never sticks.
+      fireEvent.pointerDown(eye, { button: 0, pointerId: 1 });
+      expectShown();
+      expect(eye).toHaveAccessibleName(copy.holdToShowPassword);
+      fireEvent.pointerUp(eye, { button: 0, pointerId: 1 });
+      expectHidden();
+      fireEvent.click(eye);
+      expectHidden();
 
-      // Submitting hides it before the request leaves.
+      // Only the primary button reveals; cancel, lost capture and leaving
+      // the window all hide it again.
+      fireEvent.pointerDown(eye, { button: 2, pointerId: 1 });
+      expectHidden();
+      fireEvent.pointerDown(eye, { button: 0, pointerId: 1 });
+      fireEvent.pointerCancel(eye, { pointerId: 1 });
+      expectHidden();
+      fireEvent.pointerDown(eye, { button: 0, pointerId: 1 });
+      fireEvent.lostPointerCapture(eye, { pointerId: 1 });
+      expectHidden();
+      fireEvent.pointerDown(eye, { button: 0, pointerId: 1 });
+      fireEvent.blur(window);
+      expectHidden();
+
+      // Keyboard: holding Space or Enter reveals; release or blur hides.
+      fireEvent.keyDown(eye, { key: " " });
+      expectShown();
+      fireEvent.keyUp(eye, { key: " " });
+      expectHidden();
+      fireEvent.keyDown(eye, { key: "Enter" });
+      expectShown();
+      fireEvent.blur(eye);
+      expectHidden();
+
+      // Pressing the eye leaves focus (and the caret) in the password field;
+      // a long-press doesn't open the context menu.
+      expect(fireEvent.mouseDown(eye)).toBe(false);
+      expect(fireEvent.contextMenu(eye)).toBe(false);
+
+      // Submitting mid-hold hides it before the request leaves.
       fireEvent.change(field.identifier, {
         target: { value: "teacher@example.com" },
       });
       fireEvent.change(field.password, { target: { value: "wrong-password" } });
-      fireEvent.click(toggle);
+      fireEvent.keyDown(eye, { key: " " });
       fireEvent.click(field.submit);
-      expect(field.password).toHaveAttribute("type", "password");
-      expect(toggle).toHaveAttribute("aria-pressed", "false");
+      expectHidden();
       await settle();
 
-      // Leaving for the OTP form and coming back starts hidden too.
-      fireEvent.click(screen.getByRole("button", { name: copy.showPassword }));
+      // Leaving for the OTP form mid-hold and coming back starts hidden too.
+      fireEvent.pointerDown(
+        screen.getByRole("button", { name: copy.holdToShowPassword }),
+        { button: 0, pointerId: 1 },
+      );
       fireEvent.click(screen.getByRole("button", { name: copy.useOtp }));
       fireEvent.click(screen.getByRole("button", { name: copy.usePassword }));
       expect(screen.getByLabelText(copy.password)).toHaveAttribute(
@@ -1870,7 +1906,7 @@ describe.each(["en", "vi"] as const)(
         "password",
       );
       expect(
-        screen.getByRole("button", { name: copy.showPassword }),
+        screen.getByRole("button", { name: copy.holdToShowPassword }),
       ).toHaveAttribute("aria-pressed", "false");
     });
 

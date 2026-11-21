@@ -106,12 +106,11 @@ const SLIDES = [
 ] as const;
 
 const en = {
-  badge: "TutorHub Enterprise",
   titleLead: "",
-  titleAccent: "AI-Powered",
-  titleTail: "Tutoring Platform",
+  titleAccent: "Smart",
+  titleTail: "Online Learning Platform",
   subtitle:
-    "Manage classes, match tutors, and track schedules in one intelligent platform.",
+    "Join classes, connect with tutors, and track your schedule, all in one place.",
   sliderLabel: "TutorHub highlights",
   slidePosition: "{current} of {total}",
   slide1Alt:
@@ -128,7 +127,6 @@ const en = {
   playSlides: "Play slideshow",
   panelLabel: "Account access",
   brandName: "TutorHub",
-  brandTagline: "Tutoring Platform",
   signUp: "Sign Up",
   logIn: "Log In",
   loginHeading: "Log in to TutorHub",
@@ -141,8 +139,7 @@ const en = {
     "Session length is managed securely by the TutorHub identity portal.",
   keepSignedInNativeHint:
     "Stay signed in on this device for up to 30 days (administrator accounts: up to 24 hours). The server decides the final session length.",
-  showPassword: "Show password",
-  hidePassword: "Hide password",
+  holdToShowPassword: "Press and hold to show password",
   or: "Or",
   facebook: "Continue with Facebook",
   google: "Sign in with Google",
@@ -299,12 +296,11 @@ type SignInCopy = Record<keyof typeof en, string>;
 type CopyKey = keyof SignInCopy;
 
 const vi: SignInCopy = {
-  badge: "TutorHub Enterprise",
-  titleLead: "Nền tảng gia sư",
-  titleAccent: "ứng dụng AI",
+  titleLead: "Nền tảng học online",
+  titleAccent: "thông minh",
   titleTail: "",
   subtitle:
-    "Quản lý lớp học, kết nối gia sư và theo dõi lịch học trên một nền tảng thông minh.",
+    "Tham gia lớp học, kết nối gia sư và theo dõi lịch học, tất cả ở cùng một nơi.",
   sliderLabel: "Điểm nổi bật của TutorHub",
   slidePosition: "{current}/{total}",
   slide1Alt:
@@ -321,7 +317,6 @@ const vi: SignInCopy = {
   playSlides: "Tiếp tục trình chiếu",
   panelLabel: "Truy cập tài khoản",
   brandName: "TutorHub",
-  brandTagline: "Nền tảng gia sư",
   signUp: "Đăng ký",
   logIn: "Đăng nhập",
   loginHeading: "Đăng nhập vào TutorHub",
@@ -334,8 +329,7 @@ const vi: SignInCopy = {
     "Thời hạn phiên đăng nhập do cổng định danh TutorHub quản lý an toàn.",
   keepSignedInNativeHint:
     "Duy trì đăng nhập trên thiết bị này tối đa 30 ngày (tài khoản quản trị: tối đa 24 giờ). Thời hạn phiên thực tế do máy chủ quyết định.",
-  showPassword: "Hiện mật khẩu",
-  hidePassword: "Ẩn mật khẩu",
+  holdToShowPassword: "Nhấn giữ để hiện mật khẩu",
   or: "Hoặc",
   facebook: "Tiếp tục với Facebook",
   google: "Đăng nhập bằng Google",
@@ -1600,7 +1594,6 @@ function SignInScreen() {
   return (
     <main className="sign-in">
       <section className="sign-in__hero" aria-labelledby={heroTitleId}>
-        <p className="sign-in__badge">{c.badge}</p>
         <h1 className="sign-in__title" id={heroTitleId}>
           {[
             { accent: false, text: c.titleLead },
@@ -1643,10 +1636,7 @@ function SignInScreen() {
                 src={LOGO_SRC}
                 width={48}
               />
-              <div className="sign-in__brand-text">
-                <p className="sign-in__brand-name">{c.brandName}</p>
-                <p className="sign-in__brand-tagline">{c.brandTagline}</p>
-              </div>
+              <p className="sign-in__brand-name">{c.brandName}</p>
             </div>
             <button
               className="sign-in__switch"
@@ -1892,8 +1882,21 @@ function LoginFormBody({
   const focusIdentifierOnCloseRef = useRef(false);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  /** UI-AUTH-04: the eye button; back to hidden on submit and every switch. */
+  /**
+   * UI-AUTH-04: the eye button reveals the password only while it is held;
+   * also back to hidden on submit and every switch.
+   */
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const concealPassword = () => setPasswordVisible(false);
+  useEffect(() => {
+    if (!passwordVisible) {
+      return;
+    }
+    // Switching windows mid-hold may never deliver the release event.
+    const conceal = () => setPasswordVisible(false);
+    window.addEventListener("blur", conceal);
+    return () => window.removeEventListener("blur", conceal);
+  }, [passwordVisible]);
   /** Only read with `sessionPersistence="optIn"` (/account-link). */
   const [keepSignedInChecked, setKeepSignedInChecked] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
@@ -2501,12 +2504,47 @@ function LoginFormBody({
                 type={passwordVisible ? "text" : "password"}
                 value={password}
               />
+              {/*
+               * Press-and-hold reveal: the password shows only while the
+               * pointer (mouse, touch, pen) or Space/Enter is held down and
+               * hides again on release, cancel, blur or window switch.
+               */}
               <button
                 aria-controls={ids.password}
-                aria-label={passwordVisible ? c.hidePassword : c.showPassword}
+                aria-label={c.holdToShowPassword}
                 aria-pressed={passwordVisible}
                 className="sign-in-input-group__toggle"
-                onClick={() => setPasswordVisible((value) => !value)}
+                onBlur={concealPassword}
+                // Long-press on touch screens would open the context menu.
+                onContextMenu={(event) => event.preventDefault()}
+                onKeyDown={(event) => {
+                  if (event.key === " " || event.key === "Enter") {
+                    event.preventDefault();
+                    setPasswordVisible(true);
+                  }
+                }}
+                onKeyUp={(event) => {
+                  if (event.key === " " || event.key === "Enter") {
+                    concealPassword();
+                  }
+                }}
+                onLostPointerCapture={concealPassword}
+                // Keep focus (and the caret) in the password field on click.
+                onMouseDown={(event) => event.preventDefault()}
+                onPointerCancel={concealPassword}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) {
+                    return;
+                  }
+                  try {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  } catch {
+                    // Capture is best effort; release on the button still hides.
+                  }
+                  setPasswordVisible(true);
+                }}
+                onPointerUp={concealPassword}
+                title={c.holdToShowPassword}
                 type="button"
               >
                 {passwordVisible ? (

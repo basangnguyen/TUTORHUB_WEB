@@ -178,6 +178,7 @@ async function openDevice(browser: Browser) {
   const context = await browser.newContext({
     baseURL: webOrigin,
     locale: "vi-VN",
+    reducedMotion: "reduce",
   });
   return { context, page: await context.newPage() };
 }
