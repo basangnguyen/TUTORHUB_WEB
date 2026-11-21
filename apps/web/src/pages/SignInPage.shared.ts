@@ -106,6 +106,9 @@ export const CALLBACK_ERROR_CODES = [
   "authentication_failed",
   "temporarily_unavailable",
   "rate_limited",
+  // AUTH-12B: the signed organization (`hd`/`tid`) does not match the
+  // school domain that enforces SSO.
+  "auth_sso_required",
 ] as const;
 
 export type CallbackErrorCode = (typeof CALLBACK_ERROR_CODES)[number];

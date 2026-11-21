@@ -2863,6 +2863,135 @@ const messages = {
     "workspace.adminMfaVerify": "Xác minh ngay",
     "workspace.adminMfaSetup": "Thiết lập xác minh hai lớp",
     "accountLink.verifyNow": "Xác minh hai lớp",
+    "schoolSSO.title": "SSO trường học",
+    "schoolSSO.description":
+      "Cho phép học sinh và giáo viên đăng nhập bằng tài khoản Google Workspace hoặc Microsoft Entra ID của trường sau khi bạn xác minh tên miền email qua DNS.",
+    "schoolSSO.loading": "Đang tải cấu hình SSO trường học",
+    "schoolSSO.errorTitle": "Không thể tải cấu hình SSO trường học",
+    "schoolSSO.errorDescription":
+      "Không thể tải kết nối và tên miền. Hãy kiểm tra kết nối mạng và thử lại.",
+    "schoolSSO.forbiddenTitle": "Không thể quản lý SSO trường học",
+    "schoolSSO.forbiddenDescription":
+      "Chỉ quản trị viên của workspace này mới quản lý được SSO trường học.",
+    "schoolSSO.assuranceTitle": "Cần xác minh hai bước",
+    "schoolSSO.assuranceDescription":
+      "Hãy xác minh bằng passkey hoặc ứng dụng xác thực để quản lý SSO trường học.",
+    "schoolSSO.verifyNow": "Xác minh ngay",
+    "schoolSSO.emptyTitle": "Chưa có kết nối SSO",
+    "schoolSSO.emptyDescription":
+      "Tạo kết nối Google Workspace hoặc Microsoft Entra ID, sau đó khai báo và xác minh tên miền email của trường.",
+    "schoolSSO.createTitle": "Tạo kết nối mới",
+    "schoolSSO.kindLabel": "Nhà cung cấp danh tính của trường",
+    "schoolSSO.kindGoogle": "Google Workspace",
+    "schoolSSO.kindEntra": "Microsoft Entra ID",
+    "schoolSSO.orgIDsGoogleLabel": "Tên miền tổ chức Google Workspace (hd)",
+    "schoolSSO.orgIDsEntraLabel": "Tenant ID của Microsoft Entra (tid)",
+    "schoolSSO.orgIDsGoogleHint":
+      "Mỗi dòng một tên miền (hoặc cách nhau bởi dấu phẩy), ví dụ truong.edu.vn.",
+    "schoolSSO.orgIDsEntraHint":
+      "Mỗi dòng một UUID (hoặc cách nhau bởi dấu phẩy), lấy từ trang Tổng quan của Microsoft Entra.",
+    "schoolSSO.orgIDsRequired": "Nhập ít nhất một giá trị.",
+    "schoolSSO.orgIDsInvalidGoogle":
+      "Mỗi giá trị phải là một tên miền hợp lệ, ví dụ truong.edu.vn.",
+    "schoolSSO.orgIDsInvalidEntra":
+      "Mỗi giá trị phải là một Tenant ID dạng UUID hợp lệ.",
+    "schoolSSO.orgIDsTooMany": "Tối đa 64 giá trị và không được trùng lặp.",
+    "schoolSSO.createAction": "Tạo kết nối",
+    "schoolSSO.createSuccess":
+      "Đã tạo kết nối. Kết nối đang tắt cho đến khi bạn bật.",
+    "schoolSSO.connectionsLabel": "Danh sách kết nối SSO",
+    "schoolSSO.statusEnabled": "Đang bật",
+    "schoolSSO.statusDisabled": "Đang tắt",
+    "schoolSSO.enforcedBadge": "Bắt buộc SSO",
+    "schoolSSO.enable": "Bật kết nối",
+    "schoolSSO.disable": "Tắt kết nối",
+    "schoolSSO.enabledSuccess": "Đã bật kết nối.",
+    "schoolSSO.disabledSuccess": "Đã tắt kết nối. Bắt buộc SSO cũng được tắt.",
+    "schoolSSO.saveOrgIDs": "Lưu danh sách tổ chức",
+    "schoolSSO.orgIDsSaved": "Đã lưu danh sách tổ chức.",
+    "schoolSSO.joinPolicyLabel": "Khi người mới đăng nhập qua SSO",
+    "schoolSSO.joinInvitation": "Cần lời mời",
+    "schoolSSO.joinStudent": "Tự động thêm làm Học sinh",
+    "schoolSSO.joinPolicyHint":
+      "Chỉ áp dụng cho tài khoản được trường xác thực trên tên miền đã xác minh.",
+    "schoolSSO.saveJoinPolicy": "Lưu chính sách",
+    "schoolSSO.joinPolicySaved": "Đã lưu chính sách tham gia.",
+    "schoolSSO.enforceLabel":
+      "Bắt buộc đăng nhập qua SSO trường học cho các tên miền đã xác minh",
+    "schoolSSO.enforceHint":
+      "Email thuộc tên miền đã xác minh sẽ không thể đăng nhập bằng mật khẩu, mã email hoặc đăng ký mới.",
+    "schoolSSO.enforceUnavailable":
+      "Bật kết nối và xác minh ít nhất một tên miền trước khi bắt buộc SSO.",
+    "schoolSSO.enforceConfirmTitle": "Bắt buộc SSO trường học?",
+    "schoolSSO.enforceConfirmDescription":
+      "Mọi người dùng có email thuộc {domains} sẽ chỉ đăng nhập được qua tài khoản {provider} của trường. Mật khẩu, mã email và đăng ký mới bằng các email này sẽ bị chặn.",
+    "schoolSSO.enforceConfirmAdminNote":
+      "Nếu email của bạn thuộc các tên miền này, hãy chắc chắn bạn vừa đăng nhập bằng tài khoản trường học trong 10 phút gần nhất để không tự khóa mình.",
+    "schoolSSO.enforceConfirm": "Bắt buộc SSO",
+    "schoolSSO.enforceOn": "Đã bật bắt buộc SSO trường học.",
+    "schoolSSO.enforceOff": "Đã tắt bắt buộc SSO trường học.",
+    "schoolSSO.cancel": "Hủy",
+    "schoolSSO.dialogCloseLabel": "Đóng hộp thoại",
+    "schoolSSO.domainsTitle": "Tên miền email",
+    "schoolSSO.domainsEmpty": "Chưa khai báo tên miền nào cho kết nối này.",
+    "schoolSSO.domainLabel": "Tên miền email của trường",
+    "schoolSSO.domainHint":
+      "Ví dụ truong.edu.vn — không nhập @, http:// hay đường dẫn.",
+    "schoolSSO.domainInvalid": "Nhập một tên miền hợp lệ, ví dụ truong.edu.vn.",
+    "schoolSSO.addDomain": "Khai báo tên miền",
+    "schoolSSO.domainPending": "Đang chờ DNS",
+    "schoolSSO.domainVerified": "Đã xác minh",
+    "schoolSSO.domainDisabled": "Đã vô hiệu hóa",
+    "schoolSSO.verifiedAt": "Xác minh lúc {time}",
+    "schoolSSO.verifyDNS": "Xác minh DNS",
+    "schoolSSO.rotate": "Đổi mã xác minh",
+    "schoolSSO.disableDomain": "Vô hiệu hóa",
+    "schoolSSO.disableConfirmTitle": "Vô hiệu hóa tên miền {domain}?",
+    "schoolSSO.disableConfirmDescription":
+      "Tên miền sẽ không còn định tuyến đăng nhập SSO và chính sách bắt buộc SSO không còn áp dụng cho email thuộc tên miền này. Muốn dùng lại, bạn cần khai báo và xác minh lại.",
+    "schoolSSO.disableConfirm": "Vô hiệu hóa tên miền",
+    "schoolSSO.domainVerifiedSuccess": "Đã xác minh tên miền {domain}.",
+    "schoolSSO.domainDisabledSuccess": "Đã vô hiệu hóa tên miền {domain}.",
+    "schoolSSO.domainCreatedSuccess":
+      "Đã khai báo tên miền {domain}. Hãy thêm bản ghi DNS TXT bên dưới.",
+    "schoolSSO.domainRotatedSuccess":
+      "Đã tạo mã xác minh mới cho {domain}. Mã cũ không còn dùng được.",
+    "schoolSSO.challengeTitle": "Bản ghi DNS TXT cho {domain}",
+    "schoolSSO.challengeDescription":
+      "Tạo bản ghi TXT này tại nhà cung cấp DNS của tên miền, đợi DNS cập nhật rồi bấm “Xác minh DNS”.",
+    "schoolSSO.challengeOneTime":
+      "Giá trị chỉ hiển thị một lần, lúc tạo hoặc đổi mã. Nếu làm mất, hãy dùng “Đổi mã xác minh”.",
+    "schoolSSO.txtNameLabel": "Tên bản ghi (Host)",
+    "schoolSSO.txtValueLabel": "Giá trị TXT",
+    "schoolSSO.copyName": "Sao chép tên bản ghi",
+    "schoolSSO.copyValue": "Sao chép giá trị TXT",
+    "schoolSSO.copied": "Đã sao chép.",
+    "schoolSSO.copyManual":
+      "Không thể sao chép tự động. Hãy chọn nội dung và sao chép thủ công.",
+    "schoolSSO.challengeDone": "Tôi đã lưu bản ghi",
+    "schoolSSO.errorLockout":
+      "Để không tự khóa tài khoản, bạn cần đăng nhập bằng tài khoản trường học khớp với kết nối này trong 10 phút gần nhất trước khi bật bắt buộc SSO hoặc đổi danh sách tổ chức cho tên miền email của chính bạn. Hãy đăng xuất, chọn “Đăng nhập bằng SSO trường học” rồi thử lại.",
+    "schoolSSO.errorDNSMismatch":
+      "Chưa tìm thấy bản ghi TXT khớp. Kiểm tra bản ghi {record} có đúng giá trị mới nhất, đợi DNS cập nhật (có thể mất vài phút) rồi thử lại.",
+    "schoolSSO.errorConflict":
+      "Thao tác xung đột với trạng thái hiện tại: tên miền có thể đã được xác minh ở workspace khác, nhà cung cấp chưa được bật trên hệ thống, kết nối đang tắt hoặc chưa có tên miền nào được xác minh. Hãy kiểm tra rồi thử lại.",
+    "schoolSSO.errorInvalid":
+      "Giá trị không hợp lệ. Kiểm tra tên miền, danh sách tổ chức và chính sách rồi thử lại.",
+    "schoolSSO.errorForbidden":
+      "Bạn không còn quyền quản trị SSO trường học cho workspace này.",
+    "schoolSSO.errorNotFound":
+      "Không tìm thấy kết nối hoặc tên miền. Có thể nó vừa thay đổi; hãy tải lại.",
+    "schoolSSO.errorRateLimited":
+      "Bạn thao tác quá nhanh. Thử lại sau {seconds} giây.",
+    "schoolSSO.errorRateLimitedGeneric":
+      "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.",
+    "schoolSSO.errorUnavailable":
+      "Dịch vụ SSO trường học hoặc tra cứu DNS tạm thời không khả dụng. Vui lòng thử lại sau.",
+    "schoolSSO.errorStepUp":
+      "Cần xác nhận lại danh tính để tiếp tục. Hãy thử lại.",
+    "schoolSSO.errorNetwork":
+      "Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.",
+    "schoolSSO.errorGeneric": "Không thể hoàn tất thao tác. Vui lòng thử lại.",
   },
   en: {
     "privateAlpha.loading": "Loading Private Alpha enrollment",
@@ -5740,6 +5869,135 @@ const messages = {
     "workspace.adminMfaVerify": "Verify now",
     "workspace.adminMfaSetup": "Set up two-step verification",
     "accountLink.verifyNow": "Verify with a second factor",
+    "schoolSSO.title": "School SSO",
+    "schoolSSO.description":
+      "Let students and staff sign in with the school's Google Workspace or Microsoft Entra ID account once you verify the email domain through DNS.",
+    "schoolSSO.loading": "Loading school SSO settings",
+    "schoolSSO.errorTitle": "School SSO settings unavailable",
+    "schoolSSO.errorDescription":
+      "We could not load the connections and domains. Check the connection and try again.",
+    "schoolSSO.forbiddenTitle": "School SSO management unavailable",
+    "schoolSSO.forbiddenDescription":
+      "Only administrators of this workspace can manage school SSO.",
+    "schoolSSO.assuranceTitle": "Two-step verification required",
+    "schoolSSO.assuranceDescription":
+      "Verify with a passkey or your authenticator app to manage school SSO.",
+    "schoolSSO.verifyNow": "Verify now",
+    "schoolSSO.emptyTitle": "No school connection yet",
+    "schoolSSO.emptyDescription":
+      "Create a Google Workspace or Microsoft Entra ID connection, then add and verify the school's email domain.",
+    "schoolSSO.createTitle": "New connection",
+    "schoolSSO.kindLabel": "School identity provider",
+    "schoolSSO.kindGoogle": "Google Workspace",
+    "schoolSSO.kindEntra": "Microsoft Entra ID",
+    "schoolSSO.orgIDsGoogleLabel": "Google Workspace organization domains (hd)",
+    "schoolSSO.orgIDsEntraLabel": "Microsoft Entra tenant IDs (tid)",
+    "schoolSSO.orgIDsGoogleHint":
+      "One domain per line (or comma-separated), for example school.edu.",
+    "schoolSSO.orgIDsEntraHint":
+      "One UUID per line (or comma-separated), from the Microsoft Entra overview page.",
+    "schoolSSO.orgIDsRequired": "Enter at least one value.",
+    "schoolSSO.orgIDsInvalidGoogle":
+      "Each value must be a valid domain, for example school.edu.",
+    "schoolSSO.orgIDsInvalidEntra":
+      "Each value must be a valid tenant ID (UUID).",
+    "schoolSSO.orgIDsTooMany": "Use at most 64 values without duplicates.",
+    "schoolSSO.createAction": "Create connection",
+    "schoolSSO.createSuccess":
+      "Connection created. It stays disabled until you enable it.",
+    "schoolSSO.connectionsLabel": "School SSO connections",
+    "schoolSSO.statusEnabled": "Enabled",
+    "schoolSSO.statusDisabled": "Disabled",
+    "schoolSSO.enforcedBadge": "SSO required",
+    "schoolSSO.enable": "Enable connection",
+    "schoolSSO.disable": "Disable connection",
+    "schoolSSO.enabledSuccess": "Connection enabled.",
+    "schoolSSO.disabledSuccess":
+      "Connection disabled. Required SSO was turned off too.",
+    "schoolSSO.saveOrgIDs": "Save organization list",
+    "schoolSSO.orgIDsSaved": "Organization list saved.",
+    "schoolSSO.joinPolicyLabel": "When someone new signs in through SSO",
+    "schoolSSO.joinInvitation": "Require an invitation",
+    "schoolSSO.joinStudent": "Add automatically as a student",
+    "schoolSSO.joinPolicyHint":
+      "Applies only to accounts the school authenticated on a verified domain.",
+    "schoolSSO.saveJoinPolicy": "Save policy",
+    "schoolSSO.joinPolicySaved": "Join policy saved.",
+    "schoolSSO.enforceLabel": "Require school SSO sign-in for verified domains",
+    "schoolSSO.enforceHint":
+      "Email addresses on verified domains can no longer use passwords, email codes or new sign-ups.",
+    "schoolSSO.enforceUnavailable":
+      "Enable the connection and verify at least one domain before requiring SSO.",
+    "schoolSSO.enforceConfirmTitle": "Require school SSO?",
+    "schoolSSO.enforceConfirmDescription":
+      "Everyone with an email address on {domains} will only be able to sign in with the school's {provider} account. Passwords, email codes and new sign-ups with these addresses will be blocked.",
+    "schoolSSO.enforceConfirmAdminNote":
+      "If your own email is on these domains, make sure you signed in with your school account in the last 10 minutes so you don't lock yourself out.",
+    "schoolSSO.enforceConfirm": "Require SSO",
+    "schoolSSO.enforceOn": "School SSO is now required.",
+    "schoolSSO.enforceOff": "School SSO is no longer required.",
+    "schoolSSO.cancel": "Cancel",
+    "schoolSSO.dialogCloseLabel": "Close dialog",
+    "schoolSSO.domainsTitle": "Email domains",
+    "schoolSSO.domainsEmpty": "No domain added for this connection yet.",
+    "schoolSSO.domainLabel": "School email domain",
+    "schoolSSO.domainHint": "For example school.edu — no @, http:// or path.",
+    "schoolSSO.domainInvalid": "Enter a valid domain, for example school.edu.",
+    "schoolSSO.addDomain": "Add domain",
+    "schoolSSO.domainPending": "Waiting for DNS",
+    "schoolSSO.domainVerified": "Verified",
+    "schoolSSO.domainDisabled": "Disabled",
+    "schoolSSO.verifiedAt": "Verified {time}",
+    "schoolSSO.verifyDNS": "Verify DNS",
+    "schoolSSO.rotate": "New verification code",
+    "schoolSSO.disableDomain": "Disable",
+    "schoolSSO.disableConfirmTitle": "Disable the domain {domain}?",
+    "schoolSSO.disableConfirmDescription":
+      "The domain will stop routing SSO sign-ins and required SSO will no longer apply to its email addresses. To use it again, add and verify it again.",
+    "schoolSSO.disableConfirm": "Disable domain",
+    "schoolSSO.domainVerifiedSuccess": "Domain {domain} verified.",
+    "schoolSSO.domainDisabledSuccess": "Domain {domain} disabled.",
+    "schoolSSO.domainCreatedSuccess":
+      "Domain {domain} added. Publish the DNS TXT record below.",
+    "schoolSSO.domainRotatedSuccess":
+      "A new verification code was created for {domain}. The previous one no longer works.",
+    "schoolSSO.challengeTitle": "DNS TXT record for {domain}",
+    "schoolSSO.challengeDescription":
+      "Create this TXT record at the domain's DNS provider, wait for DNS to update, then select “Verify DNS”.",
+    "schoolSSO.challengeOneTime":
+      "The value is shown only once, when it is created or replaced. If you lose it, use “New verification code”.",
+    "schoolSSO.txtNameLabel": "Record name (host)",
+    "schoolSSO.txtValueLabel": "TXT value",
+    "schoolSSO.copyName": "Copy record name",
+    "schoolSSO.copyValue": "Copy TXT value",
+    "schoolSSO.copied": "Copied.",
+    "schoolSSO.copyManual":
+      "Automatic copy is unavailable. Select the text and copy it manually.",
+    "schoolSSO.challengeDone": "I've saved the record",
+    "schoolSSO.errorLockout":
+      "To avoid locking yourself out, sign in with a school account that matches this connection within the last 10 minutes before you require SSO or change the organization list for your own email domain. Sign out, choose “Sign in with school SSO”, then try again.",
+    "schoolSSO.errorDNSMismatch":
+      "No matching TXT record was found yet. Check that {record} holds the latest value, wait for DNS to update (this can take a few minutes), then try again.",
+    "schoolSSO.errorConflict":
+      "This change conflicts with the current state: the domain may already be verified by another workspace, the provider may be off for this deployment, the connection may be disabled, or no domain is verified yet. Check and try again.",
+    "schoolSSO.errorInvalid":
+      "Some values are invalid. Check the domain, organization list and policy, then try again.",
+    "schoolSSO.errorForbidden":
+      "You no longer have permission to manage school SSO for this workspace.",
+    "schoolSSO.errorNotFound":
+      "The connection or domain was not found. It may have just changed; reload and try again.",
+    "schoolSSO.errorRateLimited":
+      "Too many attempts. Try again in {seconds} seconds.",
+    "schoolSSO.errorRateLimitedGeneric":
+      "Too many attempts. Please try again in a few minutes.",
+    "schoolSSO.errorUnavailable":
+      "School SSO or the DNS lookup is temporarily unavailable. Please try again later.",
+    "schoolSSO.errorStepUp":
+      "Please confirm it's you again to continue, then retry.",
+    "schoolSSO.errorNetwork":
+      "We could not reach the server. Check your connection and try again.",
+    "schoolSSO.errorGeneric":
+      "We could not complete that action. Please try again.",
   },
 } as const satisfies Record<Language, Record<string, string>>;
 

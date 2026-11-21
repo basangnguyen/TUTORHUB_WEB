@@ -275,3 +275,54 @@ func TestAuthFoundationValidationRunsWithoutOIDC(t *testing.T) {
 		}
 	}
 }
+
+// AUTH-12B: the loopback DNS TXT resolver exists only for Playwright on
+// APP_ENV=test and never accepts a non-loopback or ambiguous address.
+func TestE2EDNSUDPAddrIsTestOnlyLoopback(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		environment, value string
+		wantErr            bool
+	}{
+		{"production", "", false},
+		{"test", "", false},
+		{"test", "127.0.0.1:9095", false},
+		{"test", " 127.0.0.1:9095 ", false},
+		{"test", "127.0.0.1:65535", false},
+		{"development", "127.0.0.1:9095", true},
+		{"staging", "127.0.0.1:9095", true},
+		{"production", "127.0.0.1:9095", true},
+		{"test", "127.0.0.1:0", true},
+		{"test", "127.0.0.1:65536", true},
+		{"test", "127.0.0.1", true},
+		{"test", "127.0.0.2:9095", true},
+		{"test", "0.0.0.0:9095", true},
+		{"test", "localhost:9095", true},
+		{"test", "[::1]:9095", true},
+		{"test", "8.8.8.8:53", true},
+		{"test", "127.0.0.1:09095", true},
+		{"test", "udp://127.0.0.1:9095", true},
+	} {
+		values := map[string]string{}
+		if test.value != "" {
+			values["AUTH_E2E_DNS_UDP_ADDR"] = test.value
+		}
+		var failures []error
+		var cfg AuthenticationConfig
+		configureAuthFoundation(&cfg, mapLookup(values), test.environment, &failures)
+		if (len(failures) > 0) != test.wantErr {
+			t.Errorf("%s=%q errors=%v", test.environment, test.value, failures)
+		}
+		if !test.wantErr && cfg.E2EDNSUDPAddr != strings.TrimSpace(test.value) {
+			t.Errorf("%s=%q address=%q", test.environment, test.value, cfg.E2EDNSUDPAddr)
+		}
+	}
+	cfg, err := load(mapLookup(nil))
+	if err != nil || cfg.Authentication.E2EDNSUDPAddr != "" {
+		t.Fatalf("the system resolver must stay the default: %v", err)
+	}
+	if _, err := load(mapLookup(map[string]string{"APP_ENV": "production", "AUTH_E2E_DNS_UDP_ADDR": "127.0.0.1:9095"})); err == nil ||
+		!strings.Contains(err.Error(), "AUTH_E2E_DNS_UDP_ADDR") {
+		t.Fatalf("production accepted the loopback resolver: %v", err)
+	}
+}

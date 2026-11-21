@@ -233,3 +233,72 @@ func TestProviderReservesTheCustomAccountID(t *testing.T) {
 		t.Fatal("a configured account may not use the reserved custom account id")
 	}
 }
+
+// AUTH-12B: the fake Google can sign in a Google Workspace account whose ID
+// token (and user info) carries the `hd` claim; without it the account looks
+// like a consumer account. Malformed domains are refused.
+func TestProviderCustomAccountsCarryAnOptionalHostedDomain(t *testing.T) {
+	running := startCustomTestProvider(t, true)
+	chooser := openChooser(t, running)
+	if !strings.Contains(chooser, `name="custom_hd"`) {
+		t.Fatalf("the Google custom form must offer the hd field: %s", chooser)
+	}
+
+	status, code := completeCustom(t, running, requestIDFrom(t, chooser), url.Values{
+		"custom_email": {"learner@school.example.test"},
+		"custom_hd":    {"  School.Example.TEST "},
+	})
+	if status != http.StatusSeeOther || code == "" {
+		t.Fatalf("workspace account was not authorized: status=%d", status)
+	}
+	token := exchangeCode(t, running.client, running, code, testVerifier)
+	parts := strings.Split(token.IDToken, ".")
+	var claims map[string]any
+	decodeBase64JSON(t, parts[1], &claims)
+	if claims["hd"] != "school.example.test" || claims["email"] != "learner@school.example.test" || claims["email_verified"] != true {
+		t.Fatalf("unexpected workspace ID token claims: %#v", claims)
+	}
+	userInfoRequest, _ := http.NewRequest(http.MethodGet, running.issuer+"/userinfo", nil)
+	userInfoRequest.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	userInfoResponse, err := running.client.Do(userInfoRequest)
+	if err != nil {
+		t.Fatalf("request user info: %v", err)
+	}
+	defer userInfoResponse.Body.Close()
+	var userInfo map[string]any
+	decodeJSON(t, userInfoResponse.Body, &userInfo)
+	if userInfo["hd"] != "school.example.test" {
+		t.Fatalf("user info must carry hd: %#v", userInfo)
+	}
+
+	status, code = completeCustom(t, running, requestIDFrom(t, openChooser(t, running)), url.Values{
+		"custom_email": {"learner@school.example.test"},
+	})
+	if status != http.StatusSeeOther || code == "" {
+		t.Fatalf("consumer account was not authorized: status=%d", status)
+	}
+	if consumer := idTokenClaims(t, running, code); consumer["hd"] != nil || consumer["sub"] != claims["sub"] {
+		t.Fatalf("an empty hd must be omitted and keep the subject: %#v", consumer)
+	}
+
+	for name, domain := range map[string]string{
+		"single label":   "localhost",
+		"empty label":    "school..example",
+		"leading hyphen": "-school.example",
+		"trailing dot":   "school.example.",
+		"underscore":     "school_x.example",
+		"unicode":        "trường.example",
+		"url":            "https://school.example",
+		"too long label": strings.Repeat("a", 64) + ".example",
+	} {
+		t.Run(name, func(t *testing.T) {
+			status, code := completeCustom(t, running, requestIDFrom(t, openChooser(t, running)), url.Values{
+				"custom_email": {"learner@school.example.test"},
+				"custom_hd":    {domain},
+			})
+			if status != http.StatusBadRequest || code != "" {
+				t.Fatalf("invalid hd %q accepted: status=%d", domain, status)
+			}
+		})
+	}
+}

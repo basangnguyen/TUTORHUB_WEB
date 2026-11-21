@@ -1,0 +1,192 @@
+/* AUTH-12B: school domain SSO administration (WorkspaceManagementPage). */
+
+.school-sso__feedback {
+  margin: 0 0 16px !important;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.school-sso__feedback--success {
+  border-left: 3px solid var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.school-sso__feedback--error {
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.school-sso__connections {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.school-sso__connection {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.school-sso__connection-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.school-sso__connection h3,
+.school-sso__create h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.school-sso__domains h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.school-sso__challenge h5 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.school-sso__org-ids {
+  margin-top: 6px !important;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.school-sso__badges,
+.school-sso__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.school-sso__enforce {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.school-sso__enforce input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: var(--color-accent);
+}
+
+.school-sso__enforce label {
+  font-weight: 600;
+}
+
+.school-sso__enforce p,
+.school-sso__muted {
+  margin-top: 4px !important;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.school-sso__form,
+.school-sso__create {
+  display: grid;
+  gap: 12px;
+}
+
+.school-sso__create {
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.school-sso__domain-list {
+  display: grid;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.school-sso__domain-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.school-sso__domain-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.school-sso__domain-name strong {
+  overflow-wrap: anywhere;
+}
+
+.school-sso__domain-name svg {
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-muted);
+}
+
+.school-sso__domain-form {
+  margin-top: 4px;
+}
+
+.school-sso__challenge {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px dashed var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.school-sso__challenge-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.school-sso__challenge-field input {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.school-sso__warning {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .school-sso__connection-header,
+  .school-sso__challenge-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .school-sso__connection-header {
+    flex-direction: column;
+  }
+}

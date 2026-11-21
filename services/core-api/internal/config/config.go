@@ -189,6 +189,10 @@ type AuthenticationConfig struct {
 	PhoneStaleAfter              time.Duration
 	PhoneReclaimAfter            time.Duration
 	E2EIPRateLimitMultiplier     int
+	// E2EDNSUDPAddr (AUTH_E2E_DNS_UDP_ADDR) points school-domain TXT lookups
+	// at a loopback DNS responder run by Playwright. Accepted only as
+	// 127.0.0.1:<port> with APP_ENV=test; empty uses the system resolver.
+	E2EDNSUDPAddr string
 }
 
 // Configurations containing credentials must stay opaque in diagnostics, even

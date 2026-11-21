@@ -6,7 +6,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	"github.com/tutorhub-v2/core-api/internal/modules/audit"
 	"github.com/tutorhub-v2/core-api/internal/modules/identity"
 	"github.com/tutorhub-v2/core-api/internal/policy"
+	"golang.org/x/net/dns/dnsmessage"
 )
 
 type schoolFixtureDNS struct{ name, value string }
@@ -147,5 +150,75 @@ func TestSchoolSSOPostgresHTTP(t *testing.T) {
 		if err := owner.QueryRow(ctx, "SELECT count(*) FROM tutorhub.audit_events WHERE tenant_id=$1 AND actor_user_id=$2 AND action=$3 AND outcome=$4", tenantID, adminID, want.action, want.outcome).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("audit %v count=%d, err=%v", want, count, err)
 		}
+	}
+}
+
+// AUTH-12B: the loopback resolver used by Playwright answers through Go's DNS
+// client (wire format, rooted names, NXDOMAIN), and production keeps the
+// system resolver. No public DNS server is contacted.
+func TestSchoolSSOLoopbackDNSResolver(t *testing.T) {
+	if schoolSSOResolver(config.AuthenticationConfig{}) != nil {
+		t.Fatal("an unset AUTH_E2E_DNS_UDP_ADDR must keep the system resolver")
+	}
+	conn, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	const record = "_tutorhub-challenge.school.example."
+	const value = "tutorhub-site-verification=loopback-fixture"
+	go serveLoopbackTXT(conn, record, value)
+
+	resolver := schoolSSOResolver(config.AuthenticationConfig{E2EDNSUDPAddr: conn.LocalAddr().String()})
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	records, err := resolver.LookupTXT(ctx, record)
+	if err != nil || len(records) != 1 || records[0] != value {
+		t.Fatalf("loopback TXT lookup = %q, %v", records, err)
+	}
+	_, err = resolver.LookupTXT(ctx, "_tutorhub-challenge.unknown.example.")
+	var dnsErr *net.DNSError
+	if !errors.As(err, &dnsErr) || !dnsErr.IsNotFound {
+		t.Fatalf("an unpublished record must be NXDOMAIN, got %v", err)
+	}
+}
+
+func serveLoopbackTXT(conn net.PacketConn, record, value string) {
+	buffer := make([]byte, 1500)
+	for {
+		n, peer, err := conn.ReadFrom(buffer)
+		if err != nil {
+			return
+		}
+		var parser dnsmessage.Parser
+		header, err := parser.Start(buffer[:n])
+		if err != nil {
+			continue
+		}
+		question, err := parser.Question()
+		if err != nil {
+			continue
+		}
+		reply := dnsmessage.Header{ID: header.ID, Response: true, Authoritative: true, RecursionDesired: header.RecursionDesired}
+		found := strings.EqualFold(question.Name.String(), record) && question.Type == dnsmessage.TypeTXT
+		if !found {
+			reply.RCode = dnsmessage.RCodeNameError
+		}
+		builder := dnsmessage.NewBuilder(nil, reply)
+		builder.EnableCompression()
+		if builder.StartQuestions() != nil || builder.Question(question) != nil || builder.StartAnswers() != nil {
+			continue
+		}
+		if found {
+			resource := dnsmessage.ResourceHeader{Name: question.Name, Type: dnsmessage.TypeTXT, Class: dnsmessage.ClassINET, TTL: 1}
+			if builder.TXTResource(resource, dnsmessage.TXTResource{TXT: []string{value}}) != nil {
+				continue
+			}
+		}
+		message, err := builder.Finish()
+		if err != nil {
+			continue
+		}
+		_, _ = conn.WriteTo(message, peer)
 	}
 }

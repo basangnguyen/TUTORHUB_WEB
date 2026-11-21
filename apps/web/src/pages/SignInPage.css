@@ -1657,3 +1657,35 @@
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+/* AUTH-12B: school SSO (Home Realm Discovery). The outline button keeps the
+   passkey button's 5.48:1 contrast; answers reuse the info alert. */
+.sign-in-form__school-sso {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.sign-in-button--school,
+.sign-in-sso__continue {
+  gap: 10px;
+}
+
+.sign-in-sso {
+  display: grid;
+  gap: 8px;
+}
+
+.sign-in-sso__status {
+  margin: 0;
+}
+
+.sign-in-sso__continue[aria-disabled="true"] {
+  opacity: 0.7;
+}
+
+.sign-in-sso__mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}

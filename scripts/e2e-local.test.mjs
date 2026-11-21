@@ -10,6 +10,7 @@ import {
   buildWindowsTreeKillCommand,
   buildE2EEnvironment,
   createRuntimeSecrets,
+  e2eSchoolDNSAddress,
   facebookFixtureClientID,
   facebookSecretHandoffKey,
   googleFixtureClientID,
@@ -262,6 +263,9 @@ test("native auth stays off by default and inherited auth settings pass through 
   assert.equal(standard.AUTH_PHONE_SENDER, undefined);
   assert.equal(standard.AUTH_PHONE_ALLOWED_COUNTRIES, undefined);
   assert.equal(standard.AUTH_PHONE_OTP_DAILY_QUOTA, undefined);
+  // AUTH-12: school SSO and its loopback DNS resolver stay off by default.
+  assert.equal(standard.AUTH_SSO_DOMAINS_ENABLED, undefined);
+  assert.equal(standard.AUTH_E2E_DNS_UDP_ADDR, undefined);
   assert.deepEqual(publicOriginsFor({}), {
     api: "http://127.0.0.1:8080",
     web: "http://127.0.0.1:5173",
@@ -348,6 +352,11 @@ test("native auth enables sign-up, password and email-code login, device managem
     assert.equal(environment.AUTH_PHONE_SENDER, "devinbox");
     assert.equal(environment.AUTH_PHONE_ALLOWED_COUNTRIES, "VN");
     assert.equal(environment.AUTH_PHONE_OTP_DAILY_QUOTA, "200");
+    // AUTH-12: school SSO with TXT lookups on the spec's loopback DNS
+    // responder (the API accepts the address only with APP_ENV=test).
+    assert.equal(environment.AUTH_SSO_DOMAINS_ENABLED, "true");
+    assert.equal(environment.AUTH_E2E_DNS_UDP_ADDR, e2eSchoolDNSAddress);
+    assert.equal(e2eSchoolDNSAddress, "127.0.0.1:9095");
     assert.equal(environment.APP_ENV, "test");
     // AUTH-05: Google points at the loopback fake with fixture credentials.
     assert.equal(environment.AUTH_PROVIDER_GOOGLE_ENABLED, "true");
@@ -621,7 +630,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",\s*"\*\*\/auth-09-\*\.spec\.ts",\s*"\*\*\/auth-10-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",\s*"\*\*\/auth-09-\*\.spec\.ts",\s*"\*\*\/auth-10-\*\.spec\.ts",\s*"\*\*\/auth-12-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -645,11 +654,12 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   assert.ok(nativeSpecs.includes("auth-08-passkeys.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-09-mfa-totp.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-10-phone-otp.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-12-school-sso.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
         /^auth-0[456789]-.*\.spec\.ts$/.test(name) ||
-        /^auth-10-.*\.spec\.ts$/.test(name),
+        /^auth-1[02]-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }

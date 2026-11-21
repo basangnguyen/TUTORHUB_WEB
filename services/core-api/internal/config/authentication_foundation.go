@@ -85,6 +85,16 @@ func configureAuthFoundation(cfg *AuthenticationConfig, lookup lookupEnv, enviro
 	if cfg.E2EIPRateLimitMultiplier != 1 && environment != "test" {
 		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_E2E_IP_RATE_LIMIT_MULTIPLIER requires APP_ENV=test"))
 	}
+	// AUTH-12B: offline DNS TXT verification for loopback E2E only. Every
+	// other environment must resolve school domains through public DNS.
+	cfg.E2EDNSUDPAddr = strings.TrimSpace(valueOrDefault(lookup, "AUTH_E2E_DNS_UDP_ADDR", ""))
+	if cfg.E2EDNSUDPAddr != "" {
+		if environment != "test" {
+			*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_E2E_DNS_UDP_ADDR requires APP_ENV=test"))
+		} else if !validE2EDNSUDPAddr(cfg.E2EDNSUDPAddr) {
+			*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_E2E_DNS_UDP_ADDR must be 127.0.0.1:<port>"))
+		}
+	}
 	validateAuthSender("AUTH_EMAIL_SENDER", cfg.EmailSender, []string{"disabled", "devinbox", "smtp", "ses"}, development, cfg.DeliveryBudgetApproved, validationErrors)
 	if cfg.PhoneSender == "" {
 		*validationErrors = append(*validationErrors, errors.New("AUTH_PHONE_SENDER is not a supported sender"))
@@ -104,6 +114,14 @@ func configureAuthFoundation(cfg *AuthenticationConfig, lookup lookupEnv, enviro
 	} else if cfg.EmailSender == "smtp" {
 		*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_SMTP_ADDR is required for the smtp sender"))
 	}
+}
+
+// validE2EDNSUDPAddr accepts exactly the IPv4 loopback address with an
+// explicit, canonical non-zero port (no host names, IPv6 or wildcard binds).
+func validE2EDNSUDPAddr(value string) bool {
+	addr, err := netip.ParseAddrPort(value)
+	return err == nil && addr.Addr() == netip.AddrFrom4([4]byte{127, 0, 0, 1}) &&
+		addr.Port() != 0 && addr.String() == value
 }
 
 func validateAuthSender(key, sender string, allowed []string, development, budgetApproved bool, validationErrors *[]error) {

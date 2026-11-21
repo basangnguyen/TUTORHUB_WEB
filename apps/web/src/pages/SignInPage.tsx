@@ -3,6 +3,7 @@ import {
   buildOAuthStartURL,
   completeEmailSignup,
   completePasswordRecovery,
+  discoverAuthIdentifier,
   getPendingMFA,
   loginWithPassword,
   resendAuthChallenge,
@@ -32,6 +33,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -39,7 +41,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, School } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { DEFAULT_MFA_EXPIRES_IN_SECONDS, type MFAMethod } from "../app/mfa";
@@ -261,6 +263,22 @@ const en = {
   passkeyUnavailable:
     "Passkey sign-in isn't available right now. Please use another sign-in method.",
   passkeyFailed: "The passkey couldn't be used. Please try again.",
+  schoolSSOButton: "Sign in with school SSO",
+  schoolSSOChecking: "Checking your school's sign-in…",
+  schoolSSOEmailRequired:
+    "Enter your school email address to continue with school SSO.",
+  schoolSSORequired:
+    "{domain} requires signing in with your school's {provider} account.",
+  schoolSSOOptional:
+    "Your school ({domain}) supports signing in with its {provider} account. You can also continue with your password or an email code.",
+  schoolSSOContinue: "Continue with school {provider}",
+  schoolSSORedirecting: "Opening your school's sign-in…",
+  schoolSSONone:
+    "School SSO isn't set up for this email domain. Continue with another sign-in method.",
+  ssoRequired:
+    "This email address must sign in through your school's SSO. Use “Sign in with school SSO” with your school account.",
+  callbackSsoRequired:
+    "You can't sign in with that account: this email domain requires your school's SSO. Choose the Google or Microsoft account your school issued, or use “Sign in with school SSO”.",
 };
 
 type SignInCopy = Record<keyof typeof en, string>;
@@ -432,6 +450,22 @@ const vi: SignInCopy = {
   passkeyUnavailable:
     "Đăng nhập bằng passkey hiện không khả dụng. Vui lòng chọn cách đăng nhập khác.",
   passkeyFailed: "Không thể dùng passkey. Vui lòng thử lại.",
+  schoolSSOButton: "Đăng nhập bằng SSO trường học",
+  schoolSSOChecking: "Đang kiểm tra cổng đăng nhập của trường…",
+  schoolSSOEmailRequired:
+    "Nhập email trường học của bạn để tiếp tục với SSO trường học.",
+  schoolSSORequired:
+    "Tên miền {domain} yêu cầu đăng nhập bằng tài khoản {provider} của trường.",
+  schoolSSOOptional:
+    "Trường của bạn ({domain}) hỗ trợ đăng nhập bằng tài khoản {provider} của trường. Bạn vẫn có thể tiếp tục bằng mật khẩu hoặc mã email.",
+  schoolSSOContinue: "Tiếp tục với {provider} của trường",
+  schoolSSORedirecting: "Đang mở cổng đăng nhập của trường…",
+  schoolSSONone:
+    "Tên miền email này chưa bật SSO trường học. Hãy tiếp tục bằng phương thức đăng nhập khác.",
+  ssoRequired:
+    "Email này phải đăng nhập qua SSO của trường. Hãy dùng “Đăng nhập bằng SSO trường học” với tài khoản trường cấp.",
+  callbackSsoRequired:
+    "Không thể đăng nhập bằng tài khoản đó: tên miền email này yêu cầu đăng nhập qua SSO của trường. Hãy chọn đúng tài khoản Google hoặc Microsoft do trường cấp, hoặc dùng “Đăng nhập bằng SSO trường học”.",
 };
 
 const copyByLanguage: Record<Language, SignInCopy> = { en, vi };
@@ -450,6 +484,7 @@ function formatCopy(template: string, values: Record<string, string | number>) {
 
 const CALLBACK_ERROR_COPY: Record<CallbackErrorCode | "unknown", CopyKey> = {
   assurance_required: "callbackAssuranceRequired",
+  auth_sso_required: "callbackSsoRequired",
   authentication_failed: "callbackAuthenticationFailed",
   email_unverified: "callbackEmailUnverified",
   provider_unavailable: "callbackProviderUnavailable",
@@ -564,7 +599,12 @@ type AuthFailure =
   | { kind: "passkeyUnsupported" }
   | { kind: "passkeyUnavailable" }
   | { kind: "passkeyFailed" }
+  /** AUTH-12B: 403 `auth_sso_required` (domain-level, never account-level). */
+  | { kind: "ssoRequired" }
   | { kind: "generic" };
+
+/** AUTH-12A: the email's domain enforces school SSO (403). */
+const SSO_REQUIRED_CODE = "auth_sso_required";
 
 function boundedRetryAfter(value: number | undefined) {
   return typeof value === "number" && Number.isFinite(value) && value > 0
@@ -588,6 +628,10 @@ function authFailureFrom(error: unknown): AuthFailure {
       return { kind: "badRequest" };
     case 401:
       return { kind: "invalidCredentials" };
+    case 403:
+      return error.problem?.code === SSO_REQUIRED_CODE
+        ? { kind: "ssoRequired" }
+        : { kind: "generic" };
     case 429:
       return {
         kind: "rateLimited",
@@ -612,6 +656,9 @@ function passkeyFailureFrom(error: unknown): AuthFailure {
         ? { kind: "passkeyInvalid" }
         : { kind: "passkeyFailed" };
     case 403:
+      if (error.problem?.code === SSO_REQUIRED_CODE) {
+        return { kind: "ssoRequired" };
+      }
       return error.problem?.code === "auth_passkey_clone_detected"
         ? { kind: "passkeyClone" }
         : { kind: "passkeyFailed" };
@@ -670,6 +717,8 @@ function failureText(c: SignInCopy, failure: AuthFailure) {
       return c.passkeyUnavailable;
     case "passkeyFailed":
       return c.passkeyFailed;
+    case "ssoRequired":
+      return c.ssoRequired;
     default:
       return c.genericError;
   }
@@ -1009,7 +1058,8 @@ type StartEmailChallenge = (
  */
 type TransactionOwnerRef = RefObject<symbol | null>;
 
-type ChallengeOutcome = "sent" | "invalidEmail" | "failed" | "stale";
+type ChallengeOutcome =
+  "sent" | "invalidEmail" | "ssoRequired" | "failed" | "stale";
 
 /**
  * Shared start → resend → expiry state for the native email-code login and
@@ -1094,7 +1144,7 @@ function useEmailChallenge(
       const retryAfter = retryAfterOf(failure);
       if (retryAfter) startCooldown(retryAfter);
       setNotice({ kind: "failure", failure });
-      return "failed";
+      return failure.kind === "ssoRequired" ? "ssoRequired" : "failed";
     } finally {
       if (!isStale()) setRequesting(false);
     }
@@ -1148,6 +1198,187 @@ function codeErrorFor(code: EmailChallenge, otp: string): CopyKey | undefined {
   return OTP_PATTERN.test(otp.trim()) ? undefined : "errorOtp";
 }
 
+/**
+ * AUTH-12B Home Realm Discovery. `/auth/identifier/discover` answers at the
+ * domain level only (never whether an account exists), so every outcome
+ * below is safe to show for any typed address.
+ */
+export interface SchoolSSOOptions {
+  /** Server re-validates it; only same-origin SPA paths are sent. */
+  returnTo: string;
+}
+
+interface SchoolSSORoute {
+  domain: string;
+  provider: "google" | "microsoft";
+  required: boolean;
+}
+
+type SchoolSSOState =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "route"; email: string; focus: boolean; route: SchoolSSORoute }
+  | { kind: "none" }
+  | { kind: "failed"; failure: AuthFailure };
+
+function useSchoolSSO(
+  options: SchoolSSOOptions | undefined,
+  beforeRedirect?: () => Promise<void>,
+) {
+  const [state, setState] = useState<SchoolSSOState>({ kind: "idle" });
+  const [redirecting, setRedirecting] = useState(false);
+  const generationRef = useRef(0);
+  const returnTo = options?.returnTo;
+
+  const discover = useCallback(
+    async (email: string, focus = false) => {
+      if (returnTo === undefined) return;
+      const generation = ++generationRef.current;
+      setState({ kind: "checking" });
+      try {
+        const { kind, sso } = await discoverAuthIdentifier(
+          { identifier: email },
+          { baseUrl: getApiBaseUrl() },
+        );
+        if (generation !== generationRef.current) return;
+        if (kind === "email" && sso.available && sso.provider && sso.domain) {
+          setState({
+            kind: "route",
+            email,
+            focus,
+            route: {
+              domain: sso.domain,
+              provider: sso.provider,
+              required: sso.required,
+            },
+          });
+          return;
+        }
+        setState({ kind: "none" });
+      } catch (error) {
+        if (generation !== generationRef.current) return;
+        const failure = authFailureFrom(error);
+        setState({
+          kind: "failed",
+          failure:
+            failure.kind === "badRequest" ? { kind: "generic" } : failure,
+        });
+      }
+    },
+    [returnTo],
+  );
+
+  /** A typed address changed: any earlier answer belongs to another domain. */
+  const reset = useCallback(() => {
+    generationRef.current += 1;
+    setState((current) =>
+      current.kind === "idle" ? current : { kind: "idle" },
+    );
+  }, []);
+
+  const continueWith = useCallback(
+    async (email: string, route: SchoolSSORoute) => {
+      if (returnTo === undefined) return;
+      setRedirecting(true);
+      // Passkey autofill must not keep a WebAuthn request open behind us.
+      await beforeRedirect?.();
+      // A full-page navigation (never fetch): the server sets the flow
+      // cookie, checks the domain again and adds the provider's `hd`.
+      window.location.assign(
+        buildOAuthStartURL(
+          route.provider,
+          {
+            domain: route.domain,
+            intent: "login",
+            loginHint: email,
+            returnTo,
+          },
+          { baseUrl: getApiBaseUrl() },
+        ),
+      );
+    },
+    [beforeRedirect, returnTo],
+  );
+
+  return {
+    continueWith,
+    discover,
+    enabled: returnTo !== undefined,
+    redirecting,
+    reset,
+    state,
+  };
+}
+
+type SchoolSSO = ReturnType<typeof useSchoolSSO>;
+
+function schoolSSOProviderName(provider: SchoolSSORoute["provider"]) {
+  return provider === "microsoft" ? "Microsoft" : "Google";
+}
+
+function SchoolSSONotice({ sso }: { sso: SchoolSSO }) {
+  const c = useSignInCopy();
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const { state } = sso;
+  const focusContinue = state.kind === "route" && state.focus;
+
+  useEffect(() => {
+    if (focusContinue) continueRef.current?.focus();
+  }, [focusContinue, state]);
+
+  if (!sso.enabled) return null;
+  let text = "";
+  if (state.kind === "checking") text = c.schoolSSOChecking;
+  else if (state.kind === "none") text = c.schoolSSONone;
+  else if (state.kind === "failed") text = failureText(c, state.failure);
+  else if (state.kind === "route") {
+    text = formatCopy(
+      state.route.required ? c.schoolSSORequired : c.schoolSSOOptional,
+      {
+        domain: state.route.domain,
+        provider: schoolSSOProviderName(state.route.provider),
+      },
+    );
+  }
+  return (
+    <div className="sign-in-sso">
+      {/* Always mounted so assistive tech observes each answer. */}
+      <p
+        aria-live="polite"
+        className={
+          text
+            ? "sign-in-form__alert sign-in-form__alert--info sign-in-sso__status"
+            : "sign-in-sso__status"
+        }
+        role="status"
+      >
+        {text}
+      </p>
+      {state.kind === "route" ? (
+        <button
+          aria-disabled={sso.redirecting || undefined}
+          className="sign-in-button sign-in-button--primary sign-in-sso__continue"
+          onClick={() => {
+            if (!sso.redirecting)
+              void sso.continueWith(state.email, state.route);
+          }}
+          ref={continueRef}
+          type="button"
+        >
+          <School aria-hidden="true" className="sign-in-sso__mark" />
+          <span>
+            {sso.redirecting
+              ? c.schoolSSORedirecting
+              : formatCopy(c.schoolSSOContinue, {
+                  provider: schoolSSOProviderName(state.route.provider),
+                })}
+          </span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 interface FormAlertProps {
   failure: AuthFailure;
   onRetrySession?: () => void;
@@ -1160,7 +1391,8 @@ function FormAlert({ failure, onRetrySession }: FormAlertProps) {
       className={
         failure.kind === "mfaRequired" ||
         failure.kind === "mfaExpired" ||
-        failure.kind === "mfaRecoveryExpired"
+        failure.kind === "mfaRecoveryExpired" ||
+        failure.kind === "ssoRequired"
           ? "sign-in-form__alert sign-in-form__alert--info"
           : "sign-in-form__alert"
       }
@@ -1291,6 +1523,12 @@ function SignInScreen() {
 
   const providers =
     providersState.status === "ready" ? providersState.providers : null;
+  // AUTH-12B: Home Realm Discovery only while the deployment enables it.
+  const ssoDomainsEnabled = providers?.sso_domains_enabled === true;
+  const schoolSSO = useMemo<SchoolSSOOptions | undefined>(
+    () => (ssoDomainsEnabled ? { returnTo } : undefined),
+    [returnTo, ssoDomainsEnabled],
+  );
 
   function switchView() {
     setFocusFormOnMount(true);
@@ -1403,6 +1641,7 @@ function SignInScreen() {
               // Older servers omit the flag: absence means recovery is off.
               recoveryEnabled={providers?.password_recovery_enabled === true}
               resumePendingMfa={resumePendingMfa}
+              schoolSSO={schoolSSO}
               social={socialAvailabilityFor(providers)}
             />
           ) : (
@@ -1413,6 +1652,7 @@ function SignInScreen() {
               onSignIn={startSignIn}
               onTermsChanged={reloadProviders}
               passwordMinLength={passwordMinLengthFor(providers)}
+              schoolSSO={schoolSSO}
               termsVersion={providers?.legal_terms_version ?? null}
             />
           )}
@@ -1498,6 +1738,12 @@ export interface LoginFormProps {
    * (`GET /auth/mfa`) instead of asking for a first factor.
    */
   resumePendingMfa?: boolean;
+  /**
+   * AUTH-12B: `sso_domains_enabled` — offers "Sign in with school SSO"
+   * (Home Realm Discovery) and turns 403 `auth_sso_required` into a route to
+   * the school's provider. /account-link omits it.
+   */
+  schoolSSO?: SchoolSSOOptions;
   social: SocialAvailability;
 }
 
@@ -1536,6 +1782,7 @@ export function LoginForm({
   phoneEnabled = false,
   recoveryEnabled,
   resumePendingMfa = false,
+  schoolSSO,
   social,
 }: LoginFormProps) {
   const c = useSignInCopy();
@@ -1622,6 +1869,8 @@ export function LoginForm({
     onMfaRequired: showMfaChallenge,
   });
   const stopPasskeyAutofill = passkey.stopBackground;
+  const sso = useSchoolSSO(schoolSSO, stopPasskeyAutofill);
+  const discoverSchoolSSO = sso.discover;
 
   /** A password or emailed code passed: cancel autofill, then step two. */
   const enterMfa = useCallback(
@@ -1790,6 +2039,12 @@ export function LoginForm({
         setPassword("");
         passwordRef.current?.focus();
       }
+      if (shown.kind === "ssoRequired") {
+        // The password is never usable for this domain: drop it and offer
+        // the school's provider for the same address.
+        setPassword("");
+        if (EMAIL_PATTERN.test(trimmed)) void discoverSchoolSSO(trimmed);
+      }
       const retryAfter = retryAfterOf(shown);
       if (retryAfter) lock.start(retryAfter);
       setFailure(shown);
@@ -1805,6 +2060,21 @@ export function LoginForm({
     }
     rememberIdentifier(trimmed);
     await finishSession();
+  }
+
+  /** "Sign in with school SSO": discovery for the typed school email. */
+  function checkSchoolSSO() {
+    const trimmed = identifier.trim();
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      setErrors((current) => ({
+        ...current,
+        identifier: "schoolSSOEmailRequired",
+      }));
+      identifierRef.current?.focus();
+      return;
+    }
+    clearError("identifier");
+    void discoverSchoolSSO(trimmed, true);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1963,6 +2233,8 @@ export function LoginForm({
             setIdentifier(email);
             await enterMfa(methods, email);
           }}
+          onEmailEdited={sso.reset}
+          onSchoolSSORequired={(email) => void discoverSchoolSSO(email)}
           onVerified={(email) => {
             setPasswordResetDone(false);
             setIdentifier(email);
@@ -2024,6 +2296,7 @@ export function LoginForm({
               onChange={(event) => {
                 setIdentifier(event.target.value);
                 clearError("identifier");
+                sso.reset();
               }}
               placeholder={c.identifierPlaceholder}
               ref={identifierRef}
@@ -2102,6 +2375,22 @@ export function LoginForm({
               {c.usePhone}
             </button>
           ) : null}
+        </div>
+      ) : null}
+
+      {sso.enabled ? (
+        <div className="sign-in-form__school-sso">
+          {!usesEmailCode && !usesPhone ? (
+            <button
+              className="sign-in-button sign-in-button--outline sign-in-button--school"
+              onClick={checkSchoolSSO}
+              type="button"
+            >
+              <School aria-hidden="true" className="sign-in-sso__mark" />
+              <span>{c.schoolSSOButton}</span>
+            </button>
+          ) : null}
+          <SchoolSSONotice sso={sso} />
         </div>
       ) : null}
 
@@ -2253,6 +2542,7 @@ export function LoginForm({
               onPasswordReset={handlePasswordReset}
               passkeysEnabled={passkeysEnabled}
               passwordMinLength={passwordMinLength}
+              schoolSSO={schoolSSO}
               transactionOwnerRef={transactionOwnerRef}
             />
           ) : (
@@ -2265,6 +2555,10 @@ export function LoginForm({
 }
 
 interface EmailCodeLoginFormProps {
+  /** AUTH-12B: the typed address changed (a school SSO answer is stale). */
+  onEmailEdited?: () => void;
+  /** AUTH-12B: the address's domain enforces school SSO. */
+  onSchoolSSORequired?: (email: string) => void;
   autoFocus: boolean;
   initialEmail: string;
   keepSignedIn: boolean;
@@ -2294,7 +2588,9 @@ function EmailCodeLoginForm({
   keepSignedIn,
   notice,
   onAuthenticated,
+  onEmailEdited,
   onMfaRequired,
+  onSchoolSSORequired,
   onVerified,
   options,
   transactionOwnerRef,
@@ -2337,8 +2633,9 @@ function EmailCodeLoginForm({
     } else if (outcome === "invalidEmail") {
       setErrors((current) => ({ ...current, email: "errorEmail" }));
       emailRef.current?.focus();
-    } else if (outcome === "failed") {
+    } else if (outcome === "failed" || outcome === "ssoRequired") {
       emailRef.current?.focus();
+      if (outcome === "ssoRequired") onSchoolSSORequired?.(trimmedEmail);
     }
   }
 
@@ -2390,6 +2687,7 @@ function EmailCodeLoginForm({
         const retryAfter = retryAfterOf(next);
         if (retryAfter) lock.start(retryAfter);
         setFailure(next);
+        if (next.kind === "ssoRequired") onSchoolSSORequired?.(trimmedEmail);
       }
       setSubmitting(false);
       return;
@@ -2472,6 +2770,7 @@ function EmailCodeLoginForm({
             onChange={(event) => {
               setEmail(event.target.value);
               clearError("email");
+              onEmailEdited?.();
               if (code.challenge || code.requesting) {
                 code.invalidate();
                 setOtp("");
@@ -2572,6 +2871,8 @@ interface SignUpFormProps {
   /** Reloads `/auth/providers` after the server reports new legal terms. */
   onTermsChanged: () => void;
   passwordMinLength: number;
+  /** AUTH-12B: route a school SSO domain to its provider. */
+  schoolSSO?: SchoolSSOOptions;
   termsVersion: string | null;
 }
 
@@ -2592,6 +2893,7 @@ function SignUpForm({
   onSignIn,
   onTermsChanged,
   passwordMinLength,
+  schoolSSO,
   termsVersion,
 }: SignUpFormProps) {
   const c = useSignInCopy();
@@ -2613,6 +2915,8 @@ function SignUpForm({
   const legalReturnFocusRef = useRef<HTMLElement | null>(null);
   /** Bumped whenever the email changes so a late code response is discarded. */
   const codeRequestGenerationRef = useRef(0);
+  const sso = useSchoolSSO(schoolSSO);
+  const discoverSchoolSSO = sso.discover;
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -2728,6 +3032,7 @@ function SignUpForm({
         const retryAfter = retryAfterOf(next);
         if (retryAfter) cooldown.start(retryAfter);
         setCodeNotice({ kind: "failure", failure: next });
+        if (next.kind === "ssoRequired") void discoverSchoolSSO(trimmedEmail);
       }
       focusField("email");
     } finally {
@@ -2820,6 +3125,10 @@ function SignUpForm({
         const retryAfter = retryAfterOf(next);
         if (retryAfter) submitLock.start(retryAfter);
         setFailure(next);
+        if (next.kind === "ssoRequired") {
+          setPassword("");
+          void discoverSchoolSSO(email.trim());
+        }
       }
     }
   }
@@ -2978,6 +3287,7 @@ function SignUpForm({
               onChange={(event) => {
                 setEmail(event.target.value);
                 clearError("email");
+                sso.reset();
                 if (challenge || requestingCode) invalidateChallenge();
               }}
               placeholder={c.emailLabel}
@@ -3113,6 +3423,7 @@ function SignUpForm({
             onRetrySession={() => void finishSession()}
           />
         ) : null}
+        <SchoolSSONotice sso={sso} />
         <button
           aria-disabled={submitting || undefined}
           className="sign-in-button sign-in-button--primary"
@@ -3387,6 +3698,8 @@ interface NativeRecoverPasswordFormProps {
   onPasswordReset: () => Promise<void>;
   passkeysEnabled: boolean;
   passwordMinLength: number;
+  /** AUTH-12B: a school SSO domain cannot reset a local password. */
+  schoolSSO?: SchoolSSOOptions;
   transactionOwnerRef: TransactionOwnerRef;
 }
 
@@ -3401,6 +3714,7 @@ function NativeRecoverPasswordForm({
   onPasswordReset,
   passkeysEnabled,
   passwordMinLength,
+  schoolSSO,
   transactionOwnerRef,
 }: NativeRecoverPasswordFormProps) {
   const c = useSignInCopy();
@@ -3421,6 +3735,8 @@ function NativeRecoverPasswordForm({
   const [submitting, setSubmitting] = useState(false);
   const code = useEmailChallenge(startPasswordRecovery, transactionOwnerRef);
   const lock = useCountdown();
+  const sso = useSchoolSSO(schoolSSO);
+  const discoverSchoolSSO = sso.discover;
   const [mfa, setMfa] = useState<{
     id: number;
     methods: readonly MFAMethod[];
@@ -3460,8 +3776,9 @@ function NativeRecoverPasswordForm({
     } else if (outcome === "invalidEmail") {
       setErrors((current) => ({ ...current, email: "errorEmail" }));
       focusField("email");
-    } else if (outcome === "failed") {
+    } else if (outcome === "failed" || outcome === "ssoRequired") {
       focusField("email");
+      if (outcome === "ssoRequired") void discoverSchoolSSO(trimmedEmail);
     }
   }
 
@@ -3509,6 +3826,10 @@ function NativeRecoverPasswordForm({
           const retryAfter = retryAfterOf(next);
           if (retryAfter) lock.start(retryAfter);
           setFailure(next);
+          if (next.kind === "ssoRequired") {
+            setNewPassword("");
+            void discoverSchoolSSO(email.trim());
+          }
         }
       }
       setSubmitting(false);
@@ -3625,6 +3946,7 @@ function NativeRecoverPasswordForm({
             onChange={(event) => {
               setEmail(event.target.value);
               clearError("email");
+              sso.reset();
               if (code.challenge || code.requesting) {
                 code.invalidate();
                 setOtp("");
@@ -3713,6 +4035,7 @@ function NativeRecoverPasswordForm({
         </div>
 
         {failure ? <FormAlert failure={failure} /> : null}
+        <SchoolSSONotice sso={sso} />
         <button
           aria-disabled={submitting || undefined}
           className="sign-in-button sign-in-button--primary sign-in-recover__submit"

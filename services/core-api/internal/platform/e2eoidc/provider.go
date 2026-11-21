@@ -116,6 +116,8 @@ var (
         <label><input name="custom_email_withheld" type="checkbox" value="true"> Do not share email with the app</label>
         {{else}}
         <label><input name="custom_email_unverified" type="checkbox" value="true"> Email is not verified</label>
+        <label>Hosted domain (hd, optional) <input name="custom_hd" type="text" autocomplete="off" spellcheck="false"></label>
+        <p>Set hd to sign in as a Google Workspace account of that domain; leave it empty for a consumer account.</p>
         {{end}}
         {{end}}
         <button name="account" type="submit" value="{{.CustomAccountID}}">Sign in with custom account</button>
@@ -148,6 +150,9 @@ type Account struct {
 	ObjectID string
 	// DomainVerified is the Microsoft `xms_edov` claim; nil omits it.
 	DomainVerified *bool
+	// HostedDomain is the Google Workspace `hd` claim of a default (OIDC)
+	// flavor account; empty omits it, like a consumer Google account.
+	HostedDomain string
 }
 
 // Config describes a single confidential loopback client.
@@ -609,14 +614,18 @@ func (provider *Provider) userInfo(writer http.ResponseWriter, request *http.Req
 		return
 	}
 
-	writeJSON(writer, http.StatusOK, map[string]any{
+	info := map[string]any{
 		"sub":                grant.Account.Subject,
 		"email":              grant.Account.Email,
 		"email_verified":     !grant.Account.EmailUnverified,
 		"name":               grant.Account.DisplayName,
 		"preferred_username": grant.Account.Email,
 		"locale":             grant.Account.Locale,
-	})
+	}
+	if grant.Account.HostedDomain != "" {
+		info["hd"] = grant.Account.HostedDomain
+	}
+	writeJSON(writer, http.StatusOK, info)
 }
 
 func (provider *Provider) logout(writer http.ResponseWriter, request *http.Request) {
@@ -724,6 +733,9 @@ func (provider *Provider) signIDToken(code authorizationCode, now time.Time) (st
 	} else {
 		payload["email"] = code.Account.Email
 		payload["email_verified"] = !code.Account.EmailUnverified
+		if code.Account.HostedDomain != "" {
+			payload["hd"] = code.Account.HostedDomain
+		}
 	}
 	claims, err := encodeJSON(payload)
 	if err != nil {
@@ -771,6 +783,13 @@ func (provider *Provider) customAccount(form url.Values) (Account, bool) {
 			EmailWithheld: form.Get("custom_email_withheld") == "true",
 		}, true
 	}
+	// AUTH-12B: an optional Google Workspace hosted domain (`hd`). It is a
+	// test-only claim of the loopback fake; TutorHub itself decides whether it
+	// matches a verified school domain.
+	hostedDomain := strings.ToLower(strings.TrimSpace(form.Get("custom_hd")))
+	if hostedDomain != "" && !validHostedDomain(hostedDomain) {
+		return Account{}, false
+	}
 	return Account{
 		ID:              CustomAccountID,
 		Subject:         customSubjectPrefix + hex.EncodeToString(digest[:customSubjectHexBytes]),
@@ -778,7 +797,28 @@ func (provider *Provider) customAccount(form url.Values) (Account, bool) {
 		DisplayName:     localPart,
 		Locale:          "en",
 		EmailUnverified: form.Get("custom_email_unverified") == "true",
+		HostedDomain:    hostedDomain,
 	}, true
+}
+
+// validHostedDomain accepts a lowercase ASCII DNS name with at least two
+// labels of 1-63 letters, digits or inner hyphens (at most 253 octets).
+func validHostedDomain(domain string) bool {
+	labels := strings.Split(domain, ".")
+	if len(domain) > 253 || len(labels) < 2 {
+		return false
+	}
+	for _, label := range labels {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, character := range label {
+			if !(character >= 'a' && character <= 'z' || character >= '0' && character <= '9' || character == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // microsoftCustomAccount builds a Microsoft identity from the custom form: a

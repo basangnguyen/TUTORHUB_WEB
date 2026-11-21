@@ -118,6 +118,14 @@ export type AuthIdentifierDiscoverResponse =
 export type SSOConnection = components["schemas"]["SSOConnection"];
 export type SSODomain = components["schemas"]["SSODomain"];
 export type SSOChallenge = components["schemas"]["SSOChallenge"];
+export type SSOConnectionList = components["schemas"]["SSOConnectionList"];
+export type SSODomainList = components["schemas"]["SSODomainList"];
+export type CreateSSOConnectionRequest =
+  components["schemas"]["CreateSSOConnectionRequest"];
+export type UpdateSSOConnectionRequest =
+  components["schemas"]["UpdateSSOConnectionRequest"];
+export type CreateSSODomainRequest =
+  components["schemas"]["CreateSSODomainRequest"];
 export type CurrentUser = components["schemas"]["MeResponse"];
 export type CSRFResponse = components["schemas"]["CSRFResponse"];
 export type LogoutResponse = components["schemas"]["LogoutResponse"];
@@ -1955,6 +1963,208 @@ export async function updateTenantFeatureControls(
     error,
     response,
   );
+}
+
+/*
+ * AUTH-12B: school domain SSO administration for the active workspace's
+ * `org_admin`. Reads are never cached by the browser; every mutation carries
+ * the session CSRF token and the browser Origin, and the server additionally
+ * requires a recent authentication (403 `auth_recent_authentication_required`)
+ * and the account/administrator MFA policies. The one-time TXT value of an
+ * `SSOChallenge` is returned to the caller only and never stored here.
+ */
+
+function schoolSSOReadOptions(tenantID: string, options: APIRequestOptions) {
+  requireTenantScope(tenantID);
+  return {
+    params: { path: { tenant_id: tenantID } },
+    headers: { Accept: "application/json" },
+    signal: options.signal,
+    cache: "no-store" as const,
+  };
+}
+
+function schoolSSOMutationOptions(
+  tenantID: string,
+  csrfToken: string,
+  options: APIRequestOptions,
+) {
+  requireTenantScope(tenantID);
+  return securityMutationOptions(csrfToken, options);
+}
+
+export async function listSchoolSSOConnections(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<SSOConnectionList> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants/{tenant_id}/sso-connections",
+    schoolSSOReadOptions(tenantID, options),
+  );
+  return requireData<SSOConnectionList>(
+    data as SSOConnectionList | undefined,
+    error,
+    response,
+  );
+}
+
+export async function createSchoolSSOConnection(
+  tenantID: string,
+  input: CreateSSOConnectionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SSOConnection> {
+  const request = schoolSSOMutationOptions(tenantID, csrfToken, options);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/sso-connections",
+    {
+      ...request,
+      params: { ...request.params, path: { tenant_id: tenantID } },
+      body: input,
+    },
+  );
+  return requireData<SSOConnection>(
+    data as SSOConnection | undefined,
+    error,
+    response,
+  );
+}
+
+/**
+ * PATCH semantics: only the keys present in `input` change. Send
+ * `auto_join_role: null` explicitly to require invitations again.
+ */
+export async function updateSchoolSSOConnection(
+  tenantID: string,
+  connectionID: string,
+  input: UpdateSSOConnectionRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SSOConnection> {
+  const request = schoolSSOMutationOptions(tenantID, csrfToken, options);
+  const { data, error, response } = await createTutorHubClient(options).PATCH(
+    "/api/v1/tenants/{tenant_id}/sso-connections/{connection_id}",
+    {
+      ...request,
+      params: {
+        ...request.params,
+        path: { tenant_id: tenantID, connection_id: connectionID },
+      },
+      body: input,
+    },
+  );
+  return requireData<SSOConnection>(
+    data as SSOConnection | undefined,
+    error,
+    response,
+  );
+}
+
+export async function listSchoolSSODomains(
+  tenantID: string,
+  options: APIRequestOptions = {},
+): Promise<SSODomainList> {
+  const { data, error, response } = await createTutorHubClient(options).GET(
+    "/api/v1/tenants/{tenant_id}/sso-domains",
+    schoolSSOReadOptions(tenantID, options),
+  );
+  return requireData<SSODomainList>(
+    data as SSODomainList | undefined,
+    error,
+    response,
+  );
+}
+
+/** Returns the one-time `_tutorhub-challenge` TXT record to publish. */
+export async function createSchoolSSODomain(
+  tenantID: string,
+  input: CreateSSODomainRequest,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SSOChallenge> {
+  const request = schoolSSOMutationOptions(tenantID, csrfToken, options);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/sso-domains",
+    {
+      ...request,
+      params: { ...request.params, path: { tenant_id: tenantID } },
+      body: input,
+    },
+  );
+  return requireData<SSOChallenge>(
+    data as SSOChallenge | undefined,
+    error,
+    response,
+  );
+}
+
+/** Replaces the TXT value of a pending domain; the old value stops working. */
+export async function rotateSchoolSSODomain(
+  tenantID: string,
+  domainID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SSOChallenge> {
+  const request = schoolSSOMutationOptions(tenantID, csrfToken, options);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/rotate",
+    {
+      ...request,
+      params: {
+        ...request.params,
+        path: { tenant_id: tenantID, domain_id: domainID },
+      },
+      body: {},
+    },
+  );
+  return requireData<SSOChallenge>(
+    data as SSOChallenge | undefined,
+    error,
+    response,
+  );
+}
+
+/** 409 `auth_sso_dns_mismatch` while the published TXT record is not found. */
+export async function verifySchoolSSODomain(
+  tenantID: string,
+  domainID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SSODomain> {
+  const request = schoolSSOMutationOptions(tenantID, csrfToken, options);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/verify",
+    {
+      ...request,
+      params: {
+        ...request.params,
+        path: { tenant_id: tenantID, domain_id: domainID },
+      },
+      body: {},
+    },
+  );
+  return requireData<SSODomain>(data as SSODomain | undefined, error, response);
+}
+
+export async function disableSchoolSSODomain(
+  tenantID: string,
+  domainID: string,
+  csrfToken: string,
+  options: APIRequestOptions = {},
+): Promise<SSODomain> {
+  const request = schoolSSOMutationOptions(tenantID, csrfToken, options);
+  const { data, error, response } = await createTutorHubClient(options).POST(
+    "/api/v1/tenants/{tenant_id}/sso-domains/{domain_id}/disable",
+    {
+      ...request,
+      params: {
+        ...request.params,
+        path: { tenant_id: tenantID, domain_id: domainID },
+      },
+      body: {},
+    },
+  );
+  return requireData<SSODomain>(data as SSODomain | undefined, error, response);
 }
 
 export async function listHomeRecentFiles(

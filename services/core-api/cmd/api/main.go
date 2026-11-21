@@ -510,7 +510,7 @@ func run() int {
 		if cfg.Authentication.SSODomainsEnabled {
 			schoolDomains = mfaService
 			mfaService.ConfigureSSOMemberCapacity(featureControlEnforcer)
-			schoolSSO = identity.NewSchoolSSOService(mfaService, nil, cfg.Authentication.ProviderGoogleEnabled, cfg.Authentication.ProviderMicrosoftEnabled)
+			schoolSSO = identity.NewSchoolSSOService(mfaService, schoolSSOResolver(cfg.Authentication), cfg.Authentication.ProviderGoogleEnabled, cfg.Authentication.ProviderMicrosoftEnabled)
 		}
 		configuredService, err := identity.NewService(
 			repository,
@@ -814,6 +814,21 @@ func run() int {
 	}
 
 	return 0
+}
+
+// schoolSSOResolver returns nil (the system resolver, i.e. public DNS) unless
+// configuration validated AUTH_E2E_DNS_UDP_ADDR, which only APP_ENV=test
+// accepts as 127.0.0.1:<port>. The loopback resolver still runs Go's own DNS
+// client, so the production TXT parsing path is exercised end to end.
+func schoolSSOResolver(auth config.AuthenticationConfig) identity.DNSTXTResolver {
+	address := auth.E2EDNSUDPAddr
+	if address == "" {
+		return nil
+	}
+	return &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		var dialer net.Dialer
+		return dialer.DialContext(ctx, network, address)
+	}}
 }
 
 func featureControlGuardrails(configuration config.FeatureControlConfig) featurecontrol.Guardrails {

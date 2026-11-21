@@ -45,6 +45,12 @@ export function publicOriginsFor(baseEnvironment = {}) {
     : { api: localOrigins.api, web: localOrigins.web };
 }
 
+/**
+ * AUTH-12: loopback UDP address of the DNS TXT responder started by
+ * `e2e/auth-12-school-sso.spec.ts`; the API accepts it only with APP_ENV=test.
+ */
+export const e2eSchoolDNSAddress = "127.0.0.1:9095";
+
 /** Fixture client ID for the loopback fake Google; never a real client. */
 export const googleFixtureClientID = "tutorhub-e2e-google";
 /** Fixture app ID for the loopback fake Facebook; never a real Meta app. */
@@ -139,6 +145,12 @@ export const nativeAuthConfiguration = Object.freeze({
   AUTH_PHONE_SENDER: "devinbox",
   AUTH_PHONE_ALLOWED_COUNTRIES: "VN",
   AUTH_PHONE_OTP_DAILY_QUOTA: "200",
+  // AUTH-12: school domain SSO (DNS TXT verification, enforce_sso, JIT) on
+  // the fake Google/Microsoft issuers. TXT lookups go to a loopback DNS
+  // responder that the AUTH-12 spec runs itself (APP_ENV=test only), so
+  // public DNS is never queried.
+  AUTH_SSO_DOMAINS_ENABLED: "true",
+  AUTH_E2E_DNS_UDP_ADDR: e2eSchoolDNSAddress,
 });
 
 const commandOptions = Object.freeze({
@@ -796,7 +808,7 @@ function printHelp() {
     `  serve    Prepare and run fake OIDC, Core API, and web\n\n`,
   );
   process.stdout.write(
-    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, Facebook federation against a third one, Microsoft federation against a fourth one, passkeys and TOTP two-step verification; the browser-facing origins become http://localhost:5173 (web) and http://localhost:8080 (API callbacks) because WebAuthn rejects IP relying parties\n`,
+    `  --native-auth  Also enable email sign-up, password and email-code login, password recovery, step-up and device management, the loopback devinbox sender, Google federation against a second loopback fake issuer, Facebook federation against a third one, Microsoft federation against a fourth one, passkeys, TOTP two-step verification and school domain SSO (TXT lookups on a loopback DNS responder); the browser-facing origins become http://localhost:5173 (web) and http://localhost:8080 (API callbacks) because WebAuthn rejects IP relying parties\n`,
   );
 }
 

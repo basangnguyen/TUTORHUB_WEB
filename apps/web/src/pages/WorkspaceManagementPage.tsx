@@ -28,6 +28,7 @@ import {
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { useI18n, type TranslationKey } from "../app/i18n";
+import { useAuthProvidersQuery } from "../app/profile";
 import { useSession } from "../app/session";
 import {
   tenantOperationAvailability,
@@ -37,6 +38,7 @@ import { shouldConcealTenantScopedData } from "../app/tenantDataAccess";
 import { MembershipInvitationPanel } from "../components/MembershipInvitationPanel";
 import { TenantPrivateAlphaEnrollmentPanel } from "../components/TenantPrivateAlphaEnrollmentPanel";
 import { TenantFeatureControlsPanel } from "../components/TenantFeatureControlsPanel";
+import { TenantSchoolSSOPanel } from "../components/TenantSchoolSSOPanel";
 import {
   useArchiveTenant,
   useTenantDetail,
@@ -171,6 +173,9 @@ export function WorkspaceManagementPage() {
   const tenantList = useTenantList();
   const tenantDetail = useTenantDetail(activeTenantID);
   const tenantCapabilities = useTenantCapabilities(activeTenantID);
+  // AUTH-12B: the deployment flag gates school SSO administration.
+  const authProviders = useAuthProvidersQuery();
+  const schoolSSOEnabled = authProviders.data?.sso_domains_enabled === true;
   const canManage =
     session.currentUser?.permissions.includes("tenant.manage") ?? false;
   const canManageMembers =
@@ -317,6 +322,8 @@ export function WorkspaceManagementPage() {
             capabilities={tenantCapabilities}
             tenantID={tenant.id}
           />
+
+          {schoolSSOEnabled && <TenantSchoolSSOPanel tenantID={tenant.id} />}
 
           {canManageMembers && (
             <MembershipInvitationPanel
