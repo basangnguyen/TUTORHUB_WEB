@@ -534,6 +534,10 @@ export function AccountLinkPage() {
                       // auth_sso_required links back to /sign-in, where
                       // school SSO starts; the link cookie stays for later.
                       schoolSSOFallbackPath="/sign-in"
+                      // UI-AUTH-04: /sign-in is always persistent; linking
+                      // keeps its opt-in "Keep me signed in" checkbox.
+                      sessionPersistence="optIn"
+                      showLegalNotice={false}
                       social={NO_SOCIAL}
                     />
                   </div>

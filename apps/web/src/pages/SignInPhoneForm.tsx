@@ -255,8 +255,11 @@ export interface SignInPhoneFormProps {
    * caller leaves for the school SSO entry and explains why.
    */
   onSchoolSSORequired: () => void;
-  /** Keep-signed-in checkbox shared with the other first factors. */
-  options: ReactNode;
+  /**
+   * /account-link's opt-in keep-signed-in checkbox; /sign-in passes none
+   * (UI-AUTH-04: its sessions are always persistent).
+   */
+  options?: ReactNode;
   /**
    * The server binds one pending auth transaction to one browser cookie
    * (shared with the email-code and recovery flows): a replaced transaction

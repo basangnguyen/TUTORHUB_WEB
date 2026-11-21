@@ -130,14 +130,24 @@ function phoneForm() {
   });
 }
 
+function otpChannels(language: Language = "en") {
+  return screen.getByRole("group", {
+    name: language === "vi" ? "Nhận mã OTP qua" : "Receive the OTP by",
+  });
+}
+
+/** UI-AUTH-04: "Log in with OTP", then the Phone channel (both are on). */
 async function openPhone(language: Language = "en") {
   await renderSignIn(language);
   fireEvent.click(
     screen.getByRole("button", {
-      name:
-        language === "vi"
-          ? "Đăng nhập bằng số điện thoại"
-          : "Log in with a phone number",
+      name: language === "vi" ? "Đăng nhập với OTP" : "Log in with OTP",
+    }),
+  );
+  await settle();
+  fireEvent.click(
+    within(otpChannels(language)).getByRole("button", {
+      name: language === "vi" ? "Số điện thoại" : "Phone",
     }),
   );
   await settle();
@@ -191,19 +201,23 @@ describe("SignInPage AUTH-10B phone sign-in", () => {
     vi.unstubAllGlobals();
   });
 
-  it("offers the phone method only while phone_enabled lists a region", async () => {
+  it("offers the phone channel only while phone_enabled lists a region", async () => {
     api.getAuthProviders.mockResolvedValue({
       ...PROVIDERS,
       phone_enabled: false,
     });
     await renderSignIn();
+    // Email code alone: "Log in with OTP" opens it, with no channel chooser.
+    fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
+    await settle();
     expect(
-      screen.queryByRole("button", { name: "Log in with a phone number" }),
-    ).toBeNull();
-    // The existing switches keep their names.
-    expect(
-      screen.getByRole("button", { name: "Log in with an email code" }),
+      screen.getByRole("form", {
+        name: "Log in with a code sent to your email",
+      }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: "Receive the OTP by" }),
+    ).toBeNull();
     cleanup();
 
     api.getAuthProviders.mockResolvedValue({
@@ -211,12 +225,60 @@ describe("SignInPage AUTH-10B phone sign-in", () => {
       phone_allowed_countries: [],
     });
     await renderSignIn();
+    fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
+    await settle();
     expect(
-      screen.queryByRole("button", { name: "Log in with a phone number" }),
+      screen.queryByRole("group", { name: "Receive the OTP by" }),
+    ).toBeNull();
+    cleanup();
+
+    // Phone alone: "Log in with OTP" opens the phone form directly.
+    api.getAuthProviders.mockResolvedValue({
+      ...PROVIDERS,
+      email_code_enabled: false,
+    });
+    await renderSignIn();
+    fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
+    await settle();
+    expect(phoneForm()).toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: "Receive the OTP by" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Log in with password" }),
+    ).toBeInTheDocument();
+  });
+
+  it("switches between the email and phone channels while both are on", async () => {
+    await openPhone();
+    const channels = otpChannels();
+    const email = within(channels).getByRole("button", { name: "Email" });
+    const phone = within(channels).getByRole("button", { name: "Phone" });
+    expect(phone).toHaveAttribute("aria-pressed", "true");
+    expect(email).toHaveAttribute("aria-pressed", "false");
+    expect(
+      within(phoneForm()).getByRole("textbox", { name: "Phone number" }),
+    ).toHaveFocus();
+
+    fireEvent.click(email);
+    await settle();
+    expect(
+      within(otpChannels()).getByRole("button", { name: "Email" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    const emailForm = screen.getByRole("form", {
+      name: "Log in with a code sent to your email",
+    });
+    expect(
+      within(emailForm).getByRole("textbox", { name: "Email Address" }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByRole("form", {
+        name: "Log in with a code sent to your phone",
+      }),
     ).toBeNull();
   });
 
-  it("sends a code to the typed number, resends after 60 s and signs in with keep-signed-in", async () => {
+  it("sends a code to the typed number, resends after 60 s and signs in with a persistent session", async () => {
     vi.useFakeTimers();
     api.startPhoneLogin.mockResolvedValue(challenge("phone-1"));
     api.resendAuthChallenge.mockResolvedValue(challenge("phone-2"));
@@ -235,13 +297,8 @@ describe("SignInPage AUTH-10B phone sign-in", () => {
     expect(
       within(form).getByRole("option", { name: "VN (+84)" }),
     ).toBeInTheDocument();
-    // Only an email is ever remembered: no Remember Me for a phone.
-    expect(
-      within(form).queryByRole("checkbox", { name: "Remember Me" }),
-    ).toBeNull();
-    fireEvent.click(
-      within(form).getByRole("checkbox", { name: "Keep me signed in" }),
-    );
+    // UI-AUTH-04: no checkbox; /sign-in always asks for a persistent session.
+    expect(within(form).queryByRole("checkbox")).toBeNull();
     await sendCode("0912 345 678");
 
     expect(api.startPhoneLogin).toHaveBeenCalledWith(
@@ -330,7 +387,7 @@ describe("SignInPage AUTH-10B phone sign-in", () => {
       2,
       {
         country_code: "VN",
-        keep_signed_in: false,
+        keep_signed_in: true,
         phone_number: "+84912345678",
       },
       { baseUrl: "/api" },
@@ -357,7 +414,7 @@ describe("SignInPage AUTH-10B phone sign-in", () => {
     expect(api.startPhoneLogin).toHaveBeenCalledWith(
       {
         country_code: "VN",
-        keep_signed_in: false,
+        keep_signed_in: true,
         phone_number: "02438221234",
       },
       { baseUrl: "/api" },

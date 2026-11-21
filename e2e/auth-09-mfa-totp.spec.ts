@@ -54,7 +54,7 @@ const labels = {
   logIn: /^(?:Đăng nhập|Log In)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   google: /^(?:Đăng nhập bằng Google|Sign in with Google)$/,
-  forgotPassword: /^(?:Quên mật khẩu|Forget Password)$/,
+  forgotPassword: /^(?:Quên mật khẩu|Forgot password)$/,
   recoverDialog: /^(?:Khôi phục mật khẩu|Recover Password)$/,
   recoverOtp: /^(?:Mã xác thực \(OTP\)|Authentication Code \(OTP\))$/,
   newPassword: /^(?:Mật khẩu mới|New Password)$/,

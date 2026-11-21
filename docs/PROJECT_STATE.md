@@ -4,18 +4,36 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                      |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-21                                                                                                                                      |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                  |
-| Nhánh làm việc       | `main`                                                                                                                                          |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                     |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                       |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                        |
-| Task `DONE` gần nhất | `AUTH-14` Adapter gửi Email OTP qua Resend HTTPS, migration `000052` & đóng gói CLI bảo trì vào OCI image (`AUTH-01..14` `DONE`)                |
-| Mốc repository mới   | PG 17.12 disposable `52 → 51 → 52` + `identity` `64/64` (`0` skip) + 4 ELF64 OCI tĩnh; Chromium E2E `34/34` + `1/1` `p2-08`; `web` `915/915`    |
-| Task hiện tại        | Chờ chủ dự án cấp domain/DNS SPF-DKIM trên Cloudflare & Resend + OAuth credentials để chạy rollout canary Public Beta (7/8 phương thức `0 USD`) |
-| Task tiếp theo       | Drain API cũ, forward migration `000043..000052` + `auth-provision` trên Neon, smoke image OCI, xác minh nhận thư Resend thật & đối soát `Q12`  |
+| Thuộc tính           | Trạng thái                                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-22                                                                                                                                              |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                          |
+| Nhánh làm việc       | `main`                                                                                                                                                  |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                             |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                               |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                                |
+| Task `DONE` gần nhất | `UI-AUTH-04` Tinh gọn giao diện `/sign-in` (Cách A: phiên bền mặc định, gộp OTP, bỏ Web Storage) & Go-live Public Beta trên `https://tutorhub.vn`       |
+| Mốc repository mới   | Neon `staging` ở `52 false` + exact runtime/maintenance ACL; Chromium E2E `34/34` `auth-02..13` + `1/1` `p2-08`; `@tutorhub/web` `919/919` (`100` file) |
+| Task hiện tại        | Xác nhận auto-deploy `UI-AUTH-04` trên `https://tutorhub.vn/sign-in` và theo dõi canary Public Beta (Email OTP Resend + Google + Microsoft + Passkey)   |
+| Task tiếp theo       | Lập lịch job hàng giờ `cmd/auth-maintenance` (GitHub Actions/cron), đối soát `Q12` trước khi gỡ ZITADEL; hoãn Facebook (chờ Meta duyệt) & `+84` ZNS     |
+
+### Checkpoint `UI-AUTH-04` Tinh gọn Giao diện `/sign-in` (Cách A) & Go-live Public Beta trên `https://tutorhub.vn` (`DONE`) — 2026-11-22
+
+Claude Code triển khai `UI-AUTH-04` trên `/sign-in` và `/account-link` theo đúng mockup Cách A đã được chủ dự án duyệt (Phase 0 được Gatekeeper duyệt mở rộng 1 dòng selector trong `AccountLinkPage.phone.test.tsx`); Gatekeeper (Antigravity) review diff/bảo mật, kiểm chứng độc lập toàn bộ cổng `pnpm verify` cùng bộ Playwright Chromium E2E trên cụm PostgreSQL 17.12 loopback disposable ở schema `000052`:
+
+- **Ô nhập có icon & nút ẩn/hiện mật khẩu (`SignInPage.tsx`, `SignInPage.css`)**:
+  - Ô định danh gắn icon `User` trang trí (`aria-hidden="true"`), giữ nguyên `autocomplete="username webauthn"` khi bật Passkey để trình duyệt tự gợi ý Passkey Conditional UI ngay tại ô nhập.
+  - Ô mật khẩu gắn icon `Lock` và nút `Eye`/`EyeOff` (`40×40px`, tương phản `7,6:1` trên nền trắng, ẩn `::-ms-reveal`/`::-ms-clear` của Edge, nhãn song ngữ `Hiện mật khẩu` ↔ `Ẩn mật khẩu` / `Show password` ↔ `Hide password` kèm `aria-pressed`). Mật khẩu tự động trở về `type="password"` khi submit, khi đổi chế độ mật khẩu ↔ OTP, và khi chuyển sang bước MFA, luồng SSO trường học, khôi phục mật khẩu hoặc tab Đăng ký.
+- **Cách A — Phiên bền mặc định trên `/sign-in` & Xóa sổ Web Storage (`SignInPage.tsx`, `AccountLinkPage.tsx`, `signInLegalContent.ts`)**:
+  - Bỏ hoàn toàn hai checkbox `Duy trì đăng nhập` (`Keep me signed in`) và `Ghi nhớ tôi` (`Remember Me`) trên `/sign-in`; `LoginForm` mặc định `sessionPersistence="persistent"` gửi `keep_signed_in: true` cho cả 4 đường nội bộ (mật khẩu, mã email, mã SĐT, Passkey nút bấm + Conditional UI), trong khi server giữ quyền trần thời hạn theo `ADR-0039` §3.3 (`30` ngày cho học sinh/giáo viên, `24` giờ cho `org_admin`). `/account-link` truyền `sessionPersistence="optIn"` và `showLegalNotice={false}`, giữ nguyên checkbox `Duy trì đăng nhập` mặc định bỏ chọn.
+  - Ngừng đọc và ghi khóa `tutorhub.remembered_email` trong `localStorage`; khi mount form đăng nhập sẽ gọi `localStorage.removeItem("tutorhub.remembered_email")` một lần (best-effort) để dọn sạch dấu vết bản cũ trên thiết bị. Cập nhật nội dung `signInLegalContent.ts` (`vi`/`en`) khớp hành vi mới và giữ nguyên `legal_terms_version` (`2026-11-16-v2.0`).
+- **Hàng tiện ích 2 cột, Gộp OTP & Thứ tự Social/Passkey/SSO (`SignInPage.tsx`, `SignInPhoneForm.tsx`)**:
+  - Ngay dưới nút `Đăng nhập` là hàng tiện ích gọn gồm `Quên mật khẩu` / `Forgot password` (trái, mở lại đúng hộp thoại khôi phục sẵn có; xóa nút cũ cuối trang) và `Đăng nhập với OTP` / `Log in with OTP` ↔ `Đăng nhập bằng mật khẩu` / `Log in with password` (phải). Khi cả `emailCodeEnabled` và `phoneAvailable` cùng bật mới hiện thanh chọn kênh `Email` | `Số điện thoại` (`role="group"` + `aria-pressed`); khi chỉ bật Email OTP (cấu hình Public Beta Tầng A) vào thẳng form mã email không dư bước chọn kênh.
+  - Chuẩn hóa thứ tự nút Social cố định `Google` → `Microsoft` → `Facebook`; chuyển `Đăng nhập bằng Passkey` (`KeyRound` + nút chữ `#047857` `5,48:1` WCAG AA) và `Đăng nhập bằng SSO trường học` (khi `sso_domains_enabled=true`) xuống dưới cụm Social và ngay trên dòng pháp lý luôn hiển thị (`... của TutorHub.` / `... of TutorHub.`); giữ `SchoolSSONotice` ngay trên vạch `Hoặc`.
+- **Mốc Go-live Hạ tầng Public Beta Tầng A trên `https://tutorhub.vn` (hoàn tất trong cùng phiên 2026-11-21/22)**:
+  - Tên miền chính thức `tutorhub.vn` ủy quyền NS về Cloudflare, gắn Custom Domain vào Cloudflare Pages `tutorhub-web`; xác minh DNS SPF/DKIM trên **Resend** (`noreply@tutorhub.vn`, `Verified`, `Resend Forge: Ready`); khởi tạo OAuth credentials thật cho **Google** (External Published), **Microsoft Entra** (`a97916fe-a94f-44b1-b382-fb321d1764bc`, multitenant + personal MSA kèm optional claims `email`, `xms_edov`) và **Facebook** (App ID `1113608711488162`, tạm giữ `AUTH_PROVIDER_FACEBOOK_ENABLED=false` trên Render khi ứng dụng Meta còn ở Development Mode).
+  - Nâng cấp nhánh **`staging`** (`neondb`) trên Neon `TUTORHUB_V2` lên ledger **`52 false`**, tạo role `tutorhub_auth_maintenance`, thu hẹp các quyền bảng lịch sử từ Phase 1 trên `tutorhub_runtime`/`PUBLIC` và chạy `cmd/auth-maintenance/provision` đạt `{"level":"INFO","msg":"auth ACL provisioned"}`. Deploy `tutorhub-core-api` (`Live`) trên Render và xác nhận `https://tutorhub.vn/api/ready` (`200`, `database: ready, object_storage: ready`) cùng `GET /api/v1/auth/providers` (`200`).
+- **Bằng chứng Gatekeeper cho `UI-AUTH-04`**: `pnpm verify` PASS (`@tutorhub/web` **`919/919`** trên `100` file — riêng nhóm `SignInPage*` + `AccountLinkPage*` `228/228` PASS, `@tutorhub/api-client` **`131/131`**, `security:test` **`89/89`**, `e2e:infra:test` **`18/18`**, `security:bundle` `209` file, Storybook build, Go `40` package + `go vet`), `pnpm exec tsc -p tsconfig.e2e.json --noEmit` và `git diff --check` sạch. Trên Chromium thật + cụm **PostgreSQL 17.12 loopback disposable** (migration `52`, tự xóa sạch sau khi chạy): Phase A native-auth `auth-02..10` + `auth-12` + `auth-13` **`34/34` PASS** (Axe `0` vi phạm `serious`/`critical`, Web Storage sạch) và Phase B hồi quy OIDC mặc định `p2-08` **`1/1` PASS**.
 
 ### Checkpoint `AUTH-14` Adapter gửi Email OTP thật qua Resend HTTPS, Migration `000052` & CLI Vận hành OCI (`AUTH-14` `DONE` — Hoàn tất trọn gói Mã nguồn Public Beta `AUTH-01..14`) — 2026-11-21
 

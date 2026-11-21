@@ -55,7 +55,6 @@ const labels = {
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
-  keepSignedIn: /^(?:Duy trì đăng nhập|Keep me signed in)$/,
   google: /^(?:Đăng nhập bằng Google|Sign in with Google)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   passkeySignIn: /^(?:Đăng nhập bằng Passkey|Sign in with a passkey)$/,
@@ -692,7 +691,10 @@ test.describe("AUTH-08 passkeys", () => {
         ).toHaveAttribute("autocomplete", "username webauthn");
         await expectNoBlockingAxeViolations(page, "main", "/sign-in");
 
-        await page.getByRole("checkbox", { name: labels.keepSignedIn }).check();
+        // UI-AUTH-04: no checkbox; /sign-in is always persistent.
+        await expect(
+          page.locator(".sign-in__panel").getByRole("checkbox"),
+        ).toHaveCount(0);
         const options = responseTo(
           page,
           "POST",
@@ -730,7 +732,7 @@ test.describe("AUTH-08 passkeys", () => {
         expect(cookies.length).toBeGreaterThan(0);
         for (const cookie of cookies) {
           expect(cookie.httpOnly).toBe(true);
-          // "Keep me signed in": a persistent cookie, not a browser session one.
+          // A persistent cookie (UI-AUTH-04 default), not a browser session one.
           expect(cookie.expires).toBeGreaterThan(Date.now() / 1000 + 3600);
         }
         // A user-verified passkey session is AAL2: only a passkey re-authenticates.

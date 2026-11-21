@@ -121,8 +121,10 @@ const COPY = {
     identifier: "Email or username",
     password: "Password",
     passkey: "Sign in with a passkey",
-    phoneMethod: "Log in with a phone number",
-    passwordMethod: "Log in with a password",
+    otpMethod: "Log in with OTP",
+    otpChannels: "Receive the OTP by",
+    phoneChannel: "Phone",
+    passwordMethod: "Log in with password",
     phoneForm: "Log in with a code sent to your phone",
     phoneNumber: "Phone number",
     sendCode: "Send code",
@@ -142,7 +144,9 @@ const COPY = {
     identifier: "Email hoặc tên đăng nhập",
     password: "Mật khẩu",
     passkey: "Đăng nhập bằng Passkey",
-    phoneMethod: "Đăng nhập bằng số điện thoại",
+    otpMethod: "Đăng nhập với OTP",
+    otpChannels: "Nhận mã OTP qua",
+    phoneChannel: "Số điện thoại",
     passwordMethod: "Đăng nhập bằng mật khẩu",
     phoneForm: "Đăng nhập bằng mã gửi tới số điện thoại",
     phoneNumber: "Số điện thoại",
@@ -265,10 +269,22 @@ function storedText() {
   });
 }
 
+/** UI-AUTH-04: "Log in with OTP", then the Phone channel (both are on). */
+async function openPhoneMethod(copy: (typeof COPY)[Language]) {
+  fireEvent.click(screen.getByRole("button", { name: copy.otpMethod }));
+  await settle();
+  fireEvent.click(
+    within(screen.getByRole("group", { name: copy.otpChannels })).getByRole(
+      "button",
+      { name: copy.phoneChannel },
+    ),
+  );
+  await settle();
+}
+
 async function openPhoneAndSubmitCode(language: Language) {
   const copy = COPY[language];
-  fireEvent.click(screen.getByRole("button", { name: copy.phoneMethod }));
-  await settle();
+  await openPhoneMethod(copy);
   const form = screen.getByRole("form", { name: copy.phoneForm });
   fireEvent.change(
     within(form).getByRole("textbox", { name: copy.phoneNumber }),
@@ -308,8 +324,7 @@ describe("SignInPage AUTH-13B auth_sso_required", () => {
     api.verifyPasskeyAssertion.mockRejectedValue(ssoRequired());
     await renderSignIn();
     // Start from the phone form: the identifier is not on screen.
-    fireEvent.click(screen.getByRole("button", { name: copy.phoneMethod }));
-    await settle();
+    await openPhoneMethod(copy);
     expect(
       screen.queryByRole("textbox", { name: copy.identifier }),
     ).not.toBeInTheDocument();
@@ -351,8 +366,7 @@ describe("SignInPage AUTH-13B auth_sso_required", () => {
     expect(completeNativeSignInMock).not.toHaveBeenCalled();
 
     // Leaving and re-opening the password form would normally re-arm autofill.
-    fireEvent.click(screen.getByRole("button", { name: copy.phoneMethod }));
-    await settle();
+    await openPhoneMethod(copy);
     fireEvent.click(screen.getByRole("button", { name: copy.passwordMethod }));
     await settle();
     expect(webAuthn.conditionalCalls).toHaveLength(1);
@@ -391,8 +405,7 @@ describe("SignInPage AUTH-13B auth_sso_required", () => {
       ).toBeInTheDocument();
 
       // Re-opening the phone form starts from an empty number step.
-      fireEvent.click(screen.getByRole("button", { name: copy.phoneMethod }));
-      await settle();
+      await openPhoneMethod(copy);
       const form = screen.getByRole("form", { name: copy.phoneForm });
       expect(
         within(form).getByRole("textbox", { name: copy.phoneNumber }),
@@ -523,7 +536,7 @@ describe("SignInPage AUTH-13B auth_sso_required", () => {
     });
     api.verifyMFA.mockRejectedValue(ssoRequired());
     await renderSignIn();
-    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password" }));
     const dialog = screen.getByRole("dialog", { name: "Recover Password" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Email Address" }),

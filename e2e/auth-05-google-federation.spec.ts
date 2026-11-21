@@ -45,6 +45,8 @@ const labels = {
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
   google: /^(?:Đăng nhập bằng Google|Sign in with Google)$/,
+  microsoft: /^(?:Đăng nhập bằng Microsoft|Sign in with Microsoft)$/,
+  facebook: /^(?:Tiếp tục với Facebook|Continue with Facebook)$/,
   consent:
     /^(?:Bằng việc tiếp tục, bạn đồng ý với|By continuing, you agree to the)/,
   linkTitle:
@@ -327,6 +329,10 @@ test.describe("AUTH-05 Google federation and explicit account linking", () => {
           page.getByRole("button", { name: labels.google }),
         ).toBeEnabled();
         await expect(page.getByText(labels.consent)).toBeVisible();
+        // UI-AUTH-04: Google, Microsoft, then Facebook.
+        await expect(
+          page.locator(".sign-in-form__social").getByRole("button"),
+        ).toHaveText([labels.google, labels.microsoft, labels.facebook]);
         await expectNoBlockingAxeViolations(page, "/sign-in");
       });
 

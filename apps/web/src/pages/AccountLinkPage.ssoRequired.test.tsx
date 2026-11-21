@@ -121,12 +121,13 @@ const COPY = {
     identifier: "Email or username",
     password: "Password",
     logIn: "Log In",
-    emailMethod: "Log in with an email code",
+    otpMethod: "Log in with OTP",
+    otpChannels: "Receive the OTP by",
     emailForm: "Log in with a code sent to your email",
     email: "Email Address",
     getCode: "Get Code",
     passkey: "Sign in with a passkey",
-    phoneMethod: "Log in with a phone number",
+    phoneChannel: "Phone",
     phoneForm: "Log in with a code sent to your phone",
     phoneNumber: "Phone number",
     sendCode: "Send code",
@@ -141,12 +142,13 @@ const COPY = {
     identifier: "Email hoặc tên đăng nhập",
     password: "Mật khẩu",
     logIn: "Đăng nhập",
-    emailMethod: "Đăng nhập bằng mã email",
+    otpMethod: "Đăng nhập với OTP",
+    otpChannels: "Nhận mã OTP qua",
     emailForm: "Đăng nhập bằng mã gửi tới email",
     email: "Địa chỉ email",
     getCode: "Lấy mã",
     passkey: "Đăng nhập bằng Passkey",
-    phoneMethod: "Đăng nhập bằng số điện thoại",
+    phoneChannel: "Số điện thoại",
     phoneForm: "Đăng nhập bằng mã gửi tới số điện thoại",
     phoneNumber: "Số điện thoại",
     sendCode: "Gửi mã",
@@ -322,7 +324,8 @@ describe("AccountLinkPage AUTH-13B auth_sso_required", () => {
     const copy = COPY.vi;
     api.startEmailCodeLogin.mockRejectedValue(ssoRequired());
     const router = await renderPage("vi");
-    fireEvent.click(screen.getByRole("button", { name: copy.emailMethod }));
+    // UI-AUTH-04: "Log in with OTP" opens the email code first.
+    fireEvent.click(screen.getByRole("button", { name: copy.otpMethod }));
     await settle();
     const form = screen.getByRole("form", { name: copy.emailForm });
     fireEvent.change(within(form).getByRole("textbox", { name: copy.email }), {
@@ -359,7 +362,14 @@ describe("AccountLinkPage AUTH-13B auth_sso_required", () => {
     });
     api.verifyPhoneLogin.mockRejectedValue(ssoRequired());
     const router = await renderPage();
-    fireEvent.click(screen.getByRole("button", { name: copy.phoneMethod }));
+    fireEvent.click(screen.getByRole("button", { name: copy.otpMethod }));
+    await settle();
+    fireEvent.click(
+      within(screen.getByRole("group", { name: copy.otpChannels })).getByRole(
+        "button",
+        { name: copy.phoneChannel },
+      ),
+    );
     await settle();
     const form = screen.getByRole("form", { name: copy.phoneForm });
     fireEvent.change(

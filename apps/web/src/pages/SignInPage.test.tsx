@@ -58,7 +58,8 @@ vi.mock("../app/session", () => ({
   }),
 }));
 
-const REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
+/** Written by the pre-UI-AUTH-04 "Remember Me"; now only ever removed. */
+const LEGACY_REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
 const SLIDE_ALTS = [
   "Modern classroom with TutorHub screens showing the course library and a live whiteboard lesson",
   "Online class with students on video sharing an interactive whiteboard on a large display and a tablet",
@@ -291,16 +292,21 @@ describe("SignInPage", () => {
       "submit",
     );
 
-    const keepSignedIn = screen.getByRole("checkbox", {
-      name: "Keep me signed in",
-    });
-    expect(keepSignedIn).toBeDisabled();
-    expect(keepSignedIn).toHaveAccessibleDescription(
-      "Session length is managed securely by the TutorHub identity portal.",
-    );
+    // UI-AUTH-04 (option A): no "Keep me signed in" / "Remember Me".
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    // Decorative icons sit inside the fields; the eye button reveals the password.
+    for (const field of [identifier, password]) {
+      const icon = field.parentElement?.querySelector(
+        ".sign-in-input-group__icon",
+      );
+      expect(icon).toHaveAttribute("aria-hidden", "true");
+    }
     expect(
-      screen.getByRole("checkbox", { name: "Remember Me" }),
-    ).not.toBeChecked();
+      screen.getByRole("button", { name: "Show password" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    // "Forgot password" sits right under the main button.
+    const forgot = screen.getByRole("button", { name: "Forgot password" });
+    expect(forgot.closest(".sign-in-form__utility")).not.toBeNull();
     expect(screen.getByText("Or")).toBeInTheDocument();
 
     const facebook = screen.getByRole("button", {
@@ -321,8 +327,12 @@ describe("SignInPage", () => {
       ),
     ).toEqual(["#EA4335", "#4285F4", "#FBBC05", "#34A853", "none"]);
     expect(google.querySelector("img")).toBeNull();
+    // Google comes before Facebook; the consent line closes the panel.
+    expect(google.compareDocumentPosition(facebook)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     expect(
-      screen.getByRole("button", { name: "Forget Password" }),
+      screen.getByText(/^By continuing, you agree to the/),
     ).toBeInTheDocument();
   });
 
@@ -706,9 +716,15 @@ describe("SignInPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("remembers only the email when Remember Me is enabled and forgets it when cleared", async () => {
-    const { unmount } = await renderSignIn();
+  it("never keeps the identifier in Web Storage and drops a legacy remembered email", async () => {
+    window.localStorage.setItem(LEGACY_REMEMBERED_EMAIL_KEY, "old@example.com");
+    await renderSignIn();
 
+    // UI-AUTH-04: the old "Remember Me" value is removed, never read back.
+    expect(window.localStorage.length).toBe(0);
+    expect(
+      screen.getByRole("textbox", { name: "Email or username" }),
+    ).toHaveValue("");
     fireEvent.change(
       screen.getByRole("textbox", { name: "Email or username" }),
       { target: { value: "  teacher@example.com  " } },
@@ -716,37 +732,12 @@ describe("SignInPage", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "super-secret-password" },
     });
-    fireEvent.click(screen.getByRole("checkbox", { name: "Remember Me" }));
     fireEvent.click(screen.getByRole("button", { name: "Log In" }));
 
-    expect(window.localStorage.length).toBe(1);
-    expect(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)).toBe(
-      "teacher@example.com",
-    );
+    expect(signInMock).toHaveBeenCalledWith("/app/home");
+    expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);
     expect(screen.getByLabelText("Password")).toHaveValue("");
-    unmount();
-
-    await renderSignIn();
-    expect(
-      screen.getByRole("textbox", { name: "Email or username" }),
-    ).toHaveValue("teacher@example.com");
-    const remember = screen.getByRole("checkbox", { name: "Remember Me" });
-    expect(remember).toBeChecked();
-
-    fireEvent.click(remember);
-    expect(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)).toBeNull();
-  });
-
-  it("clears the remembered email when Remember Me is turned off before signing in", async () => {
-    window.localStorage.setItem(REMEMBERED_EMAIL_KEY, "old@example.com");
-    await renderSignIn();
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Remember Me" }));
-    fireEvent.click(screen.getByRole("button", { name: "Log In" }));
-
-    expect(window.localStorage.length).toBe(0);
-    expect(signInMock).toHaveBeenCalledWith("/app/home");
   });
 
   it("starts the BFF sign-in with the protected return path from Log In, Google and Facebook", async () => {
@@ -907,7 +898,7 @@ describe("SignInPage", () => {
 
   it("opens an accessible Recover Password dialog and restores focus when closed", async () => {
     await renderSignIn();
-    const trigger = screen.getByRole("button", { name: "Forget Password" });
+    const trigger = screen.getByRole("button", { name: "Forgot password" });
 
     fireEvent.click(trigger);
     const dialog = await screen.findByRole("dialog", {
@@ -948,7 +939,7 @@ describe("SignInPage", () => {
   it("validates password recovery, runs the 60s code timer and hands off to secure sign-in", async () => {
     await renderSignIn({ from: { pathname: "/app/messages" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Recover Password",
     });
@@ -1302,10 +1293,10 @@ const NATIVE_COPY = {
     otp: "OTP code",
     password: "Password",
     identifier: "Email or username",
-    keepSignedIn: "Keep me signed in",
-    keepSignedInHint:
-      "Stay signed in on this device for up to 30 days (administrator accounts: up to 24 hours). The server decides the final session length.",
-    rememberMe: "Remember Me",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    useOtp: "Log in with OTP",
+    usePassword: "Log in with password",
     terms: "I have read and agree to the User Agreement and Privacy Policy",
     getCode: "Get Code",
     resend: "Resend",
@@ -1337,10 +1328,10 @@ const NATIVE_COPY = {
     otp: "Mã OTP",
     password: "Mật khẩu",
     identifier: "Email hoặc tên đăng nhập",
-    keepSignedIn: "Duy trì đăng nhập",
-    keepSignedInHint:
-      "Duy trì đăng nhập trên thiết bị này tối đa 30 ngày (tài khoản quản trị: tối đa 24 giờ). Thời hạn phiên thực tế do máy chủ quyết định.",
-    rememberMe: "Ghi nhớ tôi",
+    showPassword: "Hiện mật khẩu",
+    hidePassword: "Ẩn mật khẩu",
+    useOtp: "Đăng nhập với OTP",
+    usePassword: "Đăng nhập bằng mật khẩu",
     terms:
       "Tôi đã đọc và đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư",
     getCode: "Lấy mã",
@@ -1406,10 +1397,7 @@ function fillCodePasswordAndTerms(field: NativeSignUpFields) {
 
 function expectNoSecretsInBrowserStorage() {
   expect(window.sessionStorage.length).toBe(0);
-  for (let index = 0; index < window.localStorage.length; index += 1) {
-    const key = window.localStorage.key(index);
-    expect(key).toBe(REMEMBERED_EMAIL_KEY);
-  }
+  expect(window.localStorage.length).toBe(0);
   const stored = JSON.stringify({ ...window.localStorage });
   for (const secret of ["Str0ng-passphrase", "123456", "challenge-"]) {
     expect(stored).not.toContain(secret);
@@ -1785,13 +1773,11 @@ describe.each(["en", "vi"] as const)(
       return {
         identifier: screen.getByRole("textbox", { name: copy.identifier }),
         password: screen.getByLabelText(copy.password),
-        keepSignedIn: screen.getByRole("checkbox", { name: copy.keepSignedIn }),
-        rememberMe: screen.getByRole("checkbox", { name: copy.rememberMe }),
         submit: screen.getByRole("button", { name: copy.logIn }),
       };
     }
 
-    it("signs in with keep-signed-in, waits for the session hand-off and remembers only the email", async () => {
+    it("signs in with a persistent session, waits for the session hand-off and stores nothing", async () => {
       api.loginWithPassword.mockResolvedValue({ status: "authenticated" });
       let finishHandOff: () => void = () => undefined;
       completeNativeSignInMock.mockImplementation(
@@ -1805,10 +1791,8 @@ describe.each(["en", "vi"] as const)(
         language,
       });
       const field = loginFields();
-      expect(field.keepSignedIn).toBeEnabled();
-      expect(field.keepSignedIn).toHaveAccessibleDescription(
-        copy.keepSignedInHint,
-      );
+      // UI-AUTH-04 (option A): no checkbox; the server caps the session.
+      expect(screen.queryByRole("checkbox")).toBeNull();
 
       fireEvent.change(field.identifier, {
         target: { value: "  teacher@example.com  " },
@@ -1816,8 +1800,6 @@ describe.each(["en", "vi"] as const)(
       fireEvent.change(field.password, {
         target: { value: "correct horse battery staple" },
       });
-      fireEvent.click(field.keepSignedIn);
-      fireEvent.click(field.rememberMe);
       fireEvent.click(field.submit);
       await settle();
 
@@ -1842,14 +1824,54 @@ describe.each(["en", "vi"] as const)(
       expect(screen.getByTestId("landing")).toHaveTextContent(
         "/app/classrooms?tab=1",
       );
-      expect(window.localStorage.length).toBe(1);
-      expect(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)).toBe(
-        "teacher@example.com",
-      );
-      expect(JSON.stringify({ ...window.localStorage })).not.toContain(
-        "correct horse",
-      );
+      expect(window.localStorage.length).toBe(0);
       expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it("reveals the password on demand and hides it again on submit and method switches", async () => {
+      api.getAuthProviders.mockResolvedValue({
+        ...NATIVE_PROVIDERS,
+        email_code_enabled: true,
+      });
+      api.loginWithPassword.mockRejectedValue(apiError(401));
+      await renderSignIn({ language });
+      const field = loginFields();
+      const toggle = screen.getByRole("button", { name: copy.showPassword });
+      expect(toggle).toHaveAttribute("type", "button");
+      expect(toggle).toHaveAttribute("aria-pressed", "false");
+      expect(toggle).toHaveAttribute("aria-controls", field.password.id);
+      expect(field.password).toHaveAttribute("type", "password");
+
+      fireEvent.click(toggle);
+      expect(field.password).toHaveAttribute("type", "text");
+      expect(toggle).toHaveAccessibleName(copy.hidePassword);
+      expect(toggle).toHaveAttribute("aria-pressed", "true");
+      fireEvent.click(toggle);
+      expect(field.password).toHaveAttribute("type", "password");
+      expect(toggle).toHaveAccessibleName(copy.showPassword);
+
+      // Submitting hides it before the request leaves.
+      fireEvent.change(field.identifier, {
+        target: { value: "teacher@example.com" },
+      });
+      fireEvent.change(field.password, { target: { value: "wrong-password" } });
+      fireEvent.click(toggle);
+      fireEvent.click(field.submit);
+      expect(field.password).toHaveAttribute("type", "password");
+      expect(toggle).toHaveAttribute("aria-pressed", "false");
+      await settle();
+
+      // Leaving for the OTP form and coming back starts hidden too.
+      fireEvent.click(screen.getByRole("button", { name: copy.showPassword }));
+      fireEvent.click(screen.getByRole("button", { name: copy.useOtp }));
+      fireEvent.click(screen.getByRole("button", { name: copy.usePassword }));
+      expect(screen.getByLabelText(copy.password)).toHaveAttribute(
+        "type",
+        "password",
+      );
+      expect(
+        screen.getByRole("button", { name: copy.showPassword }),
+      ).toHaveAttribute("aria-pressed", "false");
     });
 
     it("validates the email and password before calling the server", async () => {
@@ -1875,7 +1897,6 @@ describe.each(["en", "vi"] as const)(
         target: { value: "teacher@example.com" },
       });
       fireEvent.change(field.password, { target: { value: "wrong-password" } });
-      fireEvent.click(field.rememberMe);
 
       fireEvent.click(field.submit);
       await settle();
@@ -1885,7 +1906,7 @@ describe.each(["en", "vi"] as const)(
       expect(field.identifier).toHaveValue("teacher@example.com");
       expect(field.submit).toBeEnabled();
       expect(completeNativeSignInMock).not.toHaveBeenCalled();
-      // Remember Me only persists after a successful sign-in.
+      // Nothing typed here is ever stored on the device.
       expect(window.localStorage.length).toBe(0);
     });
 
@@ -1900,7 +1921,6 @@ describe.each(["en", "vi"] as const)(
         target: { value: "admin@example.com" },
       });
       fireEvent.change(field.password, { target: { value: "admin-password" } });
-      fireEvent.click(field.rememberMe);
 
       fireEvent.click(field.submit);
       await settle();
@@ -1909,7 +1929,7 @@ describe.each(["en", "vi"] as const)(
       expect(screen.queryByLabelText(copy.password)).toBeNull();
       expect(completeNativeSignInMock).not.toHaveBeenCalled();
       expect(screen.queryByTestId("landing")).toBeNull();
-      // The identifier is remembered only once a session exists.
+      // Nothing typed here is ever stored on the device.
       expect(window.localStorage.length).toBe(0);
     });
   },
@@ -2144,8 +2164,8 @@ const EMAIL_CODE_PROVIDERS: AuthProvidersResponse = {
 
 const AUTH03_COPY = {
   en: {
-    useEmailCode: "Log in with an email code",
-    usePassword: "Log in with a password",
+    useOtp: "Log in with OTP",
+    usePassword: "Log in with password",
     emailForm: "Log in with a code sent to your email",
     email: "Email Address",
     otp: "OTP code",
@@ -2153,9 +2173,7 @@ const AUTH03_COPY = {
     resend: "Resend",
     logIn: "Log In",
     identifier: "Email or username",
-    keepSignedIn: "Keep me signed in",
-    rememberMe: "Remember Me",
-    forgot: "Forget Password",
+    forgot: "Forgot password",
     recoverDialog: "Recover Password",
     recoverOtp: "Authentication Code (OTP)",
     newPassword: "New Password",
@@ -2169,7 +2187,7 @@ const AUTH03_COPY = {
     mfa: NATIVE_COPY.en.mfa,
   },
   vi: {
-    useEmailCode: "Đăng nhập bằng mã email",
+    useOtp: "Đăng nhập với OTP",
     usePassword: "Đăng nhập bằng mật khẩu",
     emailForm: "Đăng nhập bằng mã gửi tới email",
     email: "Địa chỉ email",
@@ -2178,8 +2196,6 @@ const AUTH03_COPY = {
     resend: "Gửi lại",
     logIn: "Đăng nhập",
     identifier: "Email hoặc tên đăng nhập",
-    keepSignedIn: "Duy trì đăng nhập",
-    rememberMe: "Ghi nhớ tôi",
     forgot: "Quên mật khẩu",
     recoverDialog: "Khôi phục mật khẩu",
     recoverOtp: "Mã xác thực (OTP)",
@@ -2209,7 +2225,7 @@ async function openEmailCodeLogin(
 ) {
   const copy = AUTH03_COPY[language];
   await renderSignIn({ from, language });
-  fireEvent.click(screen.getByRole("button", { name: copy.useEmailCode }));
+  fireEvent.click(screen.getByRole("button", { name: copy.useOtp }));
   const form = screen.getByRole("form", { name: copy.emailForm });
   return {
     copy,
@@ -2218,10 +2234,6 @@ async function openEmailCodeLogin(
     otp: within(form).getByRole("textbox", { name: copy.otp }),
     getCode: within(form).getByRole("button", { name: copy.getCode }),
     submit: within(form).getByRole("button", { name: copy.logIn }),
-    keepSignedIn: within(form).getByRole("checkbox", {
-      name: copy.keepSignedIn,
-    }),
-    rememberMe: within(form).getByRole("checkbox", { name: copy.rememberMe }),
   };
 }
 
@@ -2234,7 +2246,7 @@ describe.each(["en", "vi"] as const)(
       api.getAuthProviders.mockResolvedValue(EMAIL_CODE_PROVIDERS);
     });
 
-    it("sends a neutral code notice, resends after 60s and signs in with keep-signed-in", async () => {
+    it("sends a neutral code notice, resends after 60s and signs in with a persistent session", async () => {
       vi.useFakeTimers();
       api.startEmailCodeLogin.mockResolvedValue(challengeResponse("login-1"));
       api.resendAuthChallenge.mockResolvedValue(challengeResponse("login-2"));
@@ -2244,7 +2256,9 @@ describe.each(["en", "vi"] as const)(
         search: "?view=week",
       });
       expect(field.email).toHaveFocus();
-      expect(field.keepSignedIn).toBeEnabled();
+      // UI-AUTH-04: email code alone needs no channel chooser or checkbox.
+      expect(within(field.form).queryByRole("checkbox")).toBeNull();
+      expect(document.querySelector(".sign-in-form__channels")).toBeNull();
 
       fireEvent.change(field.email, {
         target: { value: "learner@example.com" },
@@ -2271,8 +2285,6 @@ describe.each(["en", "vi"] as const)(
       expect(api.startEmailCodeLogin).toHaveBeenCalledTimes(1);
 
       fireEvent.change(field.otp, { target: { value: "123456" } });
-      fireEvent.click(field.keepSignedIn);
-      fireEvent.click(field.rememberMe);
       fireEvent.click(field.submit);
       await settle();
 
@@ -2284,9 +2296,7 @@ describe.each(["en", "vi"] as const)(
       expect(screen.getByTestId("landing")).toHaveTextContent(
         "/app/calendar?view=week",
       );
-      expect(window.localStorage.getItem(REMEMBERED_EMAIL_KEY)).toBe(
-        "learner@example.com",
-      );
+      expect(window.localStorage.length).toBe(0);
       expectNoAuthSecretsInBrowserStorage(["123456", "login-"]);
       expect(api.loginWithPassword).not.toHaveBeenCalled();
       expect(signInMock).not.toHaveBeenCalled();
@@ -2351,14 +2361,14 @@ describe("SignInPage email-code login edge cases", () => {
     api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
     const { unmount } = await renderSignIn();
     expect(
-      screen.queryByRole("button", { name: "Log in with an email code" }),
+      screen.queryByRole("button", { name: "Log in with OTP" }),
     ).toBeNull();
     unmount();
 
     api.getAuthProviders.mockResolvedValue(OIDC_PROVIDERS);
     await renderSignIn();
     expect(
-      screen.queryByRole("button", { name: "Log in with an email code" }),
+      screen.queryByRole("button", { name: "Log in with OTP" }),
     ).toBeNull();
     expect(api.startEmailCodeLogin).not.toHaveBeenCalled();
   });
@@ -2369,9 +2379,7 @@ describe("SignInPage email-code login edge cases", () => {
       screen.getByRole("textbox", { name: "Email or username" }),
       { target: { value: "teacher@example.com" } },
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Log in with an email code" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
     const form = screen.getByRole("form", {
       name: "Log in with a code sent to your email",
     });
@@ -2381,7 +2389,7 @@ describe("SignInPage email-code login edge cases", () => {
     expect(screen.queryByLabelText("Password")).toBeNull();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Log in with a password" }),
+      screen.getByRole("button", { name: "Log in with password" }),
     );
     expect(
       screen.getByRole("textbox", { name: "Email or username" }),
@@ -2662,7 +2670,7 @@ describe("SignInPage native password recovery edge cases", () => {
       email_code_enabled: true,
     });
     await renderSignIn();
-    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Recover Password",
     });
@@ -2769,7 +2777,7 @@ describe("SignInPage native password recovery edge cases", () => {
     fireEvent.click(field.getCode);
     await settle();
 
-    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password" }));
     const dialog = screen.getByRole("dialog", { name: "Recover Password" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Email Address" }),
@@ -3199,7 +3207,7 @@ describe("SignInPage AUTH-07B Microsoft federation", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("orders Facebook, Google and Microsoft with the same button weight", async () => {
+  it("orders Google, Microsoft and Facebook with the same button weight", async () => {
     api.getAuthProviders.mockResolvedValue({
       ...NATIVE_PROVIDERS,
       oauth_providers: ["google", "facebook", "microsoft"],
@@ -3214,9 +3222,9 @@ describe("SignInPage AUTH-07B Microsoft federation", () => {
       throw new Error("Missing social group");
     const buttons = within(social).getAllByRole("button");
     expect(buttons.map((button) => button.textContent)).toEqual([
-      "Continue with Facebook",
       "Sign in with Google",
       "Sign in with Microsoft",
+      "Continue with Facebook",
     ]);
     for (const button of buttons) {
       expect(button).toHaveClass("sign-in-button");
@@ -3226,9 +3234,9 @@ describe("SignInPage AUTH-07B Microsoft federation", () => {
     expect(
       assign.mock.calls.map(([url]) => new URL(String(url)).pathname),
     ).toEqual([
-      "/api/v1/auth/oauth/facebook/start",
       "/api/v1/auth/oauth/google/start",
       "/api/v1/auth/oauth/microsoft/start",
+      "/api/v1/auth/oauth/facebook/start",
     ]);
   });
 

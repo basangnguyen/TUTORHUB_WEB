@@ -91,7 +91,9 @@ const labels = {
   passkeyName: /^(?:Tên passkey|Passkey name)$/,
   createPasskey: /^(?:Tạo passkey|Create passkey)$/,
   // Phone (Settings card and sign-in form).
-  usePhone: /^(?:Đăng nhập bằng số điện thoại|Log in with a phone number)$/,
+  useOtp: /^(?:Đăng nhập với OTP|Log in with OTP)$/,
+  otpChannels: /^(?:Nhận mã OTP qua|Receive the OTP by)$/,
+  phoneChannel: /^(?:Số điện thoại|Phone)$/,
   phoneForm:
     /^(?:Đăng nhập bằng mã gửi tới số điện thoại|Log in with a code sent to your phone)$/,
   phoneCountry: /^(?:Mã quốc gia|Country code)$/,
@@ -1057,7 +1059,12 @@ test.describe("AUTH-13 public beta hardening across sign-in methods", () => {
         // A fresh /sign-in; presence off keeps autofill pending.
         await setPresence(authenticatorB, false);
         await pageB.goto("/sign-in");
-        await pageB.getByRole("button", { name: labels.usePhone }).click();
+        // UI-AUTH-04: "Log in with OTP", then the Phone channel.
+        await pageB.getByRole("button", { name: labels.useOtp }).click();
+        await pageB
+          .getByRole("group", { name: labels.otpChannels })
+          .getByRole("button", { name: labels.phoneChannel })
+          .click();
         const form = pageB.getByRole("form", { name: labels.phoneForm });
         await expect(
           form.getByRole("combobox", { name: labels.phoneCountry }),

@@ -43,7 +43,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { KeyRound, School } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Lock, School, User } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { DEFAULT_MFA_EXPIRES_IN_SECONDS, type MFAMethod } from "../app/mfa";
@@ -84,8 +84,13 @@ import { SignInSlider } from "./SignInSlider";
 import type { SignInLegalTab } from "./signInLegalContent";
 import "./SignInPage.css";
 
-const REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
-const REMEMBERED_EMAIL_MAX_LENGTH = 320;
+/**
+ * UI-AUTH-04: "Remember Me" is gone and nothing typed on this page is kept in
+ * Web Storage. The key an earlier build wrote is only ever removed.
+ */
+const LEGACY_REMEMBERED_EMAIL_KEY = "tutorhub.remembered_email";
+/** RFC 5321 address limit, also used for usernames. */
+const IDENTIFIER_MAX_LENGTH = 320;
 const OTP_COOLDOWN_SECONDS = 60;
 /** Upper bound for client-side Retry-After locks; the server stays authoritative. */
 const MAX_RETRY_AFTER_SECONDS = 3600;
@@ -136,13 +141,13 @@ const en = {
     "Session length is managed securely by the TutorHub identity portal.",
   keepSignedInNativeHint:
     "Stay signed in on this device for up to 30 days (administrator accounts: up to 24 hours). The server decides the final session length.",
-  rememberMe: "Remember Me",
-  rememberMeHint: "Only your email or username is remembered on this device.",
+  showPassword: "Show password",
+  hidePassword: "Hide password",
   or: "Or",
   facebook: "Continue with Facebook",
   google: "Sign in with Google",
   microsoft: "Sign in with Microsoft",
-  forgotPassword: "Forget Password",
+  forgotPassword: "Forgot password",
   signUpHeading: "Create an Account",
   fullNameLabel: "Full Name",
   emailLabel: "Email Address",
@@ -225,9 +230,11 @@ const en = {
   reviewTerms: "Review updated terms",
   signUpFailed:
     "We couldn't complete sign-up. Check the code or request a new one, then try again. If you already have an account, try logging in.",
-  useEmailCode: "Log in with an email code",
-  usePassword: "Log in with a password",
-  usePhone: "Log in with a phone number",
+  useOtp: "Log in with OTP",
+  usePassword: "Log in with password",
+  otpChannelLabel: "Receive the OTP by",
+  otpChannelEmail: "Email",
+  otpChannelPhone: "Phone",
   emailCodeHeading: "Log in with a code sent to your email",
   codeInvalid:
     "The code is incorrect or has expired. Check it or select Resend to get a new code.",
@@ -237,7 +244,7 @@ const en = {
   passwordResetDone:
     "Your password has been reset and all your sessions were signed out. Please log in again with your new password.",
   socialLegalLead: "By continuing, you agree to the ",
-  socialLegalTail: ".",
+  socialLegalTail: " of TutorHub.",
   callbackSignupDisabled:
     "New accounts can't be created with this sign-in option right now. Log in with the method you used before or contact your administrator.",
   callbackEmailUnverified:
@@ -327,8 +334,8 @@ const vi: SignInCopy = {
     "Thời hạn phiên đăng nhập do cổng định danh TutorHub quản lý an toàn.",
   keepSignedInNativeHint:
     "Duy trì đăng nhập trên thiết bị này tối đa 30 ngày (tài khoản quản trị: tối đa 24 giờ). Thời hạn phiên thực tế do máy chủ quyết định.",
-  rememberMe: "Ghi nhớ tôi",
-  rememberMeHint: "Chỉ ghi nhớ email hoặc tên đăng nhập trên thiết bị này.",
+  showPassword: "Hiện mật khẩu",
+  hidePassword: "Ẩn mật khẩu",
   or: "Hoặc",
   facebook: "Tiếp tục với Facebook",
   google: "Đăng nhập bằng Google",
@@ -417,9 +424,11 @@ const vi: SignInCopy = {
   reviewTerms: "Xem điều khoản mới",
   signUpFailed:
     "Không thể hoàn tất đăng ký. Vui lòng kiểm tra lại mã hoặc yêu cầu mã mới rồi thử lại. Nếu bạn đã có tài khoản, hãy thử đăng nhập.",
-  useEmailCode: "Đăng nhập bằng mã email",
+  useOtp: "Đăng nhập với OTP",
   usePassword: "Đăng nhập bằng mật khẩu",
-  usePhone: "Đăng nhập bằng số điện thoại",
+  otpChannelLabel: "Nhận mã OTP qua",
+  otpChannelEmail: "Email",
+  otpChannelPhone: "Số điện thoại",
   emailCodeHeading: "Đăng nhập bằng mã gửi tới email",
   codeInvalid:
     "Mã không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc bấm Gửi lại để nhận mã mới.",
@@ -429,7 +438,7 @@ const vi: SignInCopy = {
   passwordResetDone:
     "Mật khẩu đã được đặt lại và mọi phiên đăng nhập của bạn đã bị đăng xuất. Vui lòng đăng nhập lại bằng mật khẩu mới.",
   socialLegalLead: "Bằng việc tiếp tục, bạn đồng ý với ",
-  socialLegalTail: ".",
+  socialLegalTail: " của TutorHub.",
   callbackSignupDisabled:
     "Hiện chưa thể tạo tài khoản mới bằng phương thức này. Hãy đăng nhập bằng phương thức bạn đã dùng trước đây hoặc liên hệ quản trị viên.",
   callbackEmailUnverified:
@@ -750,26 +759,10 @@ function failureText(c: SignInCopy, failure: AuthFailure) {
   }
 }
 
-function readRememberedEmail() {
+/** Drops the identifier an earlier "Remember Me" build kept (never read). */
+function clearLegacyRememberedEmail() {
   try {
-    const value = window.localStorage.getItem(REMEMBERED_EMAIL_KEY);
-    return value && value.length <= REMEMBERED_EMAIL_MAX_LENGTH ? value : "";
-  } catch {
-    return "";
-  }
-}
-
-function writeRememberedEmail(value: string) {
-  try {
-    window.localStorage.setItem(REMEMBERED_EMAIL_KEY, value);
-  } catch {
-    // Storage may be unavailable (private mode or policy); remembering is best effort.
-  }
-}
-
-function clearRememberedEmail() {
-  try {
-    window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+    window.localStorage.removeItem(LEGACY_REMEMBERED_EMAIL_KEY);
   } catch {
     // Storage may be unavailable (private mode or policy); nothing to clear.
   }
@@ -1819,6 +1812,19 @@ export interface LoginFormProps {
    * then links there instead of naming a button the page does not have.
    */
   schoolSSOFallbackPath?: string;
+  /**
+   * UI-AUTH-04: how long a native session lasts. "persistent" (default,
+   * /sign-in) always sends `keep_signed_in: true` with no checkbox; the server
+   * still decides the final length (ADR-0039 §3.3: 30 days, 24 hours for
+   * `org_admin`). "optIn" (/account-link) keeps the unchecked "Keep me signed
+   * in" checkbox.
+   */
+  sessionPersistence?: "persistent" | "optIn";
+  /**
+   * UI-AUTH-04: the consent line ("By continuing, you agree to…") closes the
+   * panel even without social buttons (default true). /account-link omits it.
+   */
+  showLegalNotice?: boolean;
   social: SocialAvailability;
 }
 
@@ -1869,6 +1875,8 @@ function LoginFormBody({
   recoveryEnabled,
   resumePendingMfa = false,
   schoolSSO,
+  sessionPersistence = "persistent",
+  showLegalNotice = true,
   social,
 }: LoginFormProps) {
   const c = useSignInCopy();
@@ -1877,18 +1885,17 @@ function LoginFormBody({
     identifier: useId(),
     password: useId(),
     keepSignedInHint: useId(),
-    rememberHint: useId(),
   };
   const identifierRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const transactionOwnerRef = useRef<symbol | null>(null);
   const focusIdentifierOnCloseRef = useRef(false);
-  const [identifier, setIdentifier] = useState(readRememberedEmail);
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(() =>
-    Boolean(readRememberedEmail()),
-  );
-  const [keepSignedIn, setKeepSignedIn] = useState(false);
+  /** UI-AUTH-04: the eye button; back to hidden on submit and every switch. */
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  /** Only read with `sessionPersistence="optIn"` (/account-link). */
+  const [keepSignedInChecked, setKeepSignedInChecked] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [failure, setFailure] = useState<AuthFailure | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1910,8 +1917,15 @@ function LoginFormBody({
   const [refocusAfterMfa, setRefocusAfterMfa] = useState(0);
   const [identifierFocusRequest, setIdentifierFocusRequest] = useState(0);
   const [ssoRefused, setSsoRefused] = useState(false);
-  /** Remembered (if asked) only once the second step issued a session. */
+  /** The first factor's address, for Home Realm Discovery after step two. */
   const [mfaIdentifier, setMfaIdentifier] = useState("");
+  const optInSession = sessionPersistence === "optIn";
+  /**
+   * UI-AUTH-04 (option A): /sign-in always asks for a persistent session; the
+   * server caps it (30 days, 24 hours for `org_admin`). /account-link keeps
+   * the opt-in checkbox it had.
+   */
+  const keepSignedIn = optInSession ? keepSignedInChecked : true;
   /** AUTH-12B: this page offers Home Realm Discovery ("school SSO"). */
   const hrdHere = schoolSSO !== undefined;
   const isPassword = mode === "password";
@@ -1931,6 +1945,7 @@ function LoginFormBody({
       expiresInSeconds = DEFAULT_MFA_EXPIRES_IN_SECONDS,
     ) => {
       setPassword("");
+      setPasswordVisible(false);
       setErrors({});
       setSubmitting(false);
       setPasswordResetDone(false);
@@ -1955,6 +1970,7 @@ function LoginFormBody({
   function openSchoolSSOEntry(notice: AuthFailure | null) {
     setSsoRefused(true);
     setPassword("");
+    setPasswordVisible(false);
     setErrors({});
     setSubmitting(false);
     setPasswordResetDone(false);
@@ -2056,6 +2072,7 @@ function LoginFormBody({
     setSsoRefused(true);
     setMfaIdentifier("");
     setPassword("");
+    setPasswordVisible(false);
     setErrors({});
     setMethod("password");
     leaveMfa(email ? { kind: "ssoRequired" } : { kind: "ssoRequiredAccount" });
@@ -2069,6 +2086,11 @@ function LoginFormBody({
     if (autoFocus) identifierRef.current?.focus();
   }, [autoFocus]);
 
+  // UI-AUTH-04: a device that used the old "Remember Me" keeps nothing.
+  useEffect(() => {
+    clearLegacyRememberedEmail();
+  }, []);
+
   useEffect(() => {
     if (methodSwitched && !usesEmailCode && !usesPhone) {
       identifierRef.current?.focus();
@@ -2079,6 +2101,7 @@ function LoginFormBody({
     setFailure(null);
     setErrors({});
     setPassword("");
+    setPasswordVisible(false);
     setMethodSwitched(true);
     // AUTH-10B: passkey autofill is cancelled before the phone form can
     // send a code (leaving the password form also aborts it).
@@ -2093,6 +2116,7 @@ function LoginFormBody({
       // The server already revoked every session; never sign the user in here.
     }
     setPassword("");
+    setPasswordVisible(false);
     setFailure(null);
     setErrors({});
     setMethod("password");
@@ -2105,20 +2129,6 @@ function LoginFormBody({
     legalReturnFocusRef.current = event.currentTarget;
     setLegalTab(tab);
     setLegalOpen(true);
-  }
-
-  function handleRememberChange(checked: boolean) {
-    setRememberMe(checked);
-    if (!checked) clearRememberedEmail();
-  }
-
-  /** Only the identifier is ever persisted, never the password or a token. */
-  function rememberIdentifier(value: string) {
-    if (rememberMe && value && value.length <= REMEMBERED_EMAIL_MAX_LENGTH) {
-      writeRememberedEmail(value);
-    } else {
-      clearRememberedEmail();
-    }
   }
 
   function clearError(field: LoginField) {
@@ -2194,7 +2204,6 @@ function LoginFormBody({
       await enterMfa(result.methods, trimmed);
       return;
     }
-    rememberIdentifier(trimmed);
     await finishSession();
   }
 
@@ -2215,8 +2224,9 @@ function LoginFormBody({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // UI-AUTH-04: a submitted password is never left on screen.
+    setPasswordVisible(false);
     if (mode === "oidc") {
-      rememberIdentifier(identifier.trim());
       setPassword("");
       onSignIn();
       return;
@@ -2246,16 +2256,23 @@ function LoginFormBody({
     : c.keepSignedInHint;
   const showMicrosoft = social.microsoft && onMicrosoftSignIn !== undefined;
   const showSocial = social.facebook || social.google || showMicrosoft;
+  const usesOtp = usesEmailCode || usesPhone;
+  /** UI-AUTH-04: "Log in with OTP" opens the email code, else the phone code. */
+  const otpEntry: LoginMethod = emailCodeEnabled ? "emailCode" : "phone";
+  const showOtpChannels = usesOtp && emailCodeEnabled && phoneAvailable;
+  const showSchoolSSOButton = sso.enabled && !usesOtp;
 
-  const keepSignedInOption = (
-    <>
+  // UI-AUTH-04: /sign-in has no checkbox (always persistent) and nothing is
+  // remembered on the device; /account-link keeps its opt-in checkbox.
+  const keepSignedInOption = optInSession ? (
+    <div className="sign-in-form__options">
       <label className="sign-in-check" title={keepSignedInHint}>
         <input
           aria-describedby={ids.keepSignedInHint}
-          checked={nativeSession && keepSignedIn}
+          checked={nativeSession && keepSignedInChecked}
           disabled={!nativeSession}
           name="keep-signed-in"
-          onChange={(event) => setKeepSignedIn(event.target.checked)}
+          onChange={(event) => setKeepSignedInChecked(event.target.checked)}
           type="checkbox"
         />
         <span>{c.keepSignedIn}</span>
@@ -2263,31 +2280,8 @@ function LoginFormBody({
       <span className="visually-hidden" id={ids.keepSignedInHint}>
         {keepSignedInHint}
       </span>
-    </>
-  );
-  const options = (
-    <div className="sign-in-form__options">
-      {keepSignedInOption}
-      <label className="sign-in-check" title={c.rememberMeHint}>
-        <input
-          aria-describedby={ids.rememberHint}
-          checked={rememberMe}
-          name="remember-me"
-          onChange={(event) => handleRememberChange(event.target.checked)}
-          type="checkbox"
-        />
-        <span>{c.rememberMe}</span>
-      </label>
-      <span className="visually-hidden" id={ids.rememberHint}>
-        {c.rememberMeHint}
-      </span>
     </div>
-  );
-  // AUTH-10B: only an email or username is ever remembered, so the phone
-  // form offers keep-signed-in alone.
-  const phoneOptions = (
-    <div className="sign-in-form__options">{keepSignedInOption}</div>
-  );
+  ) : null;
   if (mfa) {
     return (
       <div className="sign-in-form">
@@ -2324,10 +2318,7 @@ function LoginFormBody({
             expiresInSeconds={mfa.expiresInSeconds}
             key={mfa.id}
             methods={mfa.methods}
-            onAuthenticated={async (options) => {
-              if (mfaIdentifier) rememberIdentifier(mfaIdentifier);
-              await onAuthenticated(options);
-            }}
+            onAuthenticated={onAuthenticated}
             onCancel={() => leaveMfa(null)}
             onExpired={() => leaveMfa({ kind: "mfaExpired" })}
             onPasswordReset={async () => {
@@ -2352,9 +2343,40 @@ function LoginFormBody({
     </p>
   ) : null;
   const trimmedIdentifier = identifier.trim();
+  const otpNotice =
+    resetBanner ?? (failure ? <FormAlert failure={failure} /> : null);
 
   return (
     <div className="sign-in-form">
+      {showOtpChannels ? (
+        // UI-AUTH-04: both OTP channels are on; pick one above its form.
+        <div
+          aria-label={c.otpChannelLabel}
+          className="sign-in-form__channels"
+          role="group"
+        >
+          <button
+            aria-pressed={usesEmailCode}
+            className="sign-in-form__channel"
+            onClick={() => {
+              if (!usesEmailCode) switchMethod("emailCode");
+            }}
+            type="button"
+          >
+            {c.otpChannelEmail}
+          </button>
+          <button
+            aria-pressed={usesPhone}
+            className="sign-in-form__channel"
+            onClick={() => {
+              if (!usesPhone) switchMethod("phone");
+            }}
+            type="button"
+          >
+            {c.otpChannelPhone}
+          </button>
+        </div>
+      ) : null}
       {usesEmailCode ? (
         <EmailCodeLoginForm
           autoFocus={methodSwitched || refocusAfterMfa > 0}
@@ -2362,9 +2384,7 @@ function LoginFormBody({
             EMAIL_PATTERN.test(trimmedIdentifier) ? trimmedIdentifier : ""
           }
           keepSignedIn={keepSignedIn}
-          notice={
-            resetBanner ?? (failure ? <FormAlert failure={failure} /> : null)
-          }
+          notice={otpNotice}
           onAuthenticated={onAuthenticated}
           onMfaRequired={async (methods, email) => {
             setIdentifier(email);
@@ -2375,9 +2395,8 @@ function LoginFormBody({
           onVerified={(email) => {
             setPasswordResetDone(false);
             setIdentifier(email);
-            rememberIdentifier(email);
           }}
-          options={options}
+          options={keepSignedInOption}
           transactionOwnerRef={transactionOwnerRef}
         />
       ) : usesPhone ? (
@@ -2386,23 +2405,20 @@ function LoginFormBody({
           autoFocus={methodSwitched || refocusAfterMfa > 0}
           beforeRequest={stopPasskeyAutofill}
           keepSignedIn={keepSignedIn}
-          notice={
-            resetBanner ?? (failure ? <FormAlert failure={failure} /> : null)
-          }
+          notice={otpNotice}
           onAuthenticated={async () => {
             setPasswordResetDone(false);
             await onAuthenticated();
           }}
           onMfaRequired={async (methods) => {
             setPasswordResetDone(false);
-            // Nothing is remembered for a phone sign-in.
             await enterMfa(methods, "");
           }}
           // AUTH-13B: leaving the phone form also drops the typed number.
           onSchoolSSORequired={() =>
             openSchoolSSOEntry({ kind: "ssoRequiredAccount" })
           }
-          options={phoneOptions}
+          options={keepSignedInOption}
           transactionOwnerRef={transactionOwnerRef}
         />
       ) : (
@@ -2422,51 +2438,84 @@ function LoginFormBody({
             </p>
           ) : null}
           <div className="sign-in-form__field">
-            <input
-              aria-describedby={
-                errors.identifier ? `${ids.identifier}-error` : undefined
-              }
-              aria-invalid={errors.identifier ? true : undefined}
-              aria-label={c.identifierLabel}
-              // `webauthn` lets the browser offer passkeys in this field.
-              autoComplete={passkeysEnabled ? "username webauthn" : "username"}
-              className="sign-in-input"
-              id={ids.identifier}
-              maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
-              name="identifier"
-              onChange={(event) => {
-                setIdentifier(event.target.value);
-                clearError("identifier");
-                sso.reset();
-              }}
-              placeholder={c.identifierPlaceholder}
-              ref={identifierRef}
-              spellCheck={false}
-              type="text"
-              value={identifier}
-            />
+            <div className="sign-in-input-group">
+              <User
+                aria-hidden="true"
+                className="sign-in-input-group__icon"
+                focusable="false"
+                size={18}
+              />
+              <input
+                aria-describedby={
+                  errors.identifier ? `${ids.identifier}-error` : undefined
+                }
+                aria-invalid={errors.identifier ? true : undefined}
+                aria-label={c.identifierLabel}
+                // `webauthn` lets the browser offer passkeys in this field.
+                autoComplete={
+                  passkeysEnabled ? "username webauthn" : "username"
+                }
+                className="sign-in-input sign-in-input--icon"
+                id={ids.identifier}
+                maxLength={IDENTIFIER_MAX_LENGTH}
+                name="identifier"
+                onChange={(event) => {
+                  setIdentifier(event.target.value);
+                  clearError("identifier");
+                  sso.reset();
+                }}
+                placeholder={c.identifierPlaceholder}
+                ref={identifierRef}
+                spellCheck={false}
+                type="text"
+                value={identifier}
+              />
+            </div>
             {errorFor("identifier")}
           </div>
           <div className="sign-in-form__field">
-            <input
-              aria-describedby={
-                errors.password ? `${ids.password}-error` : undefined
-              }
-              aria-invalid={errors.password ? true : undefined}
-              aria-label={c.passwordLabel}
-              autoComplete="current-password"
-              className="sign-in-input"
-              id={ids.password}
-              name="password"
-              onChange={(event) => {
-                setPassword(event.target.value);
-                clearError("password");
-              }}
-              placeholder={c.passwordPlaceholder}
-              ref={passwordRef}
-              type="password"
-              value={password}
-            />
+            <div className="sign-in-input-group">
+              <Lock
+                aria-hidden="true"
+                className="sign-in-input-group__icon"
+                focusable="false"
+                size={18}
+              />
+              <input
+                aria-describedby={
+                  errors.password ? `${ids.password}-error` : undefined
+                }
+                aria-invalid={errors.password ? true : undefined}
+                aria-label={c.passwordLabel}
+                autoComplete="current-password"
+                className="sign-in-input sign-in-input--icon sign-in-input--toggle"
+                id={ids.password}
+                name="password"
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  clearError("password");
+                }}
+                placeholder={c.passwordPlaceholder}
+                ref={passwordRef}
+                spellCheck={false}
+                type={passwordVisible ? "text" : "password"}
+                value={password}
+              />
+              <button
+                aria-controls={ids.password}
+                aria-label={passwordVisible ? c.hidePassword : c.showPassword}
+                aria-pressed={passwordVisible}
+                className="sign-in-input-group__toggle"
+                onClick={() => setPasswordVisible((value) => !value)}
+                type="button"
+              >
+                {passwordVisible ? (
+                  <Eye aria-hidden="true" focusable="false" size={18} />
+                ) : (
+                  <EyeOff aria-hidden="true" focusable="false" size={18} />
+                )}
+              </button>
+            </div>
             {errorFor("password")}
           </div>
           {failure ? (
@@ -2483,97 +2532,59 @@ function LoginFormBody({
           >
             {submitLabel}
           </button>
-          {options}
+          {keepSignedInOption}
         </form>
       )}
 
-      {emailCodeEnabled || phoneAvailable ? (
-        <div className="sign-in-form__methods">
-          {usesEmailCode || usesPhone ? (
-            <button
-              className="sign-in-form__method"
-              onClick={() => switchMethod("password")}
-              type="button"
-            >
-              {c.usePassword}
+      {/* UI-AUTH-04: "Forgot password" | "Log in with OTP" under the button. */}
+      <Dialog onOpenChange={setRecoverOpen} open={recoverOpen}>
+        <div className="sign-in-form__utility">
+          <DialogTrigger asChild>
+            <button className="sign-in-form__link" type="button">
+              {c.forgotPassword}
             </button>
-          ) : null}
-          {emailCodeEnabled && !usesEmailCode ? (
+          </DialogTrigger>
+          {emailCodeEnabled || phoneAvailable ? (
             <button
-              className="sign-in-form__method"
-              onClick={() => switchMethod("emailCode")}
+              className="sign-in-form__link sign-in-form__link--end"
+              onClick={() => switchMethod(usesOtp ? "password" : otpEntry)}
               type="button"
             >
-              {c.useEmailCode}
-            </button>
-          ) : null}
-          {phoneAvailable && !usesPhone ? (
-            <button
-              className="sign-in-form__method"
-              onClick={() => switchMethod("phone")}
-              type="button"
-            >
-              {c.usePhone}
+              {usesOtp ? c.usePassword : c.useOtp}
             </button>
           ) : null}
         </div>
-      ) : null}
+        <DialogContent
+          aria-modal="true"
+          className="sign-in-recover"
+          hideClose
+          onCloseAutoFocus={(event) => {
+            // After a reset the next step is logging in, not reopening recovery.
+            if (!focusIdentifierOnCloseRef.current) return;
+            focusIdentifierOnCloseRef.current = false;
+            event.preventDefault();
+            identifierRef.current?.focus();
+          }}
+        >
+          {recoveryEnabled ? (
+            <NativeRecoverPasswordForm
+              onAuthenticated={onAuthenticated}
+              onPasswordReset={handlePasswordReset}
+              passkeysEnabled={passkeysEnabled}
+              passwordMinLength={passwordMinLength}
+              schoolSSO={schoolSSO}
+              transactionOwnerRef={transactionOwnerRef}
+            />
+          ) : (
+            <RecoverPasswordForm onSignIn={onSignIn} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {sso.enabled ? (
-        <div className="sign-in-form__school-sso">
-          {!usesEmailCode && !usesPhone ? (
-            <button
-              className="sign-in-button sign-in-button--outline sign-in-button--school"
-              onClick={checkSchoolSSO}
-              type="button"
-            >
-              <School aria-hidden="true" className="sign-in-sso__mark" />
-              <span>{c.schoolSSOButton}</span>
-            </button>
-          ) : null}
+        // AUTH-12B answers sit right above "Or", next to the provider list.
+        <div className="sign-in-form__sso-notice">
           <SchoolSSONotice sso={sso} />
-        </div>
-      ) : null}
-
-      {passkeysActive ? (
-        <div className="sign-in-form__passkey">
-          <button
-            // aria-disabled (not disabled) while waiting keeps keyboard focus
-            // on the button when the device prompt is closed.
-            aria-disabled={passkey.pending || undefined}
-            className="sign-in-button sign-in-button--outline sign-in-button--passkey"
-            disabled={passkey.lockRemaining > 0}
-            onClick={() => {
-              if (!passkey.pending) void passkey.signIn();
-            }}
-            type="button"
-          >
-            <KeyRound aria-hidden="true" className="sign-in-passkey-mark" />
-            <span>
-              {passkey.pending
-                ? c.passkeyWaiting
-                : passkey.lockRemaining > 0
-                  ? formatCopy(c.submitWait, {
-                      label: c.passkeySignIn,
-                      seconds: passkey.lockRemaining,
-                    })
-                  : c.passkeySignIn}
-            </span>
-          </button>
-          {/* Always mounted so assistive tech observes the cancel notice. */}
-          <p
-            aria-live="polite"
-            className="sign-in-form__passkey-notice"
-            role="status"
-          >
-            {passkey.cancelled ? c.passkeyCancelled : null}
-          </p>
-          {passkey.failure ? (
-            <FormAlert
-              failure={passkey.failure}
-              onRetrySession={() => void passkey.retrySession()}
-            />
-          ) : null}
         </div>
       ) : null}
 
@@ -2583,22 +2594,8 @@ function LoginFormBody({
             <span>{c.or}</span>
           </div>
 
+          {/* UI-AUTH-04 order: Google, Microsoft, then Facebook. */}
           <div className="sign-in-form__social">
-            {social.facebook ? (
-              <button
-                className="sign-in-button sign-in-button--facebook"
-                disabled={social.disabled}
-                onClick={
-                  social.facebookFederation && onFacebookSignIn
-                    ? onFacebookSignIn
-                    : onSignIn
-                }
-                type="button"
-              >
-                <FacebookMark />
-                <span>{c.facebook}</span>
-              </button>
-            ) : null}
             {social.google ? (
               <button
                 className="sign-in-button sign-in-button--google"
@@ -2625,7 +2622,95 @@ function LoginFormBody({
                 <span>{c.microsoft}</span>
               </button>
             ) : null}
+            {social.facebook ? (
+              <button
+                className="sign-in-button sign-in-button--facebook"
+                disabled={social.disabled}
+                onClick={
+                  social.facebookFederation && onFacebookSignIn
+                    ? onFacebookSignIn
+                    : onSignIn
+                }
+                type="button"
+              >
+                <FacebookMark />
+                <span>{c.facebook}</span>
+              </button>
+            ) : null}
           </div>
+        </>
+      ) : null}
+
+      {passkeysActive || showSchoolSSOButton ? (
+        <div className="sign-in-form__secondary">
+          <div className="sign-in-form__secondary-actions">
+            {passkeysActive ? (
+              <button
+                // aria-disabled (not disabled) while waiting keeps keyboard
+                // focus on the button when the device prompt is closed.
+                aria-disabled={passkey.pending || undefined}
+                className="sign-in-form__text-action"
+                disabled={passkey.lockRemaining > 0}
+                onClick={() => {
+                  if (!passkey.pending) void passkey.signIn();
+                }}
+                type="button"
+              >
+                <KeyRound
+                  aria-hidden="true"
+                  className="sign-in-form__text-action-icon"
+                  focusable="false"
+                  size={16}
+                />
+                <span>
+                  {passkey.pending
+                    ? c.passkeyWaiting
+                    : passkey.lockRemaining > 0
+                      ? formatCopy(c.submitWait, {
+                          label: c.passkeySignIn,
+                          seconds: passkey.lockRemaining,
+                        })
+                      : c.passkeySignIn}
+                </span>
+              </button>
+            ) : null}
+            {showSchoolSSOButton ? (
+              <button
+                className="sign-in-form__text-action"
+                onClick={checkSchoolSSO}
+                type="button"
+              >
+                <School
+                  aria-hidden="true"
+                  className="sign-in-form__text-action-icon"
+                  focusable="false"
+                  size={16}
+                />
+                <span>{c.schoolSSOButton}</span>
+              </button>
+            ) : null}
+          </div>
+          {passkeysActive ? (
+            // Always mounted so assistive tech observes the cancel notice.
+            <p
+              aria-live="polite"
+              className="sign-in-form__passkey-notice"
+              role="status"
+            >
+              {passkey.cancelled ? c.passkeyCancelled : null}
+            </p>
+          ) : null}
+          {passkeysActive && passkey.failure ? (
+            <FormAlert
+              failure={passkey.failure}
+              onRetrySession={() => void passkey.retrySession()}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {showLegalNotice ? (
+        <>
           <p className="sign-in-form__social-legal">
             {c.socialLegalLead}
             <button
@@ -2658,39 +2743,6 @@ function LoginFormBody({
           />
         </>
       ) : null}
-
-      <Dialog onOpenChange={setRecoverOpen} open={recoverOpen}>
-        <DialogTrigger asChild>
-          <button className="sign-in-form__forgot" type="button">
-            {c.forgotPassword}
-          </button>
-        </DialogTrigger>
-        <DialogContent
-          aria-modal="true"
-          className="sign-in-recover"
-          hideClose
-          onCloseAutoFocus={(event) => {
-            // After a reset the next step is logging in, not reopening recovery.
-            if (!focusIdentifierOnCloseRef.current) return;
-            focusIdentifierOnCloseRef.current = false;
-            event.preventDefault();
-            identifierRef.current?.focus();
-          }}
-        >
-          {recoveryEnabled ? (
-            <NativeRecoverPasswordForm
-              onAuthenticated={onAuthenticated}
-              onPasswordReset={handlePasswordReset}
-              passkeysEnabled={passkeysEnabled}
-              passwordMinLength={passwordMinLength}
-              schoolSSO={schoolSSO}
-              transactionOwnerRef={transactionOwnerRef}
-            />
-          ) : (
-            <RecoverPasswordForm onSignIn={onSignIn} />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -2714,7 +2766,7 @@ interface EmailCodeLoginFormProps {
   ) => Promise<void>;
   /** Called once the code was accepted, before the session hand-off. */
   onVerified: (email: string) => void;
-  /** Keep-signed-in / Remember Me checkboxes shared with the password form. */
+  /** /account-link's opt-in keep-signed-in checkbox (none on /sign-in). */
   options: ReactNode;
   transactionOwnerRef: TransactionOwnerRef;
 }
@@ -2914,7 +2966,7 @@ function EmailCodeLoginForm({
             className="sign-in-input"
             id={ids.email}
             inputMode="email"
-            maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
+            maxLength={IDENTIFIER_MAX_LENGTH}
             name="login-email"
             onChange={(event) => {
               setEmail(event.target.value);
@@ -4097,7 +4149,7 @@ function NativeRecoverPasswordForm({
             className="sign-in-input sign-in-input--dialog"
             id={ids.email}
             inputMode="email"
-            maxLength={REMEMBERED_EMAIL_MAX_LENGTH}
+            maxLength={IDENTIFIER_MAX_LENGTH}
             name="recovery-email"
             onChange={(event) => {
               setEmail(event.target.value);

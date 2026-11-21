@@ -450,7 +450,7 @@ describe("AccountLinkPage signed out", () => {
       screen.getByRole("textbox", { name: "Email or username" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Log in with an email code" }),
+      screen.getByRole("button", { name: "Log in with OTP" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Sign in with Google" }),
@@ -459,7 +459,42 @@ describe("AccountLinkPage signed out", () => {
       screen.queryByRole("button", { name: "Continue with Facebook" }),
     ).toBeNull();
     expect(container.querySelector(".sign-in--embedded")).not.toBeNull();
+    // UI-AUTH-04: linking keeps its opt-in checkbox (unchecked), "Remember
+    // Me" is gone and the consent line belongs to /sign-in only.
+    expect(
+      screen.getByRole("checkbox", { name: "Keep me signed in" }),
+    ).not.toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: "Remember Me" })).toBeNull();
+    expect(screen.queryByText(/^By continuing, you agree to the/)).toBeNull();
     expect(storageSnapshot()).not.toContain(MASKED);
+  });
+
+  it("keeps the opt-in keep-signed-in choice when signing in with a password", async () => {
+    api.loginWithPassword.mockResolvedValue({ status: "authenticated" });
+    await renderPage();
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Keep me signed in" }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Email or username" }),
+      { target: { value: "teacher@example.com" } },
+    );
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "Correct-Horse-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Log In" }));
+    await settle();
+
+    expect(api.loginWithPassword).toHaveBeenCalledWith(
+      {
+        identifier: "teacher@example.com",
+        keep_signed_in: true,
+        password: "Correct-Horse-9",
+      },
+      expect.objectContaining({ baseUrl: "/api" }),
+    );
+    expect(storageSnapshot()).not.toContain("teacher@example.com");
   });
 
   it("signs in with a password and stays on the page to confirm", async () => {

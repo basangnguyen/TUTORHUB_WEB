@@ -205,6 +205,17 @@ describe("SignInPage AUTH-12B school SSO", () => {
       name: "Continue with school Google",
     });
     await waitFor(() => expect(continueButton).toHaveFocus());
+    // UI-AUTH-04: the school route sits above "Or"; the entry point is a
+    // quiet text action under the providers.
+    const divider = document.querySelector(".sign-in-divider");
+    if (!(divider instanceof HTMLElement)) throw new Error("Missing divider");
+    expect(continueButton.compareDocumentPosition(divider)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(schoolButton()).toHaveClass("sign-in-form__text-action");
+    expect(divider.compareDocumentPosition(schoolButton())).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     fireEvent.click(continueButton);
     await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
     const url = startURL(assign);
@@ -301,9 +312,7 @@ describe("SignInPage AUTH-12B school SSO", () => {
     );
     api.discoverAuthIdentifier.mockResolvedValue(route(true));
     await renderSignIn();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Log in with an email code" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
     const form = screen.getByRole("form", {
       name: "Log in with a code sent to your email",
     });
@@ -358,7 +367,7 @@ describe("SignInPage AUTH-12B school SSO", () => {
     );
     api.discoverAuthIdentifier.mockResolvedValue(route(true));
     await renderSignIn();
-    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Email Address" }),

@@ -136,7 +136,8 @@ const vi: SignInLegalCopy = {
           title: "Cookie phiên & Bộ nhớ trình duyệt",
           paragraphs: [
             "Phiên đăng nhập sử dụng cookie bảo mật HttpOnly qua lớp BFF. TutorHub không lưu access token hay refresh token trong localStorage hoặc sessionStorage.",
-            "Tính năng Ghi nhớ tôi chỉ lưu email hoặc tên đăng nhập gợi ý trên thiết bị này và được xóa ngay khi bạn bỏ chọn.",
+            "Trang đăng nhập không lưu email, tên đăng nhập, số điện thoại hay mã OTP vào bộ nhớ cục bộ của trình duyệt (localStorage, sessionStorage). Việc điền sẵn thông tin, nếu có, do trình quản lý mật khẩu của trình duyệt đảm nhận theo lựa chọn của bạn.",
+            "Phiên đăng nhập trên trang đăng nhập được duy trì tối đa 30 ngày trên thiết bị (tài khoản quản trị tổ chức: tối đa 24 giờ); thời hạn thực tế do máy chủ quyết định. Hãy đăng xuất sau khi dùng máy dùng chung.",
           ],
         },
         {
@@ -268,7 +269,8 @@ const en: SignInLegalCopy = {
           title: "Session Cookies & Browser Storage",
           paragraphs: [
             "Your sign-in session uses secure HttpOnly cookies through the BFF layer. TutorHub never stores access tokens or refresh tokens in localStorage or sessionStorage.",
-            "Remember Me only keeps a suggested email or username on this device, and it is removed as soon as you turn the option off.",
+            "The sign-in page never stores your email, username, phone number or one-time codes in the browser's local storage (localStorage, sessionStorage). Any autofill comes from your browser's password manager, as you choose.",
+            "Sessions started on the sign-in page stay active on the device for up to 30 days (organization administrator accounts: up to 24 hours); the server decides the final length. Sign out when you use a shared device.",
           ],
         },
         {

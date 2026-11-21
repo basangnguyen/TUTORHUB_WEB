@@ -30,7 +30,8 @@ const labels = {
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
-  keepSignedIn: /^(?:Duy trì đăng nhập|Keep me signed in)$/,
+  showPassword: /^(?:Hiện mật khẩu|Show password)$/,
+  hidePassword: /^(?:Ẩn mật khẩu|Hide password)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   codeSent:
     /(?:mã xác thực 6 chữ số đã được gửi|a 6-digit verification code has been sent)/,
@@ -173,9 +174,13 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     await expect(
       page.getByRole("button", { name: labels.logIn }),
     ).toBeEnabled();
+    // UI-AUTH-04 (option A): no "Keep me signed in" / "Remember Me".
     await expect(
-      page.getByRole("checkbox", { name: labels.keepSignedIn }),
-    ).toBeEnabled();
+      page.locator(".sign-in__panel").getByRole("checkbox"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: labels.showPassword }),
+    ).toHaveAttribute("aria-pressed", "false");
     await expectNoBlockingAxeViolations(page, "login view");
 
     // 1. Sign up: name + email -> code from the dev inbox -> terms -> password.
@@ -247,6 +252,10 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     await page.getByRole("button", { name: labels.logIn }).click();
     const login = await loginResponse;
     expect(login.status()).toBe(200);
+    // UI-AUTH-04: /sign-in always asks for a persistent session.
+    expect(login.request().postDataJSON()).toMatchObject({
+      keep_signed_in: true,
+    });
     expect(await login.json()).toEqual({ status: "authenticated" });
     await expectSignedInAs(page, email, displayName);
     await expectBrowserStorageWithoutSecrets(page, [password, code]);
@@ -259,8 +268,17 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     await page
       .getByRole("textbox", { name: labels.identifier })
       .fill(`unknown.${randomBytes(4).toString("hex")}@example.test`);
-    await page.getByLabel(labels.password).fill("not-the-right-password");
+    const passwordField = page.getByLabel(labels.password);
+    await passwordField.fill("not-the-right-password");
+    // The eye button reveals the password; submitting hides it again.
+    await page.getByRole("button", { name: labels.showPassword }).click();
+    await expect(passwordField).toHaveAttribute("type", "text");
+    await expect(
+      page.getByRole("button", { name: labels.hidePassword }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expectNoBlockingAxeViolations(page, "login password shown");
     await page.getByRole("button", { name: labels.logIn }).click();
+    await expect(passwordField).toHaveAttribute("type", "password");
 
     await expect(page.getByRole("alert")).toHaveText(
       /^(?:Email hoặc mật khẩu không đúng\.|Incorrect email or password\.)$/,

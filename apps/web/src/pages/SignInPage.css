@@ -451,6 +451,67 @@
   box-shadow: 0 0 0 3px rgb(185 28 28 / 16%);
 }
 
+/* UI-AUTH-04: decorative icon inside the field, eye button on the right. */
+.sign-in-input-group {
+  position: relative;
+}
+
+.sign-in-input-group__icon {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  width: 18px;
+  height: 18px;
+  color: #9ca3af;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.sign-in-input--icon {
+  padding-left: 44px;
+}
+
+.sign-in-input--toggle {
+  padding-right: 52px;
+}
+
+/* Edge draws its own reveal button inside password fields. */
+.sign-in-input::-ms-reveal,
+.sign-in-input::-ms-clear {
+  display: none;
+}
+
+/* #4b5563 on white is 7.6:1; the 40 px target sits inside the 48 px field. */
+.sign-in-input-group__toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.sign-in-input-group__toggle:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.sign-in .sign-in-input-group__toggle:focus-visible {
+  outline-offset: -3px;
+}
+
 .sign-in-input--otp {
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -741,7 +802,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 35px 0 20px;
+  margin: 24px 0 18px;
   color: var(--sign-in-text-muted);
   font-size: 13px;
 }
@@ -756,26 +817,132 @@
 
 .sign-in-form__social {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
-.sign-in-form__forgot {
-  display: block;
-  margin: 26px auto 0;
-  padding: 4px 8px;
+/* UI-AUTH-04: "Forgot password" (start) | "Log in with OTP" (end) right
+   under the main button; #047857 on white is 5.48:1 (WCAG AA). */
+.sign-in-form__utility {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 14px;
+}
+
+.sign-in-form__link,
+.sign-in-form__text-action {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--sign-in-text-muted);
+  color: #047857;
   cursor: pointer;
   font-size: 13px;
-  transition: color 160ms ease;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: start;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 160ms ease;
 }
 
-.sign-in-form__forgot:hover {
+.sign-in-form__link--end {
+  margin-left: auto;
+  text-align: end;
+}
+
+.sign-in-form__link:hover,
+.sign-in-form__link:focus-visible,
+.sign-in-form__text-action:hover,
+.sign-in-form__text-action:focus-visible {
+  text-decoration-color: currentcolor;
+}
+
+/* UI-AUTH-04: passkey and school SSO as quiet text actions under the
+   providers (36 px targets), above the consent line. */
+.sign-in-form__secondary {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.sign-in-form__secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+
+.sign-in-form__text-action {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.sign-in-form__text-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.sign-in-form__text-action[aria-disabled="true"] {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.sign-in-form__text-action-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* UI-AUTH-04: Email | Phone, only while both OTP channels are on.
+   Unpressed #374151 on #f9fafb is 9.9:1; pressed white on #047857 5.48:1. */
+.sign-in-form__channels {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid var(--sign-in-border);
+  border-radius: 9999px;
+  background: #f9fafb;
+}
+
+.sign-in-form__channel {
+  min-height: 36px;
+  flex: 1 1 0;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
   color: #374151;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.sign-in-form__channel:hover {
+  background: #f3f4f6;
+}
+
+.sign-in-form__channel[aria-pressed="true"] {
+  background: #047857;
+  color: #fff;
+}
+
+/* AUTH-12B answers above "Or"; an idle (empty) status takes no room. */
+.sign-in-form__sso-notice .sign-in-sso__status:not(:empty) {
+  margin-top: 14px;
 }
 
 /* AUTH-03: switch between password and email-code login (#047857 = 5.48:1). */
@@ -808,16 +975,6 @@
   text-decoration-color: transparent;
 }
 
-/* AUTH-10B: the method switches (password, email code, phone) share a row. */
-.sign-in-form__methods {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0 12px;
-  margin-top: 14px;
-}
-
-.sign-in-form__methods .sign-in-form__method,
 .sign-in-form__phone-actions .sign-in-form__method {
   margin: 0;
 }
@@ -855,29 +1012,7 @@
   gap: 0 12px;
 }
 
-/* AUTH-08B: passkey sign-in reuses the outline button (#047857 on white is
-   5.48:1); the cancel notice is a quiet status line, not an alert. */
-.sign-in-form__passkey {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.sign-in-button--passkey {
-  gap: 10px;
-}
-
-.sign-in-button--passkey:disabled,
-.sign-in-button--passkey[aria-disabled="true"] {
-  opacity: 0.7;
-}
-
-.sign-in-passkey-mark {
-  width: 20px;
-  height: 20px;
-  flex: none;
-}
-
+/* AUTH-08B: the passkey cancel notice is a quiet status line, not an alert. */
 .sign-in-form__passkey-notice {
   margin: 0;
   color: var(--sign-in-text-muted);
@@ -1456,7 +1591,11 @@
   .sign-in-button,
   .sign-in-check__link,
   .sign-in-legal__button,
-  .sign-in__switch {
+  .sign-in__switch,
+  .sign-in-input-group__toggle,
+  .sign-in-form__link,
+  .sign-in-form__text-action,
+  .sign-in-form__channel {
     transition: none;
   }
 }
@@ -1472,8 +1611,20 @@
     border: 1px solid CanvasText;
   }
 
-  .sign-in-check__link {
+  .sign-in-check__link,
+  .sign-in-form__link,
+  .sign-in-form__text-action {
     text-decoration-color: currentcolor;
+  }
+
+  .sign-in-input-group__toggle,
+  .sign-in-form__channel {
+    border: 1px solid CanvasText;
+  }
+
+  .sign-in-form__channel[aria-pressed="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -3px;
   }
 
   .sign-in-slider__dots {
@@ -1658,15 +1809,8 @@
   opacity: 0.7;
 }
 
-/* AUTH-12B: school SSO (Home Realm Discovery). The outline button keeps the
-   passkey button's 5.48:1 contrast; answers reuse the info alert. */
-.sign-in-form__school-sso {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.sign-in-button--school,
+/* AUTH-12B: school SSO (Home Realm Discovery). Answers reuse the info
+   alert; "Continue with school …" is the primary button. */
 .sign-in-sso__continue {
   gap: 10px;
 }

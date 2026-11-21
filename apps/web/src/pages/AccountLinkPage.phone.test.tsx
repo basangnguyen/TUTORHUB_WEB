@@ -156,9 +156,7 @@ async function renderPage() {
 }
 
 async function signInWithPhone() {
-  fireEvent.click(
-    screen.getByRole("button", { name: "Log in with a phone number" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
   await settle();
   const form = screen.getByRole("form", {
     name: "Log in with a code sent to your phone",

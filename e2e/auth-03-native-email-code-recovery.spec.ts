@@ -35,14 +35,15 @@ const labels = {
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
-  keepSignedIn: /^(?:Duy trì đăng nhập|Keep me signed in)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   codeSent:
     /(?:mã xác thực 6 chữ số đã được gửi|a 6-digit verification code has been sent)/,
-  useEmailCode: /^(?:Đăng nhập bằng mã email|Log in with an email code)$/,
+  useOtp: /^(?:Đăng nhập với OTP|Log in with OTP)$/,
+  otpChannels: /^(?:Nhận mã OTP qua|Receive the OTP by)$/,
+  emailChannel: /^Email$/,
   emailCodeForm:
     /^(?:Đăng nhập bằng mã gửi tới email|Log in with a code sent to your email)$/,
-  forgotPassword: /^(?:Quên mật khẩu|Forget Password)$/,
+  forgotPassword: /^(?:Quên mật khẩu|Forgot password)$/,
   recoverDialog: /^(?:Khôi phục mật khẩu|Recover Password)$/,
   recoverOtp: /^(?:Mã xác thực \(OTP\)|Authentication Code \(OTP\))$/,
   newPassword: /^(?:Mật khẩu mới|New Password)$/,
@@ -313,7 +314,13 @@ test.describe("AUTH-03 native email-code login, recovery and password settings",
 
     await test.step("log in with an email code; an unknown address looks identical", async () => {
       await page.goto("/sign-in");
-      await page.getByRole("button", { name: labels.useEmailCode }).click();
+      await page.getByRole("button", { name: labels.useOtp }).click();
+      // Email and phone codes are both on: the email channel opens first.
+      await expect(
+        page
+          .getByRole("group", { name: labels.otpChannels })
+          .getByRole("button", { name: labels.emailChannel }),
+      ).toHaveAttribute("aria-pressed", "true");
       const form = page.getByRole("form", { name: labels.emailCodeForm });
       await expect(
         form.getByRole("textbox", { name: labels.email }),
@@ -356,11 +363,15 @@ test.describe("AUTH-03 native email-code login, recovery and password settings",
       ).toBe(false);
 
       await form.getByRole("textbox", { name: labels.otp }).fill(code);
-      await form.getByRole("checkbox", { name: labels.keepSignedIn }).check();
+      // UI-AUTH-04: no checkbox; the code sign-in is always persistent.
+      await expect(form.getByRole("checkbox")).toHaveCount(0);
       const verify = postTo(page, "/v1/auth/email-code/verify");
       await form.getByRole("button", { name: labels.logIn }).click();
       const verified = await verify;
       expect(verified.status()).toBe(200);
+      expect(verified.request().postDataJSON()).toMatchObject({
+        keep_signed_in: true,
+      });
       expect(await verified.json()).toEqual({ status: "authenticated" });
       await expectSignedInAs(page, email);
       await expectSessionCookiesHttpOnly(page);

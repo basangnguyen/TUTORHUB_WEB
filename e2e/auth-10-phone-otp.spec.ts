@@ -48,12 +48,13 @@ const labels = {
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
   logIn: /^(?:Đăng nhập|Log In)$/,
   keepSignedIn: /^(?:Duy trì đăng nhập|Keep me signed in)$/,
-  rememberMe: /^(?:Ghi nhớ tôi|Remember Me)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   google: /^(?:Đăng nhập bằng Google|Sign in with Google)$/,
   // Phone sign-in (/sign-in and /account-link).
-  usePhone: /^(?:Đăng nhập bằng số điện thoại|Log in with a phone number)$/,
-  usePassword: /^(?:Đăng nhập bằng mật khẩu|Log in with a password)$/,
+  useOtp: /^(?:Đăng nhập với OTP|Log in with OTP)$/,
+  otpChannels: /^(?:Nhận mã OTP qua|Receive the OTP by)$/,
+  phoneChannel: /^(?:Số điện thoại|Phone)$/,
+  usePassword: /^(?:Đăng nhập bằng mật khẩu|Log in with password)$/,
   phoneForm:
     /^(?:Đăng nhập bằng mã gửi tới số điện thoại|Log in with a code sent to your phone)$/,
   phoneCountry: /^(?:Mã quốc gia|Country code)$/,
@@ -450,31 +451,44 @@ async function addPhoneInSettings(
 }
 
 /**
+ * UI-AUTH-04: "Log in with OTP", then the Phone channel (the email code is
+ * on too, so the channel chooser shows).
+ */
+async function openPhoneMethod(page: Page) {
+  await page.getByRole("button", { name: labels.useOtp }).click();
+  const phoneChannel = page
+    .getByRole("group", { name: labels.otpChannels })
+    .getByRole("button", { name: labels.phoneChannel });
+  await phoneChannel.click();
+  await expect(phoneChannel).toHaveAttribute("aria-pressed", "true");
+}
+
+/**
  * Switches the visible login form to the phone method and requests a code.
- * Works on /sign-in and inside the /account-link card.
+ * Works on /sign-in (always persistent, no checkbox) and inside the
+ * /account-link card (`optIn`: its "Keep me signed in" stays unchecked).
  */
 async function requestPhoneSignInCode(
   page: Page,
   phone: TestPhone,
-  { keepSignedIn = false, switchMethod = true } = {},
+  { optIn = false, switchMethod = true } = {},
 ) {
-  if (switchMethod) {
-    await page.getByRole("button", { name: labels.usePhone }).click();
-  }
+  if (switchMethod) await openPhoneMethod(page);
   const form = page.getByRole("form", { name: labels.phoneForm });
   const number = form.getByRole("textbox", { name: labels.phoneNumber });
   if (switchMethod) await expect(number).toBeFocused();
   await expect(
     form.getByRole("combobox", { name: labels.phoneCountry }),
   ).toHaveValue("VN");
-  // Only an email is ever remembered: the phone form has no Remember Me.
-  await expect(
-    form.getByRole("checkbox", { name: labels.rememberMe }),
-  ).toHaveCount(0);
-  await number.fill(phone.display);
-  if (keepSignedIn) {
-    await form.getByRole("checkbox", { name: labels.keepSignedIn }).check();
+  // Nothing is remembered on the device; only /account-link keeps a choice.
+  await expect(form.getByRole("checkbox")).toHaveCount(optIn ? 1 : 0);
+  const keepSignedIn = !optIn;
+  if (optIn) {
+    await expect(
+      form.getByRole("checkbox", { name: labels.keepSignedIn }),
+    ).not.toBeChecked();
   }
+  await number.fill(phone.display);
   const started = responseTo(page, "POST", "/v1/auth/phone/start");
   await form.getByRole("button", { name: labels.phoneSendCode }).click();
   const response = await started;
@@ -504,7 +518,7 @@ async function submitPhoneSignInCode(
   form: Locator,
   challengeId: string,
   phone: TestPhone,
-  { keepSignedIn = false } = {},
+  { keepSignedIn = true } = {},
 ) {
   const code = await waitForDevInboxCode(
     request,
@@ -733,14 +747,10 @@ test.describe("AUTH-10 phone OTP", () => {
         await expectBrowserStorageWithoutSecrets(page, secrets);
       });
 
-      await test.step("sign out, then sign in with the phone and keep-signed-in", async () => {
+      await test.step("sign out, then sign in with the phone (always persistent)", async () => {
         await signOut(page);
         await page.goto("/sign-in");
-        const { challengeId, form } = await requestPhoneSignInCode(
-          page,
-          phone,
-          { keepSignedIn: true },
-        );
+        const { challengeId, form } = await requestPhoneSignInCode(page, phone);
         await expectNoBlockingAxeViolations(
           page,
           ".sign-in__panel",
@@ -752,7 +762,6 @@ test.describe("AUTH-10 phone OTP", () => {
           form,
           challengeId,
           phone,
-          { keepSignedIn: true },
         );
         secrets.push(code);
         expect(body).toMatchObject({ status: "authenticated" });
@@ -950,7 +959,13 @@ test.describe("AUTH-10 phone OTP", () => {
         ).toBeVisible();
         expect(await meStatus(page)).toBe(401);
 
-        const { challengeId, form } = await requestPhoneSignInCode(page, phone);
+        const { challengeId, form } = await requestPhoneSignInCode(
+          page,
+          phone,
+          {
+            optIn: true,
+          },
+        );
         await expectNoBlockingAxeViolations(
           page,
           "main",
@@ -962,6 +977,7 @@ test.describe("AUTH-10 phone OTP", () => {
           form,
           challengeId,
           phone,
+          { keepSignedIn: false },
         );
         secrets.push(code);
         expect(body.status).toBe("mfa_required");
@@ -1061,7 +1077,7 @@ test.describe("AUTH-10 phone OTP", () => {
     const { context, page } = await openDevice(browser);
     try {
       await page.goto("/sign-in");
-      await page.getByRole("button", { name: labels.usePhone }).click();
+      await openPhoneMethod(page);
       const form = page.getByRole("form", { name: labels.phoneForm });
       const number = form.getByRole("textbox", { name: labels.phoneNumber });
       await expect(number).toBeFocused();

@@ -64,7 +64,7 @@ const labels = {
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
-  useEmailCode: /^(?:Đăng nhập bằng mã email|Log in with an email code)$/,
+  useOtp: /^(?:Đăng nhập với OTP|Log in with OTP)$/,
   emailCodeForm:
     /^(?:Đăng nhập bằng mã gửi tới email|Log in with a code sent to your email)$/,
   securityCard: /^(?:Bảo mật tài khoản|Account security)$/,
@@ -299,7 +299,7 @@ async function logInWithEmailCode(
   email: string,
 ) {
   await page.goto("/sign-in");
-  await page.getByRole("button", { name: labels.useEmailCode }).click();
+  await page.getByRole("button", { name: labels.useOtp }).click();
   const form = page.getByRole("form", { name: labels.emailCodeForm });
   await form.getByRole("textbox", { name: labels.email }).fill(email);
   const started = postTo(page, "/v1/auth/email-code/start");

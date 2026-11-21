@@ -253,13 +253,12 @@ describe("SignInPage passkeys", () => {
     expect(api.startPasskeyAssertion).not.toHaveBeenCalled();
   });
 
-  it("signs in with the button, honours keep-signed-in and returns to the protected page", async () => {
+  it("signs in with the button as a persistent session and returns to the protected page", async () => {
     const webAuthn = installWebAuthn({ conditional: false });
     await renderSignIn();
 
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: "Keep me signed in" }),
-    );
+    // UI-AUTH-04: no "Keep me signed in" checkbox on /sign-in.
+    expect(screen.queryByRole("checkbox")).toBeNull();
     fireEvent.click(passkeyButton());
 
     expect(await screen.findByTestId("landing")).toHaveTextContent(
@@ -277,6 +276,31 @@ describe("SignInPage passkeys", () => {
     expect(webAuthn.signalUnknownCredential).not.toHaveBeenCalled();
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it("places the passkey text button under the providers and above the consent line", async () => {
+    installWebAuthn({ conditional: false });
+    api.getAuthProviders.mockResolvedValue({
+      ...PROVIDERS,
+      oauth_providers: ["google", "microsoft"],
+    });
+    await renderSignIn();
+
+    const button = passkeyButton();
+    // A quiet text action with its key icon, not an outlined button.
+    expect(button).toHaveClass("sign-in-form__text-action");
+    expect(button.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    const order = [
+      screen.getByRole("button", { name: "Sign in with Google" }),
+      screen.getByRole("button", { name: "Sign in with Microsoft" }),
+      button,
+      screen.getByText(/^By continuing, you agree to the/),
+    ];
+    for (let index = 1; index < order.length; index += 1) {
+      expect(
+        order[index - 1]?.compareDocumentPosition(order[index] as Node),
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    }
   });
 
   it("shows a gentle notice (never an alert) when the prompt is closed", async () => {
@@ -409,8 +433,9 @@ describe("SignInPage passkeys", () => {
     expect(await screen.findByTestId("landing")).toHaveTextContent(
       "/app/classes",
     );
+    // UI-AUTH-04: autofill also asks for a persistent session.
     expect(api.verifyPasskeyAssertion).toHaveBeenCalledWith(
-      { assertion: ASSERTION, keep_signed_in: false },
+      { assertion: ASSERTION, keep_signed_in: true },
       expect.anything(),
     );
   });
@@ -461,19 +486,17 @@ describe("SignInPage passkeys", () => {
     await waitFor(() => expect(webAuthn.conditionalCalls).toHaveLength(1));
     const first = webAuthn.conditionalCalls[0];
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Log in with an email code" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
     await waitFor(() => expect(first?.signal?.aborted).toBe(true));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Log in with a password" }),
+      screen.getByRole("button", { name: "Log in with password" }),
     );
     await waitFor(() => expect(webAuthn.conditionalCalls).toHaveLength(2));
     const second = webAuthn.conditionalCalls[1];
 
-    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password" }));
     await waitFor(() => expect(second?.signal?.aborted).toBe(true));
     fireEvent.keyDown(document.activeElement ?? document.body, {
       key: "Escape",

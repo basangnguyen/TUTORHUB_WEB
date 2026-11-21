@@ -215,8 +215,12 @@ describe("SignInPage AUTH-09B two-step verification", () => {
       .mockRejectedValueOnce(apiError(401, "auth_invalid_verification_code"))
       .mockResolvedValueOnce({ status: "authenticated" });
     await renderSignIn({ from: { pathname: "/app/classrooms" } });
-    fireEvent.click(screen.getByRole("checkbox", { name: "Remember Me" }));
     await signInWithPassword();
+    // UI-AUTH-04: /sign-in always asks for a persistent session.
+    expect(api.loginWithPassword).toHaveBeenCalledWith(
+      expect.objectContaining({ keep_signed_in: true }),
+      { baseUrl: "/api" },
+    );
 
     const step = mfaStep();
     expect(
@@ -237,7 +241,7 @@ describe("SignInPage AUTH-09B two-step verification", () => {
     expect(code).toHaveAttribute("autocomplete", "one-time-code");
     expect(code).toHaveAttribute("inputmode", "numeric");
     expect(code).toHaveAttribute("maxlength", "6");
-    // Not signed in yet, and nothing remembered before a session exists.
+    // Not signed in yet, and nothing is ever remembered on the device.
     expect(completeNativeSignInMock).not.toHaveBeenCalled();
     expect(window.localStorage.length).toBe(0);
 
@@ -257,9 +261,7 @@ describe("SignInPage AUTH-09B two-step verification", () => {
     );
     expect(completeNativeSignInMock).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("landing")).toHaveTextContent("/app/classrooms");
-    expect(window.localStorage.getItem("tutorhub.remembered_email")).toBe(
-      "teacher@example.com",
-    );
+    expect(window.localStorage.length).toBe(0);
   });
 
   it("accepts a recovery code in any case and validates its shape first", async () => {
@@ -307,9 +309,7 @@ describe("SignInPage AUTH-09B two-step verification", () => {
       status: "mfa_required",
     });
     await renderSignIn();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Log in with an email code" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Log in with OTP" }));
     const form = screen.getByRole("form", {
       name: "Log in with a code sent to your email",
     });
@@ -527,7 +527,7 @@ describe("SignInPage AUTH-09B two-step verification", () => {
     });
     api.verifyMFA.mockResolvedValue({ status: "password_reset" });
     await renderSignIn();
-    fireEvent.click(screen.getByRole("button", { name: "Forget Password" }));
+    fireEvent.click(screen.getByRole("button", { name: "Forgot password" }));
     const dialog = screen.getByRole("dialog", { name: "Recover Password" });
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: "Email Address" }),
