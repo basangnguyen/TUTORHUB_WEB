@@ -17,6 +17,11 @@ import (
 	"github.com/tutorhub-v2/core-api/migrations"
 )
 
+// Detached delivery receipts intentionally survive their parent in production.
+// Fixture owners delete only receipts belonging to their own transactions first.
+const deleteFixtureDeliveries = `DELETE FROM tutorhub.auth_challenge_deliveries d
+	USING tutorhub.auth_challenges c WHERE d.challenge_id=c.id AND c.transaction_id IN `
+
 // This suite never falls back to DATABASE_POOL_URL or reads local env files.
 // AUTH_TEST_DATABASE_URL must be an owner connection to a disposable database.
 func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, string) {
@@ -41,17 +46,17 @@ func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, strin
 func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 50 || version.Dirty {
-		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 50")
+	if err != nil || version.Number != 51 || version.Dirty {
+		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 51")
 	}
-	if err := migrationrunner.Down(ctx, url, 8); err != nil {
+	if err := migrationrunner.Down(ctx, url, 9); err != nil {
 		t.Fatal("empty disposable AUTH-01 rollback")
 	}
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("reapply AUTH-01 migration")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 50 || version.Dirty {
+	if err != nil || version.Number != 51 || version.Dirty {
 		t.Fatal("AUTH-01 roundtrip did not retain clean ledger")
 	}
 	down, err := migrations.Files.ReadFile("000043_auth_foundation.down.sql")
@@ -87,8 +92,8 @@ func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
 	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 50 || version.Dirty {
-		t.Fatal("AUTH-06 ACL requires clean ledger 50")
+	if err != nil || version.Number != 51 || version.Dirty {
+		t.Fatal("AUTH-06 ACL requires clean ledger 51")
 	}
 	roleName := "auth_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	role := pgx.Identifier{roleName}.Sanitize()

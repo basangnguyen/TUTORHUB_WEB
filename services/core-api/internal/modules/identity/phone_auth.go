@@ -344,6 +344,12 @@ func (s *NativeAuthService) VerifyPhoneLogin(ctx context.Context, binding string
 	if err != nil {
 		return result, ErrAuthFoundationStorage
 	}
+	if err := s.allowLocalAccountLogin(ctx, tx, proof.UserID); err != nil {
+		if errors.Is(err, ErrSSORequired) {
+			return result, commitPhoneDecision(ctx, tx, err)
+		}
+		return result, err
+	}
 	if state.staleForLogin(s.now(), s.config.PhoneStaleAfter) {
 		return result, commitPhoneDecision(ctx, tx, ErrPhoneStale)
 	}

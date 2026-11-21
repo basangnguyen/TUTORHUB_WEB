@@ -24,10 +24,10 @@ func TestSchoolSSOMigrationAndExactACL(t *testing.T) {
 			t.Fatal("unclean migration ledger", want, v, err)
 		}
 	}
-	for _, want := range []uint{49, 50, 49, 50} {
+	for _, want := range []uint{49, 51, 49, 51} {
 		var err error
 		if want == 49 {
-			err = migrationrunner.Down(ctx, url, 1)
+			err = migrationrunner.Down(ctx, url, 2)
 		} else {
 			err = migrationrunner.Up(ctx, url)
 		}

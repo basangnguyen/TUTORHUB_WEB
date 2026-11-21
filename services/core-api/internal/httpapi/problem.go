@@ -49,7 +49,7 @@ func writeProblemWithSignal(w http.ResponseWriter, r *http.Request, status int, 
 		Title:             title,
 		Status:            status,
 		Detail:            detail,
-		Instance:          r.URL.Path,
+		Instance:          requestTelemetryPath(r.URL.Path),
 		RequestID:         RequestIDFromContext(r.Context()),
 	})
 }
@@ -57,7 +57,8 @@ func writeProblemWithSignal(w http.ResponseWriter, r *http.Request, status int, 
 func writeJSON(logger *slog.Logger, w http.ResponseWriter, status int, body any) {
 	payload, err := json.Marshal(body)
 	if err != nil {
-		logger.Error("marshal response", "error", err)
+		// A custom Marshaler can include response contents in its error.
+		logger.Error("marshal response", "response_type", fmt.Sprintf("%T", body))
 		w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
 		writeJSONBytes(w, http.StatusInternalServerError, Problem{
 			Type:   problemType(http.StatusInternalServerError),

@@ -107,3 +107,16 @@ func (s *NativeAuthService) allowLocalEmail(ctx context.Context, tx pgx.Tx, emai
 	}
 	return err
 }
+
+// A phone number or discoverable passkey identifies its owner only after
+// verification. The caller holds that user's lock until the login commits.
+func (s *NativeAuthService) allowLocalAccountLogin(ctx context.Context, tx pgx.Tx, userID uuid.UUID) error {
+	if !s.config.SSO.available() {
+		return nil
+	}
+	var email string
+	if err := tx.QueryRow(ctx, "SELECT email FROM tutorhub.users WHERE id=$1", userID).Scan(&email); err != nil {
+		return ErrAuthFoundationStorage
+	}
+	return s.allowLocalEmail(ctx, tx, email, true)
+}

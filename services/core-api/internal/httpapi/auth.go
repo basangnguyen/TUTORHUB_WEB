@@ -428,8 +428,8 @@ func (handlers authHandlers) writeIdentityProblem(w http.ResponseWriter, r *http
 		handlers.logger.Error(
 			"identity request failed",
 			"request_id", RequestIDFromContext(r.Context()),
-			"path", logsafe.String(r.URL.Path),
-			"error", logsafe.Error(err),
+			"path", logsafe.String(requestTelemetryPath(r.URL.Path)),
+			"status", status,
 		)
 	}
 	writeProblem(w, r, status, title, detail)

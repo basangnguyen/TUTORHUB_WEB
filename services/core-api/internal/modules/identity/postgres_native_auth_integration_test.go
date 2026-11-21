@@ -50,6 +50,11 @@ func newNativeIntegrationFixture(t *testing.T) *nativeIntegrationFixture {
 	t.Cleanup(func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+		if _, err := pool.Exec(cleanup, deleteFixtureDeliveries+`(SELECT t.id FROM tutorhub.auth_transactions t
+			WHERE t.id=ANY($1::uuid[]) OR t.user_id IN (SELECT id FROM tutorhub.users WHERE email=ANY($2::text[])))`, f.transactions, f.emails); err != nil {
+			t.Error("clean native fixture deliveries", err)
+			return
+		}
 		for _, id := range f.transactions {
 			if _, err := pool.Exec(cleanup, `DELETE FROM tutorhub.auth_transactions WHERE id=$1`, id); err != nil {
 				t.Error("clean disposable signup transaction")

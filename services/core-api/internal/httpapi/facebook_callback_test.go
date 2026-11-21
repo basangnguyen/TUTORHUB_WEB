@@ -75,17 +75,18 @@ func TestFacebookServerCallbackHTTP(t *testing.T) {
 			}
 		}
 	}
-	for _, c := range []string{receiptFixtureCode, "missing"} {
+	const expiredReceipt = "expired-receipt-privacy-fixture"
+	for _, c := range []string{receiptFixtureCode, expiredReceipt} {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, httptest.NewRequest("GET", prefix+"data-deletion/"+url.PathEscape(c), nil))
-		if c == "missing" && w.Code != 404 {
+		if c == expiredReceipt && (w.Code != 404 || strings.Contains(w.Body.String(), expiredReceipt)) {
 			t.Fatal("unknown receipt exposed")
 		}
 		if c == receiptFixtureCode && (w.Code != 200 || strings.TrimSpace(w.Body.String()) != `{"status":"completed"}`) {
 			t.Fatalf("status response %d %s", w.Code, w.Body.String())
 		}
 	}
-	for _, s := range []string{"private-event", "private-wrong", receiptFixtureCode, "test-signing-key"} {
+	for _, s := range []string{"private-event", "private-wrong", receiptFixtureCode, expiredReceipt, "test-signing-key"} {
 		if strings.Contains(logs.String(), s) {
 			t.Fatal("callback or receipt in log")
 		}

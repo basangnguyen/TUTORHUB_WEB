@@ -101,6 +101,7 @@ func testRuntimeFacebookErasure(t *testing.T, ctx context.Context, pool *pgxpool
 				_, _ = pool.Exec(ctx, `DELETE FROM tutorhub.external_data_deletion_requests WHERE idempotency_key=$1`, digest)
 			}
 			_, _ = pool.Exec(ctx, `DELETE FROM tutorhub.outbox_events WHERE aggregate_id IN ($1,$2)`, marker, lastMarker)
+			exec(deleteFixtureDeliveries+"(SELECT id FROM tutorhub.auth_transactions WHERE user_id=$1)", userID)
 			_, _ = pool.Exec(ctx, `DELETE FROM tutorhub.users WHERE id=$1`, userID)
 		})
 		exec(`INSERT INTO tutorhub.users(id,email,display_name,email_verified_at) VALUES($1,$2,'Fixture',now())`, userID, email)
@@ -287,6 +288,10 @@ func verifyFacebookRegistrationAfterErasure(t *testing.T, ctx context.Context, p
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
+		if _, err := pool.Exec(ctx, deleteFixtureDeliveries+"(SELECT id FROM tutorhub.auth_transactions WHERE binding_hash=$1)", hash); err != nil {
+			t.Error("remove re-registration deliveries", err)
+			return
+		}
 		if _, err := pool.Exec(ctx, `DELETE FROM tutorhub.auth_transactions WHERE binding_hash=$1`, hash); err != nil {
 			t.Error("remove re-registration fixture", err)
 		}
@@ -327,7 +332,7 @@ func verifyFacebookRegistrationAfterErasure(t *testing.T, ctx context.Context, p
 
 func TestFacebookErasureMigrationRoundTripAndPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 5); err != nil {
+	if err := migrationrunner.Down(ctx, url, 6); err != nil {
 		t.Fatal("empty 46 down", err)
 	}
 	version, err := migrationrunner.CurrentVersion(ctx, url)

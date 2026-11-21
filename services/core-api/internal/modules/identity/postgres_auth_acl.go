@@ -31,7 +31,7 @@ var authFoundationUpdates = map[string][]string{
 // The dedicated runtime role must have no role memberships, including NOINHERIT
 // memberships: SET ROLE could otherwise bypass the effective ACL checks below.
 // Existing read/insert grants remain; federation updates are restricted to
-// mutable fields. Existing auth_flows cleanup permissions are not broadened.
+// mutable fields. Expired flow cleanup belongs to the maintenance login.
 func ProvisionAuthFoundationRuntimeACL(ctx context.Context, database Database, runtimeRole string) error {
 	if database == nil || strings.TrimSpace(runtimeRole) == "" {
 		return errors.New("authentication ACL provisioning requires database and runtime role")
@@ -137,6 +137,13 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
 	if err := provisionFederationColumnACL(ctx, tx, runtimeRole); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, "REVOKE DELETE ON tutorhub.auth_flows FROM PUBLIC, "+role); err != nil {
+		return errors.New("revoke direct authentication flow cleanup")
+	}
+	// These immutable CHECK predicates are needed for SSO and audit writes.
+	if _, err := tx.Exec(ctx, "GRANT EXECUTE ON FUNCTION tutorhub.sso_org_ids_valid(text,text[]), tutorhub.sso_school_domain_valid(text), tutorhub.audit_metadata_is_redacted(jsonb) TO "+role); err != nil {
+		return errors.New("grant authentication constraint predicates")
+	}
 	if _, err := tx.Exec(ctx, "REVOKE ALL ON FUNCTION "+eraseProviderProcedure+" FROM PUBLIC, "+role); err != nil {
 		return errors.New("revoke broad provider erasure grants")
 	}
@@ -151,6 +158,10 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
 	                    WHERE acl.grantee <> p.proowner AND acl.grantee <> (SELECT oid FROM pg_roles WHERE rolname=$1))
 	    AND NOT has_function_privilege($1,'tutorhub.clear_finished_federation_payload()','EXECUTE')
 	    AND NOT has_function_privilege($1,'tutorhub.purge_expired_deletion_receipts()','EXECUTE')
+	    AND NOT has_function_privilege($1,'tutorhub.purge_expired_auth_artifacts(integer)','EXECUTE')
+	    AND NOT has_function_privilege($1,'tutorhub.require_delivery_challenge()','EXECUTE')
+	    AND NOT has_table_privilege($1,'tutorhub.auth_flows','DELETE')
+	    AND NOT has_table_privilege($1,'tutorhub.users','DELETE')
 	    AND NOT has_table_privilege($1,'tutorhub.identities','DELETE')
 	    AND NOT has_column_privilege($1,'tutorhub.identities','subject','UPDATE')
 	    FROM pg_proc p WHERE p.oid=$2::regprocedure`, runtimeRole, eraseProviderProcedure).Scan(&erasureACL); err != nil || !erasureACL {
@@ -163,6 +174,102 @@ FROM pg_roles r WHERE r.rolname = $1`, runtimeRole,
 }
 
 const eraseProviderProcedure = "tutorhub.erase_provider_identity(text,text,text,bytea,timestamptz)"
+
+// ProvisionAuthMaintenanceACL runs on the migration owner's connection. It
+// replaces the dedicated role's schema privileges in a single transaction.
+func ProvisionAuthMaintenanceACL(ctx context.Context, database Database, maintenanceRole string) error {
+	if database == nil || strings.TrimSpace(maintenanceRole) == "" {
+		return errors.New("authentication maintenance requires a database and role")
+	}
+	tx, err := database.Begin(ctx)
+	if err != nil {
+		return errors.New("begin authentication maintenance provisioning")
+	}
+	defer rollback(tx)
+
+	var safe bool
+	if err := tx.QueryRow(ctx, `SELECT
+		r.rolname <> current_user AND NOT (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls)
+		AND NOT EXISTS (SELECT FROM pg_auth_members WHERE member=r.oid)
+		AND NOT EXISTS (SELECT FROM pg_database WHERE datname=current_database() AND datdba=r.oid)
+		AND NOT EXISTS (SELECT FROM pg_namespace WHERE nspname='tutorhub' AND nspowner=r.oid)
+		AND NOT EXISTS (SELECT FROM pg_class WHERE relnamespace='tutorhub'::regnamespace AND relowner=r.oid)
+		AND NOT EXISTS (SELECT FROM pg_proc WHERE pronamespace='tutorhub'::regnamespace AND proowner=r.oid)
+		AND current_user=pg_get_userbyid((SELECT proowner FROM pg_proc
+		    WHERE oid='tutorhub.purge_expired_auth_artifacts(integer)'::regprocedure))
+		FROM pg_roles r WHERE r.rolname=$1`, maintenanceRole).Scan(&safe); err != nil || !safe {
+		return errors.New("authentication maintenance role safety preflight failed")
+	}
+	role := pgx.Identifier{maintenanceRole}.Sanitize()
+	for _, statement := range []string{
+		"REVOKE ALL ON SCHEMA tutorhub FROM " + role,
+		"REVOKE ALL ON ALL TABLES IN SCHEMA tutorhub FROM " + role,
+		"REVOKE ALL ON ALL SEQUENCES IN SCHEMA tutorhub FROM " + role,
+		"REVOKE ALL ON ALL ROUTINES IN SCHEMA tutorhub FROM " + role,
+	} {
+		if _, err := tx.Exec(ctx, statement); err != nil {
+			return errors.New("revoke prior authentication maintenance grants")
+		}
+	}
+	// Include column-only grants, even on tables outside the identity module.
+	rows, err := tx.Query(ctx, `SELECT format('REVOKE ALL (%s) ON TABLE %I.%I FROM %I',
+		string_agg(quote_ident(a.attname), ', ' ORDER BY a.attnum), 'tutorhub', c.relname, $1::text)
+		FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid
+		WHERE c.relnamespace='tutorhub'::regnamespace AND a.attnum>0 AND NOT a.attisdropped
+		  AND EXISTS (SELECT FROM aclexplode(a.attacl) acl JOIN pg_roles r ON r.oid=acl.grantee WHERE r.rolname=$1)
+		GROUP BY c.relname`, maintenanceRole)
+	if err != nil {
+		return errors.New("inspect prior maintenance column grants")
+	}
+	statements, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return errors.New("read prior maintenance column grants")
+	}
+	statements = append(statements, "GRANT USAGE ON SCHEMA tutorhub TO "+role,
+		"GRANT EXECUTE ON FUNCTION tutorhub.purge_expired_auth_artifacts(integer), tutorhub.purge_expired_deletion_receipts() TO "+role)
+	for _, statement := range statements {
+		if _, err := tx.Exec(ctx, statement); err != nil {
+			return errors.New("set exact authentication maintenance grants")
+		}
+	}
+	var exact bool
+	if err := tx.QueryRow(ctx, `SELECT
+		has_schema_privilege(r.oid, 'tutorhub', 'USAGE')
+		AND NOT has_schema_privilege(r.oid, 'tutorhub', 'CREATE,USAGE WITH GRANT OPTION')
+		AND NOT EXISTS (
+			SELECT FROM pg_class c WHERE c.relnamespace='tutorhub'::regnamespace
+			AND c.relkind IN ('r','p','v','m','f') AND (
+				has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+				OR has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+			)
+		)
+		AND NOT EXISTS (SELECT FROM pg_class c WHERE c.relnamespace='tutorhub'::regnamespace
+			AND CASE WHEN c.relkind='S' THEN has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE') ELSE false END)
+		AND NOT EXISTS (
+			SELECT FROM pg_proc p WHERE p.pronamespace='tutorhub'::regnamespace AND (
+				has_function_privilege(r.oid,p.oid,'EXECUTE') <> (p.oid IN (
+					'tutorhub.purge_expired_auth_artifacts(integer)'::regprocedure,
+					'tutorhub.purge_expired_deletion_receipts()'::regprocedure))
+				OR has_function_privilege(r.oid,p.oid,'EXECUTE WITH GRANT OPTION')
+			)
+		)
+		AND NOT EXISTS (
+			SELECT FROM pg_proc p WHERE p.oid IN ('tutorhub.purge_expired_auth_artifacts(integer)'::regprocedure,
+				'tutorhub.purge_expired_deletion_receipts()'::regprocedure)
+			AND (NOT p.prosecdef OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']
+				OR EXISTS (SELECT FROM pg_class c WHERE c.relnamespace='tutorhub'::regnamespace
+					AND c.relname IN ('auth_transactions','auth_challenges','auth_challenge_deliveries',
+						'user_phone_numbers','mfa_recovery_codes','auth_flows','external_data_deletion_requests')
+					AND c.relowner<>p.proowner))
+		)
+		FROM pg_roles r WHERE r.rolname=$1`, maintenanceRole).Scan(&exact); err != nil || !exact {
+		return errors.New("authentication maintenance privileges or definer ownership are not exact")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return errors.New("commit authentication maintenance provisioning")
+	}
+	return nil
+}
 
 func provisionFederationColumnACL(ctx context.Context, tx pgx.Tx, runtimeRole string) error {
 	role := pgx.Identifier{runtimeRole}.Sanitize()

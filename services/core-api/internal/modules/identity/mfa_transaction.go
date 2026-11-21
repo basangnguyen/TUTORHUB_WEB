@@ -90,17 +90,20 @@ func (s *NativeAuthService) emailGeneration(ctx context.Context, tx pgx.Tx, p mf
 }
 
 // Callers hold the account lock from their successful first-factor verification.
-func (s *NativeAuthService) beginMFA(ctx context.Context, tx pgx.Tx, p mfaPayload) (*MFAChallenge, error) {
+func (s *NativeAuthService) beginMFA(ctx context.Context, tx pgx.Tx, p mfaPayload, requiredSchool bool) (*MFAChallenge, error) {
 	phone := len(p.Methods) == 1 && p.Methods[0] == "phone_otp"
-	if !phone && !s.config.MFATOTPEnabled {
+	if !phone && !requiredSchool && !s.config.MFATOTPEnabled {
 		return nil, nil
 	}
 	factor, methods, registered, err := s.mfaMethods(ctx, tx, p.UserID)
 	if err != nil {
 		return nil, err
 	}
-	if factor == uuid.Nil && !(registered && (p.RecoveryHash != "" || phone)) {
+	if factor == uuid.Nil && !(registered && (p.RecoveryHash != "" || phone || requiredSchool)) {
 		return nil, nil
+	}
+	if requiredSchool && (!s.config.MFATOTPEnabled || len(methods) == 0) {
+		return nil, ErrFederationAALRequired
 	}
 	if phone && (!s.config.MFATOTPEnabled || len(methods) == 0) {
 		return nil, ErrPhoneSecondFactorRequired
@@ -258,6 +261,11 @@ func (s *NativeAuthService) MFAPasskeyOptions(ctx context.Context, binding strin
 }
 
 func (s *NativeAuthService) validateMFAFirstFactor(ctx context.Context, tx pgx.Tx, p mfaPayload) error {
+	if p.Methods[0] == "phone_otp" || p.Methods[0] == "passkey" {
+		if err := s.allowLocalAccountLogin(ctx, tx, p.UserID); err != nil {
+			return err
+		}
+	}
 	if len(p.PasswordDigest) > 0 {
 		generation, err := s.passwordGeneration(ctx, tx, p.UserID)
 		if err != nil {

@@ -28,6 +28,10 @@ func TestAuthFoundationPostgresChallengeLifecycleAndConcurrentVerify(t *testing.
 		cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		// Fixture cleanup uses the explicitly disposable owner, never runtime ACL.
+		if _, err := pool.Exec(cleanup, deleteFixtureDeliveries+"(SELECT unnest($1::uuid[]))", transactionIDs); err != nil {
+			t.Error("clean fixture deliveries", err)
+			return
+		}
 		for _, id := range transactionIDs {
 			if _, err := pool.Exec(cleanup, "DELETE FROM tutorhub.auth_transactions WHERE id=$1", id); err != nil {
 				t.Error("clean up disposable authentication transaction")
@@ -152,6 +156,10 @@ func TestPhonePostgresDeliveryRecordsActualFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
+		if _, err := pool.Exec(ctx, deleteFixtureDeliveries+"($1)", tx.ID); err != nil {
+			t.Error("clean fixture phone deliveries", err)
+			return
+		}
 		if _, err := pool.Exec(context.Background(), "DELETE FROM tutorhub.auth_transactions WHERE id=$1", tx.ID); err != nil {
 			t.Error("clean up disposable phone transaction")
 		}

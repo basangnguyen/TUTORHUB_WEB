@@ -259,7 +259,7 @@ func (service *NativeAuthService) CompletePasswordRecovery(ctx context.Context, 
 		challenge, err := service.beginMFA(ctx, tx, mfaPayload{
 			UserID: payload.UserID, Methods: []string{"email_code"},
 			RecoveryHash: hash, RecoveryEmail: payload.Email, RecoveryName: currentDisplayName,
-		})
+		}, false)
 		if err != nil {
 			return nil, err
 		}

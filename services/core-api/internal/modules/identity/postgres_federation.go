@@ -352,49 +352,14 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 		if err != nil {
 			return FederationLoginRecord{}, ErrAuthFoundationStorage
 		}
-		if existing.Status == "erased" {
+		if existing.Status != "active" && existing.Status != "unlinked" {
 			return FederationLoginRecord{}, ErrIdentityInactive
 		}
-		realm, err := repository.mfa.checkSchoolLogin(ctx, tx, existing.UserID, school)
-		if err != nil {
-			return FederationLoginRecord{}, err
-		}
+		identityID := existing.ID
 		if existing.Status == "unlinked" {
-			if err := insertFederationLinkIntent(ctx, tx, existing.UserID, input); err != nil {
-				return FederationLoginRecord{}, err
-			}
-			if tx.Commit(ctx) != nil {
-				return FederationLoginRecord{}, ErrAuthFoundationStorage
-			}
-			return FederationLoginRecord{LinkPending: true}, nil
+			identityID = uuid.Nil
 		}
-		if existing.Status != "active" {
-			return FederationLoginRecord{}, ErrIdentityInactive
-		}
-		challenge, err := repository.beginFederatedMFA(ctx, tx, existing.UserID, existing.ID, input.ProviderSlug, input.Flow.ReturnTo, school)
-		if err != nil {
-			return FederationLoginRecord{}, err
-		}
-		if challenge != nil {
-			if err := refreshFederatedLoginClaims(ctx, tx, existing.UserID, existing.ID, input.Claims, now); err != nil {
-				return FederationLoginRecord{}, err
-			}
-			if tx.Commit(ctx) != nil {
-				return FederationLoginRecord{}, ErrAuthFoundationStorage
-			}
-			return FederationLoginRecord{MFA: challenge}, nil
-		}
-		if err := requireLegacyFederationFloor(ctx, tx, existing.UserID, now); err != nil {
-			return FederationLoginRecord{}, err
-		}
-		principal, err := repository.insertFederatedSession(ctx, tx, existing.UserID, existing.ID, input.Claims, input.Metadata, input.SessionAbsoluteTTL, realm, school.Proof)
-		if err != nil {
-			return FederationLoginRecord{}, err
-		}
-		if tx.Commit(ctx) != nil {
-			return FederationLoginRecord{}, ErrAuthFoundationStorage
-		}
-		return FederationLoginRecord{Principal: principal}, nil
+		return repository.finishExistingFederatedLogin(ctx, tx, existing.UserID, identityID, input, school)
 	}
 	if !input.Claims.EmailVerified {
 		if _, err := repository.mfa.checkSchoolLogin(ctx, tx, uuid.Nil, school); err != nil {
@@ -455,16 +420,79 @@ func (repository *PostgresRepository) CompleteFederatedLogin(ctx context.Context
 	if err := lockActiveTenantUser(ctx, tx, userID); err != nil {
 		return FederationLoginRecord{}, err
 	}
-	if _, err := repository.mfa.checkSchoolLogin(ctx, tx, userID, school); err != nil {
+	return repository.finishExistingFederatedLogin(ctx, tx, userID, uuid.Nil, input, school)
+}
+
+// The provider subject and active account are locked. An absent identity ID
+// means this login needs to link a new or previously unlinked identity.
+func (repository *PostgresRepository) finishExistingFederatedLogin(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, input FederationLoginParams, school schoolLoginContext) (FederationLoginRecord, error) {
+	realm, err := repository.mfa.checkSchoolLogin(ctx, tx, userID, school)
+	if err != nil {
 		return FederationLoginRecord{}, err
 	}
-	if err := insertFederationLinkIntent(ctx, tx, userID, input); err != nil {
+	now := input.Metadata.CreatedAt
+	link := identityID == uuid.Nil
+	if link {
+		var verifiedMailbox bool
+		if realm != nil && realm.Required && school.Proof.matches(realm.Provider, realm.Domain, realm.AllowedOrgIDs) {
+			// Even an old subject on the same domain must prove the exact
+			// canonical mailbox. Recheck after acquiring the account lock.
+			err := tx.QueryRow(ctx, `SELECT email_verified_at IS NOT NULL AND lower(email)=lower($2)
+				FROM tutorhub.users WHERE id=$1 AND status='active'`, userID, input.Claims.Email).Scan(&verifiedMailbox)
+			if err != nil {
+				return FederationLoginRecord{}, ErrAuthFoundationStorage
+			}
+		}
+		if !verifiedMailbox {
+			if err := insertFederationLinkIntent(ctx, tx, userID, input); err != nil {
+				return FederationLoginRecord{}, err
+			}
+			if tx.Commit(ctx) != nil {
+				return FederationLoginRecord{}, ErrAuthFoundationStorage
+			}
+			return FederationLoginRecord{LinkPending: true}, nil
+		}
+		if err := lockNativeUserSessions(ctx, tx, userID); err != nil {
+			return FederationLoginRecord{}, err
+		}
+		identityID, err = linkFederatedIdentity(ctx, tx, userID, input.ProviderSlug, input.Claims, now)
+		if err != nil {
+			return FederationLoginRecord{}, err
+		}
+	}
+	challenge, err := repository.beginFederatedMFA(ctx, tx, userID, identityID, input.ProviderSlug, input.Flow.ReturnTo, school, realm)
+	if err != nil {
+		return FederationLoginRecord{}, err
+	}
+	// The legacy floor depends on live sessions and must be evaluated
+	// before a school link revokes them. A pending MFA always issues AAL2.
+	if challenge == nil {
+		if err := requireLegacyFederationFloor(ctx, tx, userID, now); err != nil {
+			return FederationLoginRecord{}, err
+		}
+	}
+	if link {
+		if _, err := tx.Exec(ctx, `UPDATE tutorhub.sessions SET revoked_at=$2,revoked_reason='identity_linked'
+			WHERE user_id=$1 AND revoked_at IS NULL`, userID, now); err != nil {
+			return FederationLoginRecord{}, ErrAuthFoundationStorage
+		}
+		if err := insertIdentityEvent(ctx, tx, realm.TenantID, userID, "identity_linked", identityID, now); err != nil {
+			return FederationLoginRecord{}, err
+		}
+	}
+	result := FederationLoginRecord{MFA: challenge}
+	if challenge == nil {
+		result.Principal, err = repository.insertFederatedSession(ctx, tx, userID, identityID, input.Claims, input.Metadata, input.SessionAbsoluteTTL, realm, school.Proof)
+	} else {
+		err = refreshFederatedLoginClaims(ctx, tx, userID, identityID, input.Claims, now)
+	}
+	if err != nil {
 		return FederationLoginRecord{}, err
 	}
 	if tx.Commit(ctx) != nil {
 		return FederationLoginRecord{}, ErrAuthFoundationStorage
 	}
-	return FederationLoginRecord{LinkPending: true}, nil
+	return result, nil
 }
 
 func insertFederationLinkIntent(ctx context.Context, tx pgx.Tx, userID uuid.UUID, input FederationLoginParams) error {

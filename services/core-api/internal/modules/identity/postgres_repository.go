@@ -77,14 +77,6 @@ func (repository *PostgresRepository) CreateFlow(
 		params.ProviderSlug = "oidc"
 	}
 
-	if _, err := transaction.Exec(
-		queryContext,
-		`DELETE FROM tutorhub.auth_flows WHERE expires_at <= $1`,
-		params.CreatedAt,
-	); err != nil {
-		return fmt.Errorf("delete expired authentication flows: %w", err)
-	}
-
 	const insertFlow = `
 INSERT INTO tutorhub.auth_flows (
     state_hash,
@@ -231,7 +223,7 @@ func (repository *PostgresRepository) CreateAuthenticatedSession(
 			return FederationLoginRecord{}, err
 		}
 	}
-	challenge, err := repository.beginFederatedMFA(queryContext, transaction, userID, identityID, "oidc", metadata.ReturnTo, school)
+	challenge, err := repository.beginFederatedMFA(queryContext, transaction, userID, identityID, "oidc", metadata.ReturnTo, school, nil)
 	if err != nil {
 		return FederationLoginRecord{}, err
 	}

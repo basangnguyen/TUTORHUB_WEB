@@ -18,7 +18,7 @@ type mfaFirstFactorService struct {
 }
 
 func (s *mfaFirstFactorService) FinishPasskeyLogin(context.Context, string, json.RawMessage, bool, string, string) (identity.NativeSessionResult, error) {
-	return s.session(), nil
+	return s.session(), s.err
 }
 
 func TestMFAFirstFactorHTTPReturnsOnlyPendingTransaction(t *testing.T) {

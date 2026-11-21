@@ -32,7 +32,11 @@ func newPhoneIntegrationFixture(t *testing.T) *phoneIntegrationFixture {
 
 func (f *phoneIntegrationFixture) account(t *testing.T) Principal {
 	t.Helper()
-	email := "phone-" + uuid.NewString() + "@example.test"
+	return f.accountWithEmail(t, "phone-"+uuid.NewString()+"@example.test")
+}
+
+func (f *phoneIntegrationFixture) accountWithEmail(t *testing.T, email string) Principal {
+	t.Helper()
 	c := f.start(t, email)
 	session, err := f.service.CompleteEmailSignup(f.ctx, c.Cookie.Value, nativeIntegrationCompleteInput(c.ChallengeID))
 	if err != nil {
@@ -51,6 +55,7 @@ func (f *phoneIntegrationFixture) account(t *testing.T) Principal {
 			`DELETE FROM tutorhub.mfa_recovery_codes WHERE user_id=$1`,
 			`DELETE FROM tutorhub.mfa_totp_factors WHERE user_id=$1`,
 			`DELETE FROM tutorhub.webauthn_credentials WHERE user_id=$1`,
+			deleteFixtureDeliveries + "(SELECT id FROM tutorhub.auth_transactions WHERE user_id=$1)",
 			`DELETE FROM tutorhub.auth_transactions WHERE user_id=$1`,
 		} {
 			if _, err := f.pool.Exec(f.ctx, q, p.User.ID); err != nil {

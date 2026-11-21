@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source: `000037_whiteboard_control_plane`. P5-COLLAB-02 đang `VERIFY`:
+- Migration mới nhất trong source là `000051_auth_retention`. Phần dưới ghi lại checkpoint lịch sử của P5-COLLAB-02 tại `000037_whiteboard_control_plane`:
   local schema/static/integration-tag compile PASS; Neon disposable/shared chưa forward. Shared
   staging vẫn ở `36 false`, media force-off và whiteboard production force-off. P4-01 đến P4-12 và
   Phase 4 đã `DONE`; P4-12 không thêm migration hoặc rollback.
@@ -75,7 +75,7 @@ runtime role tối thiểu quyền; migration job dùng direct migration role ri
 readiness và smoke sau migration `000014` đã đạt trong P3-01. Các giá trị credential
 không được ghi vào runbook hoặc artifact.
 
-## Bốn connection URL
+## Bốn connection URL nền tảng và URL bảo trì xác thực
 
 | Biến                            | Đối tượng sử dụng       | Loại URL                                 | Quy tắc                                                    |
 | ------------------------------- | ----------------------- | ---------------------------------------- | ---------------------------------------------------------- |
@@ -83,11 +83,33 @@ không được ghi vào runbook hoặc artifact.
 | `DATABASE_WORKER_URL`           | Outbox worker           | Neon pooled, hostname có `-pooler`       | Chỉ worker role; không fallback sang API/migration URL     |
 | `DATABASE_MIGRATION_URL`        | CLI/release job         | Neon direct, hostname không có `-pooler` | Chỉ migration owner; không đưa vào runtime container       |
 | `DATABASE_POLL_MAINTENANCE_URL` | Poll retention operator | Neon direct, hostname không có `-pooler` | Chỉ maintenance login; schema `USAGE` + function `EXECUTE` |
+| `DATABASE_AUTH_MAINTENANCE_URL` | Job retention xác thực  | Direct, hostname không có `-pooler.`     | Login riêng, `USAGE` schema và `EXECUTE` hai hàm purge     |
 
 Không dùng URL direct cho traffic ứng dụng thường xuyên. Không chia sẻ credential giữa
 API và worker, không cho worker fallback sang `DATABASE_POOL_URL`, và không cấp URL
 migration cho frontend, browser, Cloudflare Pages, Core API hoặc worker. Hai runtime
 process không tự chạy migration khi khởi động.
+
+### Retention xác thực từ migration 51
+
+Sau khi chạy migration, release job dùng owner để gọi `ProvisionAuthFoundationRuntimeACL` và
+`ProvisionAuthMaintenanceACL` cho hai role riêng. Runtime API ghi biên nhận gắn với challenge
+và chỉ cập nhật các cột trạng thái. Job auth có quyền gọi
+`tutorhub.purge_expired_auth_artifacts(integer)` và `tutorhub.purge_expired_deletion_receipts()`.
+Hai hàm dùng quyền owner và cố định `search_path`. Job chỉ gọi hàm thứ nhất vì hàm đó đã xử lý cả biên nhận Meta.
+Provision kiểm tra quyền hiệu lực trên bảng, cột, hàm và chủ sở hữu. Sau khi tạo role mới hoặc đổi default ACL, chạy lại provision.
+
+| Dữ liệu                                            | Khi đủ điều kiện xóa                                                                    |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `auth_transactions` và challenge con, `auth_flows` | 24 giờ sau `expires_at` của transaction/flow                                            |
+| `auth_challenge_deliveries`                        | 30 ngày sau `created_at`. Giữ metadata giao nhận khi FK `challenge_id` chuyển sang NULL |
+| `user_phone_numbers`                               | 90 ngày sau `released_at` hoặc `removed_at` tương ứng. Giữ số active                    |
+| `mfa_recovery_codes`                               | 30 ngày sau khi dùng hoặc vô hiệu hóa. Giữ mã còn hiệu lực                              |
+| `external_data_deletion_requests`                  | Một năm sau `created_at`                                                                |
+
+Dọn theo lô và bỏ qua hàng đang bị khóa. Bản ghi hết hạn xác thực ngay theo TTL của nó dù lịch purge chưa tới.
+Chỉ chạy down 51 trên disposable sạch. Down chặn nếu còn receipt đã tách cha, và giữ lại quyền PUBLIC đã thu hẹp
+trên các hàm kiểm tra dữ liệu. Xem lệnh provision, lịch job và quy trình lùi phiên bản trong [runbook Public Beta](AUTH_PUBLIC_BETA_RUNBOOK.md).
 
 ## Cấu hình pool mặc định
 

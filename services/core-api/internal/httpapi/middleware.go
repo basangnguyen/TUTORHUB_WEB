@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
-	"runtime/debug"
+	"runtime"
 	"strings"
 	"time"
 
@@ -169,8 +169,7 @@ func recoverMiddleware(
 				"request_id", RequestIDFromContext(r.Context()),
 				"method", logsafe.String(r.Method),
 				"path", logsafe.String(requestTelemetryPath(r.URL.Path)),
-				"error", logsafe.String(fmt.Sprint(recovered)),
-				"stack", logsafe.String(string(debug.Stack())),
+				"stack", panicFunctions(),
 			)
 
 			if state, ok := w.(interface{ HeaderWritten() bool }); ok && state.HeaderWritten() {
@@ -188,6 +187,21 @@ func recoverMiddleware(
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Stack frames identify the failing code without serializing panic values or arguments.
+func panicFunctions() []string {
+	var pc [24]uintptr
+	n := runtime.Callers(3, pc[:])
+	frames := runtime.CallersFrames(pc[:n])
+	var names []string
+	for {
+		frame, more := frames.Next()
+		names = append(names, frame.Function)
+		if !more {
+			return names
+		}
+	}
 }
 
 func newRequestID() string {

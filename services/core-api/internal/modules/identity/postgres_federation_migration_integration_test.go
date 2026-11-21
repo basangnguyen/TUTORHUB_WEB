@@ -13,7 +13,7 @@ import (
 
 func TestFederationMigrationRoundTripAndBindingConstraints(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 6); err != nil {
+	if err := migrationrunner.Down(ctx, url, 7); err != nil {
 		t.Fatal("rollback empty federation schema")
 	}
 	version, err := migrationrunner.CurrentVersion(ctx, url)
@@ -31,8 +31,8 @@ func TestFederationMigrationRoundTripAndBindingConstraints(t *testing.T) {
 		t.Fatal("federation migration rerun")
 	}
 	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 50 || version.Dirty {
-		t.Fatal("federation must finish at clean ledger 50")
+	if err != nil || version.Number != 51 || version.Dirty {
+		t.Fatal("federation must finish at clean ledger 51")
 	}
 	for _, item := range []struct {
 		provider, purpose string

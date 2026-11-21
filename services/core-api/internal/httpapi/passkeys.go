@@ -156,6 +156,9 @@ func (h nativeAuthHandlers) passkeyLogin(w http.ResponseWriter, r *http.Request)
 	}
 	result, err := svc.FinishPasskeyLogin(r.Context(), binding, body.Assertion, body.KeepSignedIn, r.UserAgent(), r.RemoteAddr)
 	if err != nil {
+		if errors.Is(err, identity.ErrSSORequired) {
+			h.clearTransactionCookie(w)
+		}
 		h.writePasskeyError(w, r, err)
 		return
 	}

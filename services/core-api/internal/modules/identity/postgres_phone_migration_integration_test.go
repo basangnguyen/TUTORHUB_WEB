@@ -21,14 +21,14 @@ func TestPhoneMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	}
 	// Start at 48, then exercise forward, reverse and forward again.
 	for range 2 {
-		if err := migrationrunner.Down(ctx, url, 2); err != nil {
+		if err := migrationrunner.Down(ctx, url, 3); err != nil {
 			t.Fatal(err)
 		}
 		checkVersion(48)
 		if err := migrationrunner.Up(ctx, url); err != nil {
 			t.Fatal(err)
 		}
-		checkVersion(50)
+		checkVersion(51)
 	}
 	down, err := migrations.Files.ReadFile("000049_phone_numbers.down.sql")
 	if err != nil {

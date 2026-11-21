@@ -215,7 +215,7 @@ func (service *NativeAuthService) finishPasskey(ctx context.Context, purpose Pas
 		return err
 	}
 	err = verify(ctx, tx, session, locked)
-	if err != nil && !errors.Is(err, ErrInvalidPasskey) && !errors.Is(err, ErrPasskeyUnknown) && !errors.Is(err, ErrPasskeyClone) && !errors.Is(err, ErrPasskeyConflict) && !errors.Is(err, ErrAuthFoundationInput) {
+	if err != nil && !errors.Is(err, ErrInvalidPasskey) && !errors.Is(err, ErrPasskeyUnknown) && !errors.Is(err, ErrPasskeyClone) && !errors.Is(err, ErrPasskeyConflict) && !errors.Is(err, ErrAuthFoundationInput) && !errors.Is(err, ErrSSORequired) {
 		return err
 	}
 	if tx.Commit(ctx) != nil {
@@ -296,6 +296,9 @@ func (service *NativeAuthService) FinishPasskeyLogin(ctx context.Context, bindin
 	err := service.finishPasskey(ctx, PasskeyLogin, nil, binding, func(ctx context.Context, tx pgx.Tx, session webauthn.SessionData, _ lockedSecuritySession) error {
 		proof, err := service.verifyPasskeyAssertion(ctx, tx, session, assertion, nil)
 		if err != nil {
+			return err
+		}
+		if err := service.allowLocalAccountLogin(ctx, tx, proof.UserID); err != nil {
 			return err
 		}
 		if proof.UV {

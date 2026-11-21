@@ -10,7 +10,7 @@ import (
 // The caller holds the verified user's lock through policy evaluation and commit.
 func (service *NativeAuthService) finishLoginFirstFactor(ctx context.Context, tx pgx.Tx, proof mfaPayload, userAgent, remote string) (NativeSessionResult, error) {
 	if service.config.MFATOTPEnabled || (len(proof.Methods) == 1 && proof.Methods[0] == "phone_otp") {
-		challenge, err := service.beginMFA(ctx, tx, proof)
+		challenge, err := service.beginMFA(ctx, tx, proof, false)
 		if err != nil {
 			return NativeSessionResult{}, err
 		}

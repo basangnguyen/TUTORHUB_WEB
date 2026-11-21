@@ -162,6 +162,9 @@ func (h nativeAuthHandlers) verifyPhone(w http.ResponseWriter, r *http.Request, 
 	}
 	result, err := s.VerifyPhoneLogin(r.Context(), binding, input)
 	if err != nil {
+		if errors.Is(err, identity.ErrSSORequired) {
+			h.clearTransactionCookie(w)
+		}
 		h.writePhoneError(w, r, err)
 		return
 	}

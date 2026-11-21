@@ -10,13 +10,13 @@ import (
 
 // The browser only receives a binding after the same transaction that checked
 // the provider identity and created the challenge commits.
-func (repository *PostgresRepository) beginFederatedMFA(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, provider, returnTo string, school schoolLoginContext) (*MFAChallenge, error) {
+func (repository *PostgresRepository) beginFederatedMFA(ctx context.Context, tx pgx.Tx, userID, identityID uuid.UUID, provider, returnTo string, school schoolLoginContext, realm *schoolRealm) (*MFAChallenge, error) {
 	if repository.mfa == nil {
 		return nil, nil
 	}
 	return repository.mfa.beginMFA(ctx, tx, mfaPayload{
 		UserID: userID, IdentityID: identityID, Provider: provider, ReturnTo: returnTo, Methods: []string{"fed"}, School: school,
-	})
+	}, realm != nil && realm.Required)
 }
 
 // A provider may have been disabled or the identity erased between callback
