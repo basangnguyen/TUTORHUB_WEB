@@ -175,6 +175,7 @@ type AuthenticationConfig struct {
 	PhoneAllowedCountries        []string
 	EmailSender                  string
 	SMTPAddr                     string
+	Resend                       ResendConfig
 	PhoneSender                  string
 	PhoneFallbackSender          string
 	ZNS                          ZNSConfig
@@ -202,6 +203,11 @@ type redactedConfig struct{}
 func (redactedConfig) String() string       { return "[redacted]" }
 func (redactedConfig) GoString() string     { return "[redacted]" }
 func (redactedConfig) LogValue() slog.Value { return slog.StringValue("[redacted]") }
+
+type ResendConfig struct {
+	redactedConfig
+	APIURL, APIKey, FromEmail, FromName string
+}
 
 type ZNSConfig struct {
 	redactedConfig

@@ -11,12 +11,16 @@ WORKDIR /src/services/core-api
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-core-api ./cmd/api
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-worker ./cmd/worker
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-calendar-rsvp-fixture ./cmd/calendar-rsvp-fixture
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-migrate ./cmd/migrate
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-auth-provision ./cmd/auth-maintenance/provision
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tutorhub-auth-maintenance ./cmd/auth-maintenance
 
 FROM alpine:3.23
 
 # Fail the build instead of shipping an OpenSSL release affected by
 # CVE-2026-14456. Compatible later Alpine patch releases remain acceptable.
 RUN apk add --no-cache --upgrade \
+    ca-certificates \
     "libcrypto3>=3.5.8-r0" \
     "libssl3>=3.5.8-r0" \
     && addgroup -S tutorhub \
@@ -26,6 +30,9 @@ WORKDIR /app
 COPY --from=build /out/tutorhub-core-api /app/tutorhub-core-api
 COPY --from=build /out/tutorhub-worker /app/tutorhub-worker
 COPY --from=build /out/tutorhub-calendar-rsvp-fixture /app/tutorhub-calendar-rsvp-fixture
+COPY --from=build /out/tutorhub-migrate /app/tutorhub-migrate
+COPY --from=build /out/tutorhub-auth-provision /app/tutorhub-auth-provision
+COPY --from=build /out/tutorhub-auth-maintenance /app/tutorhub-auth-maintenance
 ENV APP_ENV=staging
 ENV PORT=7860
 EXPOSE 7860

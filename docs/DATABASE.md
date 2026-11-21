@@ -7,7 +7,7 @@ thay đổi schema, migration hoặc repository phải đọc tài liệu này t
 
 - System of record: Neon PostgreSQL.
 - Schema ứng dụng: `tutorhub`.
-- Migration mới nhất trong source là `000051_auth_retention`. Phần dưới ghi lại checkpoint lịch sử của P5-COLLAB-02 tại `000037_whiteboard_control_plane`:
+- Migration mới nhất trong source là `000052_auth_resend_provider`. Phần dưới ghi lại checkpoint lịch sử của P5-COLLAB-02 tại `000037_whiteboard_control_plane`:
   local schema/static/integration-tag compile PASS; Neon disposable/shared chưa forward. Shared
   staging vẫn ở `36 false`, media force-off và whiteboard production force-off. P4-01 đến P4-12 và
   Phase 4 đã `DONE`; P4-12 không thêm migration hoặc rollback.
@@ -110,6 +110,14 @@ Provision kiểm tra quyền hiệu lực trên bảng, cột, hàm và chủ s�
 Dọn theo lô và bỏ qua hàng đang bị khóa. Bản ghi hết hạn xác thực ngay theo TTL của nó dù lịch purge chưa tới.
 Chỉ chạy down 51 trên disposable sạch. Down chặn nếu còn receipt đã tách cha, và giữ lại quyền PUBLIC đã thu hẹp
 trên các hàm kiểm tra dữ liệu. Xem lệnh provision, lịch job và quy trình lùi phiên bản trong [runbook Public Beta](AUTH_PUBLIC_BETA_RUNBOOK.md).
+
+### Biên nhận email từ migration 52
+
+`000052_auth_resend_provider` bổ sung `resend` vào CHECK `auth_deliveries_provider_valid` của
+`tutorhub.auth_challenge_deliveries`. Dispatcher ghi biên nhận cho challenge bằng runtime role đã provision
+và lưu HMAC-SHA-256 dạng hex 64 ký tự cho ID đã được nhà cung cấp chấp nhận. ACL và thời hạn lưu vẫn theo migration 51.
+Khi lùi từ 52 về 51, transaction khóa bảng ở chế độ `ACCESS EXCLUSIVE` và trả SQLSTATE `55000`
+nếu còn hàng mang provider `resend`, kể cả hàng đã tách cha. Khi đó giữ schema 52 để job xử lý theo retention.
 
 ## Cấu hình pool mặc định
 

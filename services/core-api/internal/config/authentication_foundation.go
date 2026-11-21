@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/netip"
 	"net/url"
 	"regexp"
@@ -95,7 +96,19 @@ func configureAuthFoundation(cfg *AuthenticationConfig, lookup lookupEnv, enviro
 			*validationErrors = append(*validationErrors, fmt.Errorf("AUTH_E2E_DNS_UDP_ADDR must be 127.0.0.1:<port>"))
 		}
 	}
-	validateAuthSender("AUTH_EMAIL_SENDER", cfg.EmailSender, []string{"disabled", "devinbox", "smtp", "ses"}, development, cfg.DeliveryBudgetApproved, validationErrors)
+	validateAuthSender("AUTH_EMAIL_SENDER", cfg.EmailSender, []string{"disabled", "devinbox", "smtp", "ses", "resend"}, development, cfg.DeliveryBudgetApproved, validationErrors)
+	if cfg.EmailSender == "resend" {
+		var err error
+		cfg.Resend, err = (ResendConfig{
+			APIURL:    valueOrDefault(lookup, "AUTH_RESEND_API_URL", ""),
+			APIKey:    valueOrDefault(lookup, "AUTH_RESEND_API_KEY", ""),
+			FromEmail: valueOrDefault(lookup, "AUTH_RESEND_FROM_EMAIL", ""),
+			FromName:  valueOrDefault(lookup, "AUTH_RESEND_FROM_NAME", ""),
+		}).Normalize(environment)
+		if err != nil {
+			*validationErrors = append(*validationErrors, err)
+		}
+	}
 	if cfg.PhoneSender == "" {
 		*validationErrors = append(*validationErrors, errors.New("AUTH_PHONE_SENDER is not a supported sender"))
 	}
@@ -132,7 +145,7 @@ func validateAuthSender(key, sender string, allowed []string, development, budge
 	if !development && (sender == "devinbox" || sender == "smtp") {
 		*validationErrors = append(*validationErrors, fmt.Errorf("%s local senders require development or test", key))
 	}
-	if containsString([]string{"ses", "zns", "sms_brandname", "twilio"}, sender) && !budgetApproved {
+	if containsString([]string{"ses", "resend", "zns", "sms_brandname", "twilio"}, sender) && !budgetApproved {
 		*validationErrors = append(*validationErrors, fmt.Errorf("%s paid senders require AUTH_DELIVERY_BUDGET_APPROVED=true", key))
 	}
 }
@@ -218,6 +231,37 @@ var (
 	twilioFromPattern    = regexp.MustCompile(`^(\+[1-9][0-9]{6,14}|MG[a-zA-Z0-9]{32})$`)
 	providerDNSLabel     = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 )
+
+func (c ResendConfig) Normalize(environment string) (ResendConfig, error) {
+	if c.APIURL == "" {
+		c.APIURL = "https://api.resend.com/emails"
+	}
+	if c.FromName == "" {
+		c.FromName = "TutorHub"
+	}
+	switch {
+	case !validPhoneProviderURL(c.APIURL, environment):
+		return ResendConfig{}, errors.New("AUTH_RESEND_API_URL is not a permitted provider endpoint")
+	case !validPhoneToken(c.APIKey):
+		return ResendConfig{}, errors.New("AUTH_RESEND_API_KEY must contain a valid token")
+	// The configured From mailbox uses RFC 5322's ASCII addr-spec.
+	case !validPhoneToken(c.FromEmail) || !ValidBareEmailAddress(c.FromEmail) || strings.ToLower(c.FromEmail) != c.FromEmail:
+		return ResendConfig{}, errors.New("AUTH_RESEND_FROM_EMAIL must be a lowercase bare email address")
+	case !utf8.ValidString(c.FromName) || utf8.RuneCountInString(c.FromName) > 64 || strings.IndexFunc(c.FromName, func(r rune) bool { return !unicode.IsPrint(r) }) >= 0:
+		return ResendConfig{}, errors.New("AUTH_RESEND_FROM_NAME must contain 1 to 64 printable characters")
+	}
+	return c, nil
+}
+
+// ValidBareEmailAddress accepts one mailbox without a display name, comments or whitespace.
+func ValidBareEmailAddress(value string) bool {
+	if value == "" || len(value) > 254 || !utf8.ValidString(value) || strings.ContainsAny(value, "<>") ||
+		strings.IndexFunc(value, func(r rune) bool { return unicode.IsSpace(r) || !unicode.IsPrint(r) }) >= 0 {
+		return false
+	}
+	address, err := mail.ParseAddress(value)
+	return err == nil && address.Name == "" && address.Address == value
+}
 
 func (c ZNSConfig) Normalize(environment string) (ZNSConfig, error) {
 	if c.APIURL == "" {

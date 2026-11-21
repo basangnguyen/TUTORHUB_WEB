@@ -40,6 +40,41 @@ func TestPhoneLoginAvailability(t *testing.T) {
 	}
 }
 
+func TestResendEmailSenderStartup(t *testing.T) {
+	pool, err := pgxpool.New(t.Context(), "postgres://fixture@127.0.0.1:1/auth_test?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	auth := config.AuthenticationConfig{
+		EmailCodeEnabled: true, EmailSender: "resend", DeliveryBudgetApproved: true,
+		SessionKey: bytes.Repeat([]byte{0x42}, 32), LegalTermsVersion: "fixture",
+		SessionTTL: time.Hour, SessionAbsoluteTTL: 24 * time.Hour, SessionPersistentAbsoluteTTL: 30 * 24 * time.Hour,
+		Resend: config.ResendConfig{APIKey: "fixture", FromEmail: "auth@example.test"},
+	}
+	runtime, err := newAuthFoundation(config.Config{Environment: "production", Authentication: auth}, pool, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.close()
+	if runtime.dispatcher == nil || runtime.native == nil || runtime.inbox != nil {
+		t.Fatal("Resend email-code startup requires a dispatcher and a native auth service")
+	}
+	for _, change := range []func(*config.AuthenticationConfig){
+		func(a *config.AuthenticationConfig) { a.DeliveryBudgetApproved = false },
+		func(a *config.AuthenticationConfig) { a.Resend.APIKey = "" },
+		func(a *config.AuthenticationConfig) { a.Resend.APIURL = "http://127.0.0.1:8080/emails" },
+		func(a *config.AuthenticationConfig) { a.EmailSender = "ses" },
+	} {
+		invalid := auth
+		change(&invalid)
+		if rt, err := newAuthFoundation(config.Config{Environment: "production", Authentication: invalid}, pool, nil); err == nil {
+			rt.close()
+			t.Error("unsafe or unavailable email adapter initialized")
+		}
+	}
+}
+
 func TestPaidPhoneSenderStartup(t *testing.T) {
 	pool, err := pgxpool.New(context.Background(), "postgres://fixture@127.0.0.1:1/auth_test?sslmode=disable")
 	if err != nil {
@@ -164,7 +199,7 @@ func TestAuthFoundationDisabledNeedsNoDatabase(t *testing.T) {
 		t.Fatal("disabled foundation must preserve database-free startup")
 	}
 	runtime.close()
-	for _, sender := range []string{"devinbox", "smtp", "ses"} {
+	for _, sender := range []string{"devinbox", "smtp", "ses", "resend"} {
 		cfg := config.Config{Environment: "test", Authentication: config.AuthenticationConfig{EmailSender: sender}}
 		if _, err := newAuthFoundation(cfg, nil, nil); err == nil {
 			t.Fatal("configured delivery must fail closed without prerequisites")

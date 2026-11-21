@@ -36,9 +36,6 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	if err := auth.ValidatePhoneRouting(cfg.Environment); err != nil {
 		return nil, err
 	}
-	if auth.EmailSender != "" && auth.EmailSender != "disabled" && auth.EmailSender != "devinbox" && auth.EmailSender != "smtp" {
-		return nil, errors.New("selected email delivery adapter is unavailable")
-	}
 	deliveryEnabled := (auth.EmailSender != "" && auth.EmailSender != "disabled") || (auth.PhoneSender != "" && auth.PhoneSender != "disabled")
 	if pool == nil || len(auth.SessionKey) < 32 {
 		if deliveryEnabled || auth.SignupEnabled || auth.PasswordEnabled || auth.EmailCodeEnabled || auth.PhoneEnabled || auth.DeviceManagementEnabled || auth.PasskeysEnabled || auth.MFATOTPEnabled || auth.SSODomainsEnabled {
@@ -50,27 +47,21 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 	if err != nil {
 		return nil, errors.New("initialize authentication foundation cryptography")
 	}
-	var email identity.EmailSender = identity.DisabledSender{}
 	if auth.EmailSender == "devinbox" || auth.PhoneSender == "devinbox" {
 		result.inbox, err = devinbox.New(cfg.Environment, 200, 10*time.Minute)
 		if err != nil {
 			return nil, err
 		}
-		if auth.EmailSender == "devinbox" {
-			email = identity.NewDevinboxSender(result.inbox, identity.DeliveryEmail)
-		}
+	}
+	email, err := configuredEmailSender(cfg.Environment, auth, result.inbox)
+	if err != nil {
+		result.close()
+		return nil, err
 	}
 	phone, err := configuredPhoneSender(cfg.Environment, auth, result.inbox)
 	if err != nil {
 		result.close()
 		return nil, err
-	}
-	if auth.EmailSender == "smtp" {
-		email, err = identity.NewSMTPSender(cfg.Environment, auth.SMTPAddr)
-		if err != nil {
-			result.close()
-			return nil, err
-		}
 	}
 	result.dispatcher, err = identity.NewDeliveryDispatcher(pool, crypto, email, phone, 200, authDeliveryBudget{limiter: limiter})
 	if err != nil {
@@ -126,6 +117,24 @@ func newAuthFoundation(cfg config.Config, pool *pgxpool.Pool, limiter httpapi.In
 		}
 	}
 	return result, nil
+}
+
+func configuredEmailSender(environment string, auth config.AuthenticationConfig, inbox *devinbox.Inbox) (identity.EmailSender, error) {
+	switch auth.EmailSender {
+	case "", "disabled":
+		return identity.DisabledSender{}, nil
+	case "devinbox":
+		return identity.NewDevinboxSender(inbox, identity.DeliveryEmail), nil
+	case "smtp":
+		return identity.NewSMTPSender(environment, auth.SMTPAddr)
+	case "resend":
+		if !auth.DeliveryBudgetApproved {
+			return nil, errors.New("resend requires AUTH_DELIVERY_BUDGET_APPROVED=true")
+		}
+		return identity.NewResendEmailSender(environment, auth.Resend)
+	default:
+		return nil, errors.New("selected email delivery adapter is unavailable")
+	}
 }
 
 func configuredPhoneSender(environment string, auth config.AuthenticationConfig, inbox *devinbox.Inbox) (identity.PhoneChallengeSender, error) {

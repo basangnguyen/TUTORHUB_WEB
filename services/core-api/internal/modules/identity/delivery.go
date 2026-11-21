@@ -45,6 +45,7 @@ type ChallengeMessage struct {
 
 func (ChallengeMessage) LogValue() slog.Value { return slog.StringValue("[redacted auth message]") }
 func (ChallengeMessage) String() string       { return "[redacted auth message]" }
+func (m ChallengeMessage) GoString() string   { return m.String() }
 
 type DeliveryReceipt struct {
 	Channel            DeliveryChannel
@@ -56,6 +57,7 @@ type DeliveryReceipt struct {
 
 func (DeliveryReceipt) LogValue() slog.Value { return slog.StringValue("[redacted delivery receipt]") }
 func (DeliveryReceipt) String() string       { return "[redacted delivery receipt]" }
+func (r DeliveryReceipt) GoString() string   { return r.String() }
 
 type EmailSender interface {
 	SendChallenge(context.Context, ChallengeMessage) (DeliveryReceipt, error)
@@ -73,6 +75,7 @@ type AccountNotice struct {
 
 func (AccountNotice) String() string       { return "[redacted account notice]" }
 func (AccountNotice) LogValue() slog.Value { return slog.StringValue("[redacted account notice]") }
+func (n AccountNotice) GoString() string   { return n.String() }
 
 type PhoneChallengeSender interface {
 	Channel() DeliveryChannel
@@ -225,6 +228,7 @@ type deliveryJob struct {
 
 func (deliveryJob) String() string         { return "[redacted delivery job]" }
 func (j deliveryJob) LogValue() slog.Value { return slog.StringValue(j.String()) }
+func (j deliveryJob) GoString() string     { return j.String() }
 
 // DeliveryBudget reserves a daily slot in shared storage. Implementations must
 // return false on storage failure; no sender is invoked without a reservation.
@@ -314,6 +318,8 @@ func (dispatcher *DeliveryDispatcher) provider(channel DeliveryChannel) string {
 		return "devinbox"
 	case *SMTPSender:
 		return "smtp"
+	case *ResendEmailSender:
+		return "resend"
 	case *ZaloZNSSender:
 		return "zns"
 	case *SMSBrandnameSender:

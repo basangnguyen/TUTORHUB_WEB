@@ -58,18 +58,8 @@ func TestAuthRetentionPostgresConcurrentBatches(t *testing.T) {
 
 func TestAuthRetentionPostgresMigrationRoundTrip(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	check := func(want uint) {
-		t.Helper()
-		v, err := migrationrunner.CurrentVersion(ctx, url)
-		if err != nil || v.Dirty || v.Number != want {
-			t.Fatalf("want clean version %d: %+v %v", want, v, err)
-		}
-	}
-	check(51)
-	if err := migrationrunner.Down(ctx, url, 1); err != nil {
-		t.Fatal(err)
-	}
-	check(50)
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
+	migrateAuthSchemaDownTo(t, ctx, url, 50)
 	// Model an existing grant and a future-function default just before 51.
 	name := "auth_retention_default_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	role := pgx.Identifier{name}.Sanitize()
@@ -89,7 +79,7 @@ func TestAuthRetentionPostgresMigrationRoundTrip(t *testing.T) {
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal(err)
 	}
-	check(51)
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	var canExecute bool
 	if err := pool.QueryRow(ctx, `SELECT has_function_privilege($1,'tutorhub.require_delivery_challenge()','EXECUTE')
 		OR has_function_privilege($1,'tutorhub.purge_expired_auth_artifacts(integer)','EXECUTE')

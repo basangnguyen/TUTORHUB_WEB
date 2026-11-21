@@ -71,6 +71,7 @@ func TestAuthDeliveryGuardAcrossEnvironments(t *testing.T) {
 			{"AUTH_EMAIL_SENDER", "devinbox", ""},
 			{"AUTH_EMAIL_SENDER", "smtp", "127.0.0.1:1025"},
 			{"AUTH_EMAIL_SENDER", "ses", ""},
+			{"AUTH_EMAIL_SENDER", "resend", ""},
 			{"AUTH_PHONE_SENDER", "disabled", ""},
 			{"AUTH_PHONE_SENDER", "devinbox", ""},
 			{"AUTH_PHONE_SENDER", "zns", ""},
@@ -81,10 +82,11 @@ func TestAuthDeliveryGuardAcrossEnvironments(t *testing.T) {
 				var failures []error
 				var cfg AuthenticationConfig
 				values := phoneProviderTestValues()
+				values["AUTH_RESEND_API_KEY"], values["AUTH_RESEND_FROM_EMAIL"] = "fixture-key", "otp@example.test"
 				values[test.key], values["AUTH_SMTP_ADDR"], values["AUTH_DELIVERY_BUDGET_APPROVED"] = test.sender, test.addr, approved
 				configureAuthFoundation(&cfg, mapLookup(values), environment, &failures)
 				local := environment == "development" || environment == "test"
-				paid := test.sender == "ses" || test.sender == "zns" || test.sender == "sms_brandname" || test.sender == "twilio"
+				paid := test.sender == "ses" || test.sender == "resend" || test.sender == "zns" || test.sender == "sms_brandname" || test.sender == "twilio"
 				wantErr := (!local && (test.sender == "devinbox" || test.sender == "smtp")) || (paid && approved != "true")
 				if (len(failures) > 0) != wantErr {
 					t.Errorf("%s %s=%s approval=%s errors=%v", environment, test.key, test.sender, approved, failures)
@@ -210,15 +212,90 @@ func TestPhoneProviderEndpointRules(t *testing.T) {
 	}
 }
 
+func TestResendConfigNormalize(t *testing.T) {
+	t.Parallel()
+	fixture := ResendConfig{APIKey: "fixture-token", FromEmail: "no-reply+otp@example.test"}
+	defaults, err := fixture.Normalize("production")
+	if err != nil || defaults.APIURL != "https://api.resend.com/emails" || defaults.FromName != "TutorHub" || defaults.FromEmail != fixture.FromEmail {
+		t.Fatal("unexpected Resend defaults", err)
+	}
+	for _, environment := range []string{"development", "test", "staging", "production"} {
+		for _, endpoint := range []string{"http://localhost:8080", "http://127.0.0.1:8080/emails"} {
+			c := fixture
+			c.APIURL = endpoint
+			_, err := c.Normalize(environment)
+			if (err == nil) != (environment == "development" || environment == "test") {
+				t.Errorf("unexpected loopback policy in %s", environment)
+			}
+		}
+	}
+	maxAddress := strings.Repeat("a", 64) + "@" + strings.Repeat("b", 63) + "." + strings.Repeat("c", 63) + "." + strings.Repeat("d", 61)
+	boundary := fixture
+	boundary.FromEmail, boundary.FromName = maxAddress, strings.Repeat("ế", 64)
+	if _, err := boundary.Normalize("test"); err != nil {
+		t.Fatal("valid address and display name rejected", err)
+	}
+	assertRejected := func(c ResendConfig, key string) {
+		t.Helper()
+		normalized, err := c.Normalize("test")
+		if err == nil || !strings.Contains(err.Error(), key) || normalized != (ResendConfig{}) {
+			t.Errorf("%s accepted an invalid value or returned partial configuration", key)
+		}
+	}
+	for _, endpoint := range []string{"http://api.example.test", "https://127.0.0.1", "https://100.64.0.1", "http://localhost", "http://127.0.0.2:3000", "https://api.example.test/emails?token=fixture"} {
+		c := fixture
+		c.APIURL = endpoint
+		assertRejected(c, "AUTH_RESEND_API_URL")
+	}
+	for _, key := range []string{"", "sp ace", "bad\r\nvalue", "bad\x7f", "badế"} {
+		c := fixture
+		c.APIKey = key
+		assertRejected(c, "AUTH_RESEND_API_KEY")
+	}
+	for _, address := range []string{"", "bad", "ab@Example.test", "á@example.test", " name@example.test", "name @example.test",
+		"A <a@example.test>", "<a@example.test>", "a@example.test (display)", "a@example.test\r\nBcc: alias@example.test", maxAddress + "d"} {
+		c := fixture
+		c.FromEmail = address
+		assertRejected(c, "AUTH_RESEND_FROM_EMAIL")
+	}
+	for _, name := range []string{"bad\r\nvalue", "bad\tvalue", "bad\x00", "bad\u200b", "\xff", strings.Repeat("ế", 65)} {
+		c := fixture
+		c.FromName = name
+		assertRejected(c, "AUTH_RESEND_FROM_NAME")
+	}
+}
+
+func TestLoadSelectedResendConfiguration(t *testing.T) {
+	t.Parallel()
+	values := map[string]string{
+		"AUTH_EMAIL_SENDER": "resend", "AUTH_DELIVERY_BUDGET_APPROVED": "true",
+		"AUTH_RESEND_API_URL": "http://127.0.0.1:1234/send", "AUTH_RESEND_API_KEY": "fixture-key",
+		"AUTH_RESEND_FROM_EMAIL": "otp@example.test", "AUTH_RESEND_FROM_NAME": "Trợ giảng",
+	}
+	cfg, err := load(mapLookup(values))
+	if err != nil || cfg.Authentication.Resend != (ResendConfig{APIURL: values["AUTH_RESEND_API_URL"], APIKey: "fixture-key", FromEmail: "otp@example.test", FromName: "Trợ giảng"}) {
+		t.Fatal("failed to load selected Resend configuration", err)
+	}
+	delete(values, "AUTH_RESEND_FROM_EMAIL")
+	if _, err := load(mapLookup(values)); err == nil || !strings.Contains(err.Error(), "AUTH_RESEND_FROM_EMAIL") {
+		t.Fatal("selected Resend configuration requires its sender address")
+	}
+	values["AUTH_EMAIL_SENDER"] = "disabled"
+	cfg, err = load(mapLookup(values))
+	if err != nil || cfg.Authentication.Resend != (ResendConfig{}) {
+		t.Fatal("unused Resend configuration was loaded", err)
+	}
+}
+
 func TestPhoneProviderConfigurationIsRedacted(t *testing.T) {
 	t.Parallel()
 	secret := "private-fixture-token"
-	c := AuthenticationConfig{ZNS: ZNSConfig{AccessToken: secret}, SMSBrandname: SMSBrandnameConfig{APIToken: secret}, Twilio: TwilioConfig{AuthToken: secret, From: "+84912345678"}}
-	for _, value := range []any{c.ZNS, c.SMSBrandname, c.Twilio, c, Config{Authentication: c}} {
+	c := AuthenticationConfig{ZNS: ZNSConfig{AccessToken: secret}, SMSBrandname: SMSBrandnameConfig{APIToken: secret}, Twilio: TwilioConfig{AuthToken: secret, From: "+84912345678"}, Resend: ResendConfig{APIKey: secret, FromEmail: "private@example.test"}}
+	for _, value := range []any{c.ZNS, c.SMSBrandname, c.Twilio, c.Resend, c, Config{Authentication: c}} {
 		var buf bytes.Buffer
 		slog.New(slog.NewJSONHandler(&buf, nil)).Info("config", "value", value)
 		message := fmt.Sprint(value) + fmt.Sprintf("%#v", value) + buf.String()
-		if strings.Contains(message, secret) || strings.Contains(message, "84912345678") || !strings.Contains(message, "[redacted]") {
+		if strings.Contains(message, secret) || strings.Contains(message, "84912345678") || strings.Contains(message, "private@example.test") || !strings.Contains(message, "[redacted]") {
 			t.Fatal("configuration reflected authentication material")
 		}
 	}

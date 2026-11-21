@@ -18,20 +18,11 @@ import (
 
 func TestMFAMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 4); err != nil {
+	migrateAuthSchemaDownTo(t, ctx, url, 47)
+	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal(err)
 	}
-	v, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || v.Dirty || v.Number != 47 {
-		t.Fatal("rollback to 47", err)
-	}
-	if err = migrationrunner.Up(ctx, url); err != nil {
-		t.Fatal(err)
-	}
-	v, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || v.Dirty || v.Number != 51 {
-		t.Fatal("reapply through 51", err)
-	}
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	down, err := migrations.Files.ReadFile("000048_mfa_totp_recovery.down.sql")
 	if err != nil {
 		t.Fatal(err)

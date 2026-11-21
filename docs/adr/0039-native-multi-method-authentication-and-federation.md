@@ -104,10 +104,14 @@ này bộc lộ ba rào cản lớn khi chuyển sang sản phẩm thực tế:
 3. Mọi endpoint bắt đầu luồng OTP trả `202 Accepted` đồng nhất (kể cả khi định danh không tồn tại hoặc
    chạm giới hạn gửi theo đích) để chống dò tài khoản theo nội dung và thời gian phản hồi.
 4. Ở `local`/`test`, mã OTP đi vào hộp thư nội bộ `devinbox` (chỉ mở trên loopback khi `APP_ENV` là
-   `local`/`test`) hoặc Mailpit; ở `staging`/`production`, các adapter phát sinh chi phí (`ses`, `zns`,
-   `sms_brandname`, `twilio`) bị khóa cứng trừ khi bật tường minh `AUTH_DELIVERY_BUDGET_APPROVED=true`.
-   Các thông báo bảo mật không chứa mã bí mật (_mật khẩu đã đổi_, _liên kết phương thức mới_) vẫn đi qua
-   outbox bền vững của ADR-0018 khi worker hoạt động.
+   `local`/`test`) hoặc Mailpit; ở `staging`/`production`, các adapter gửi ra bên ngoài hoặc phát sinh
+   hạn mức/chi phí (`resend`, `ses`, `zns`, `sms_brandname`, `twilio`) bị khóa cứng trừ khi bật tường
+   minh `AUTH_DELIVERY_BUDGET_APPROVED=true`. Trong đợt ra mắt Public Beta đầu tiên, kênh Email OTP dùng
+   adapter HTTPS trực tiếp **Resend** (`AUTH_EMAIL_SENDER=resend`, xác thực DNS SPF/DKIM trên tên miền
+   riêng, kèm `Idempotency-Key` và kiểm tra IP công khai sau DNS chống SSRF tương tự `AUTH-11`; `ses`
+   vẫn được giữ trong danh mục cấu hình cho phương án dự phòng AWS SES). Các thông báo bảo mật không chứa
+   mã bí mật (_mật khẩu đã đổi_, _liên kết phương thức mới_) vẫn đi qua outbox bền vững của ADR-0018 khi
+   worker hoạt động.
 
 ### 6. Thứ tự triển khai chuẩn hóa
 
@@ -116,7 +120,8 @@ Triển khai tuần tự theo lộ trình chủ dự án đã phê duyệt:
 (Đăng ký Email + OTP + Mật khẩu Argon2id, đăng nhập mật khẩu/mã email, khôi phục mật khẩu) → `AUTH-04`
 (Quản lý thiết bị/phiên & step-up 10 phút) → `AUTH-05..06` (Google & Facebook OIDC/PKCE + link intent +
 Meta callbacks) → `AUTH-07..11` (Microsoft, Passkeys/WebAuthn, TOTP 2FA, Số điện thoại Zalo ZNS/SMS) →
-`AUTH-12..13` (School Domain SSO & Public Beta Hardening).
+`AUTH-12..13` (School Domain SSO & Public Beta Hardening) → `AUTH-14` (Adapter gửi Email OTP thật qua
+Resend HTTPS + đóng gói CLI bảo trì vào OCI image cho Public Beta).
 
 ## Consequences
 

@@ -12,20 +12,11 @@ import (
 
 func TestPasskeyMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 5); err != nil {
-		t.Fatal("empty passkey rollback", err)
-	}
-	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 46 || version.Dirty {
-		t.Fatal("expected clean ledger 46 after passkey rollback")
-	}
+	migrateAuthSchemaDownTo(t, ctx, url, 46)
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("reapply passkey schema", err)
 	}
-	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 51 || version.Dirty {
-		t.Fatal("expected clean ledger 51")
-	}
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	down, err := migrations.Files.ReadFile("000047_webauthn_credentials.down.sql")
 	if err != nil {
 		t.Fatal(err)

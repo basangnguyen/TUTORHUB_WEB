@@ -69,6 +69,28 @@ func createPasskeyRuntimeRole(t *testing.T, f *nativeIntegrationFixture) Databas
 	return passkeyRuntimeDB{pool: f.pool, quotedRole: role}
 }
 
+// NewAuthRuntimeTestPools supplies the same provisioned role to black-box
+// integration tests that also exercise the PostgreSQL HTTP rate limiter.
+func NewAuthRuntimeTestPools(t *testing.T) (owner, runtime *pgxpool.Pool) {
+	t.Helper()
+	ctx, owner, _ := authSchemaTestDatabase(t)
+	role := createPasskeyRuntimeRole(t, &nativeIntegrationFixture{ctx: ctx, pool: owner}).(passkeyRuntimeDB)
+	if _, err := owner.Exec(ctx, "GRANT SELECT, INSERT, UPDATE(used_count,updated_at) ON tutorhub.rate_limit_windows TO "+role.quotedRole); err != nil {
+		t.Fatal("prepare rate limiter runtime ACL", err)
+	}
+	cfg := owner.Config()
+	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		_, err := conn.Exec(ctx, "SET ROLE "+role.quotedRole)
+		return err
+	}
+	runtime, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal("open provisioned role pool", err)
+	}
+	t.Cleanup(runtime.Close)
+	return owner, runtime
+}
+
 func TestPasskeyPostgresRuntimeCeremoniesAndConcurrentVerify(t *testing.T) {
 	f := newNativeIntegrationFixture(t)
 	const origin = "https://passkeys.example.test"

@@ -17,24 +17,12 @@ import (
 
 func TestSchoolSSOMigrationAndExactACL(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	version := func(want uint) {
-		t.Helper()
-		v, err := migrationrunner.CurrentVersion(ctx, url)
-		if err != nil || v.Number != want || v.Dirty {
-			t.Fatal("unclean migration ledger", want, v, err)
-		}
-	}
-	for _, want := range []uint{49, 51, 49, 51} {
-		var err error
-		if want == 49 {
-			err = migrationrunner.Down(ctx, url, 2)
-		} else {
-			err = migrationrunner.Up(ctx, url)
-		}
-		if err != nil {
+	for range 2 {
+		migrateAuthSchemaDownTo(t, ctx, url, 49)
+		if err := migrationrunner.Up(ctx, url); err != nil {
 			t.Fatal(err)
 		}
-		version(want)
+		requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	}
 	down, err := migrations.Files.ReadFile("000050_sso_domains.down.sql")
 	if err != nil {

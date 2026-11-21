@@ -43,22 +43,36 @@ func authSchemaTestDatabase(t *testing.T) (context.Context, *pgxpool.Pool, strin
 	return ctx, pool, url
 }
 
+const latestAuthTestVersion = 52
+
+func requireAuthSchemaVersion(t *testing.T, ctx context.Context, url string, want uint) {
+	t.Helper()
+	version, err := migrationrunner.CurrentVersion(ctx, url)
+	if err != nil || version.Dirty || version.Number != want {
+		t.Fatalf("expected clean ledger %d, got %+v (%v)", want, version, err)
+	}
+}
+
+func migrateAuthSchemaDownTo(t *testing.T, ctx context.Context, url string, target uint) {
+	t.Helper()
+	version, err := migrationrunner.CurrentVersion(ctx, url)
+	if err != nil || version.Dirty || version.Number <= target {
+		t.Fatalf("cannot migrate ledger %+v down to %d (%v)", version, target, err)
+	}
+	if err := migrationrunner.Down(ctx, url, int(version.Number-target)); err != nil {
+		t.Fatalf("migrate down to %d: %v", target, err)
+	}
+	requireAuthSchemaVersion(t, ctx, url, target)
+}
+
 func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 51 || version.Dirty {
-		t.Fatal("AUTH-01 regression roundtrip requires clean ledger 51")
-	}
-	if err := migrationrunner.Down(ctx, url, 9); err != nil {
-		t.Fatal("empty disposable AUTH-01 rollback")
-	}
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
+	migrateAuthSchemaDownTo(t, ctx, url, 42)
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("reapply AUTH-01 migration")
 	}
-	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 51 || version.Dirty {
-		t.Fatal("AUTH-01 roundtrip did not retain clean ledger")
-	}
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	down, err := migrations.Files.ReadFile("000043_auth_foundation.down.sql")
 	if err != nil {
 		t.Fatal(err)
@@ -91,10 +105,7 @@ func TestAuthFoundationMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 
 func TestAuthFoundationRuntimeExactACL(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 51 || version.Dirty {
-		t.Fatal("AUTH-06 ACL requires clean ledger 51")
-	}
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	roleName := "auth_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	role := pgx.Identifier{roleName}.Sanitize()
 	if _, err := pool.Exec(ctx, "CREATE ROLE "+role+" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT"); err != nil {

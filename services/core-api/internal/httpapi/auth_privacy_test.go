@@ -100,6 +100,35 @@ func checkPrivacy(t *testing.T, opts Options, r *http.Request, want int) *httpte
 	return w
 }
 
+func TestAuthProvidersConcealsResendConfiguration(t *testing.T) {
+	cfg := authPrivacyConfig()
+	cfg.Authentication.Resend = config.ResendConfig{
+		APIURL: "https://fixture.example.test/emails", APIKey: privacyProvider,
+		FromEmail: privacyEmail, FromName: "Fixture Sender",
+	}
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	fetch := func(sender string) []byte {
+		cfg.Authentication.EmailSender = sender
+		w := performRequest(NewHandler(cfg, logger), http.MethodGet, "/api/v1/auth/providers", "")
+		var capabilities authProvidersResponse
+		if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &capabilities) != nil || !capabilities.EmailCodeEnabled {
+			t.Fatal("missing public email-code capability")
+		}
+		return w.Body.Bytes()
+	}
+	local, paid := fetch("devinbox"), fetch("resend")
+	if !bytes.Equal(local, paid) {
+		t.Fatal("public capability response reveals the selected email adapter")
+	}
+	output := string(paid) + logs.String()
+	for _, marker := range []string{"resend", privacyEmail, privacyProvider, cfg.Authentication.Resend.APIURL, cfg.Authentication.Resend.FromName} {
+		if strings.Contains(output, marker) {
+			t.Fatal("email provider configuration appeared in capability response or request logs")
+		}
+	}
+}
+
 func TestAuthPrivacyNativeAndMFA(t *testing.T) {
 	for _, tc := range []struct {
 		name, path, body string

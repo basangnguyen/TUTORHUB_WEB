@@ -89,6 +89,7 @@ test("paid delivery requires explicit budget approval in every environment", () 
   for (const APP_ENV of ["development", "test", "staging", "production"]) {
     for (const [key, sender] of [
       ["AUTH_EMAIL_SENDER", "ses"],
+      ["AUTH_EMAIL_SENDER", "resend"],
       ["AUTH_PHONE_SENDER", "zns"],
       ["AUTH_PHONE_SENDER", "sms_brandname"],
       ["AUTH_PHONE_SENDER", "twilio"],
@@ -113,6 +114,37 @@ test("paid delivery requires explicit budget approval in every environment", () 
       );
     }
   }
+});
+
+test("repository example pins empty Resend settings and the TutorHub display name", async () => {
+  const source = await readFile(
+    new URL("../.env.example", import.meta.url),
+    "utf8",
+  );
+  const { environment } = parseAuthEnvironment(source);
+  for (const key of [
+    "AUTH_RESEND_API_URL",
+    "AUTH_RESEND_API_KEY",
+    "AUTH_RESEND_FROM_EMAIL",
+    "AUTH_RESEND_FROM_NAME",
+  ]) {
+    for (const value of [undefined, "private-fixture-value"]) {
+      assert.deepEqual(
+        validateAuthDeliveryEnvironment(
+          { ...environment, [key]: value },
+          { safeDefaults: true },
+        ),
+        [`${key} differs from the approved default`],
+      );
+    }
+  }
+  assert.match(
+    validateAuthDeliveryEnvironment({
+      AUTH_PHONE_SENDER: "resend",
+      AUTH_DELIVERY_BUDGET_APPROVED: "true",
+    }).join("\n"),
+    /AUTH_PHONE_SENDER is unsupported/,
+  );
 });
 
 test("phone fallback requires its own budget approval and a distinct paid primary", () => {

@@ -17,7 +17,13 @@ export const AUTH_DISABLED_FLAGS = Object.freeze([
   "AUTH_PROVIDER_APPLE_ENABLED",
 ]);
 
-const PAID_SENDERS = new Set(["ses", "zns", "sms_brandname", "twilio"]);
+const PAID_SENDERS = new Set([
+  "ses",
+  "resend",
+  "zns",
+  "sms_brandname",
+  "twilio",
+]);
 
 // Only inspect repository examples or explicitly supplied configuration. Never
 // discover or load .env*.local files, and never include configuration values in errors.
@@ -77,7 +83,7 @@ export function validateAuthDeliveryEnvironment(
   if ([...termsVersion].length < 1 || [...termsVersion].length > 64)
     issues.push("AUTH_LEGAL_TERMS_VERSION must contain 1 to 64 characters");
   for (const [key, allowed] of [
-    ["AUTH_EMAIL_SENDER", ["disabled", "devinbox", "smtp", "ses"]],
+    ["AUTH_EMAIL_SENDER", ["disabled", "devinbox", "smtp", "ses", "resend"]],
     [
       "AUTH_PHONE_SENDER",
       ["disabled", "devinbox", "zns", "sms_brandname", "twilio"],
@@ -132,6 +138,10 @@ export function validateAuthDeliveryEnvironment(
       AUTH_PHONE_SENDER: "disabled",
       AUTH_PHONE_FALLBACK_SENDER: "disabled",
       AUTH_SMTP_ADDR: "",
+      AUTH_RESEND_API_URL: "",
+      AUTH_RESEND_API_KEY: "",
+      AUTH_RESEND_FROM_EMAIL: "",
+      AUTH_RESEND_FROM_NAME: "TutorHub",
       AUTH_EMAIL_DAILY_QUOTA: "200",
       AUTH_PHONE_OTP_DAILY_QUOTA: "50",
       PASSWORD_MIN_LENGTH: "8",

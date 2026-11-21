@@ -13,13 +13,7 @@ import (
 
 func TestFederationMigrationRoundTripAndBindingConstraints(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	if err := migrationrunner.Down(ctx, url, 7); err != nil {
-		t.Fatal("rollback empty federation schema")
-	}
-	version, err := migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 44 || version.Dirty {
-		t.Fatal("federation down must restore ledger 44")
-	}
+	migrateAuthSchemaDownTo(t, ctx, url, 44)
 	var oldBinding string
 	if err := pool.QueryRow(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='tutorhub.auth_flows'::regclass AND conname='auth_flows_identity_link_binding_check'`).Scan(&oldBinding); err != nil || strings.Contains(oldBinding, "reauth") {
 		t.Fatal("federation rollback did not restore original flow binding")
@@ -30,10 +24,7 @@ func TestFederationMigrationRoundTripAndBindingConstraints(t *testing.T) {
 	if err := migrationrunner.Up(ctx, url); err != nil {
 		t.Fatal("federation migration rerun")
 	}
-	version, err = migrationrunner.CurrentVersion(ctx, url)
-	if err != nil || version.Number != 51 || version.Dirty {
-		t.Fatal("federation must finish at clean ledger 51")
-	}
+	requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	for _, item := range []struct {
 		provider, purpose string
 		bound, valid      bool

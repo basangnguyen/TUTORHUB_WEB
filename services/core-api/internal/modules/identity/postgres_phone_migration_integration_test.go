@@ -12,23 +12,13 @@ import (
 
 func TestPhoneMigrationRoundTripAndRollbackPreflight(t *testing.T) {
 	ctx, pool, url := authSchemaTestDatabase(t)
-	checkVersion := func(want uint) {
-		t.Helper()
-		v, err := migrationrunner.CurrentVersion(ctx, url)
-		if err != nil || v.Dirty || v.Number != want {
-			t.Fatalf("expected clean ledger %d, got %+v (%v)", want, v, err)
-		}
-	}
 	// Start at 48, then exercise forward, reverse and forward again.
 	for range 2 {
-		if err := migrationrunner.Down(ctx, url, 3); err != nil {
-			t.Fatal(err)
-		}
-		checkVersion(48)
+		migrateAuthSchemaDownTo(t, ctx, url, 48)
 		if err := migrationrunner.Up(ctx, url); err != nil {
 			t.Fatal(err)
 		}
-		checkVersion(51)
+		requireAuthSchemaVersion(t, ctx, url, latestAuthTestVersion)
 	}
 	down, err := migrations.Files.ReadFile("000049_phone_numbers.down.sql")
 	if err != nil {
