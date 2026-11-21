@@ -9,8 +9,10 @@ import { randomBytes } from "node:crypto";
  * Login paths (never Meta itself), and AUTH-07B Microsoft federation against
  * a fourth fake Microsoft identity platform authority (never Microsoft itself),
  * and AUTH-08B passkeys through a CDP virtual authenticator, AUTH-09B TOTP and
- * AUTH-10B phone (+84) OTP through the inbox's SMS channel, and AUTH-12B school
- * domain SSO (the spec answers DNS TXT lookups on loopback UDP). It only targets
+ * AUTH-10B phone (+84) OTP through the inbox's SMS channel, AUTH-12B school
+ * domain SSO (the spec answers DNS TXT lookups on loopback UDP) and the
+ * AUTH-13B cross-method public-beta gate (enforced school SSO against an
+ * account with password, passkey, phone and TOTP). It only targets
  * the loopback stack: the `devinbox` OTP sender and `/api/v1/dev/auth-inbox`
  * exist solely for APP_ENV=test on 127.0.0.1, so staging mode is
  * intentionally unsupported.
@@ -49,6 +51,7 @@ export default defineConfig({
     "**/auth-09-*.spec.ts",
     "**/auth-10-*.spec.ts",
     "**/auth-12-*.spec.ts",
+    "**/auth-13-*.spec.ts",
   ],
   outputDir: "test-results/playwright-auth",
   fullyParallel: false,

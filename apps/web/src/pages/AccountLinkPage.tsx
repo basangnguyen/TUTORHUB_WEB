@@ -530,6 +530,10 @@ export function AccountLinkPage() {
                       recoveryEnabled={
                         providers.password_recovery_enabled === true
                       }
+                      // AUTH-13B: no Home Realm Discovery here. A 403
+                      // auth_sso_required links back to /sign-in, where
+                      // school SSO starts; the link cookie stays for later.
+                      schoolSSOFallbackPath="/sign-in"
                       social={NO_SOCIAL}
                     />
                   </div>

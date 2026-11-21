@@ -47,6 +47,8 @@ const REGISTRATION_UNAVAILABLE_CODE = "auth_registration_unavailable";
 const SIGNUP_DISABLED_CODE = "auth_signup_disabled";
 const INVALID_CODE_CODE = "auth_invalid_verification_code";
 const TERMS_CHANGED_CODE = "auth_terms_version_changed";
+/** AUTH-13A: the address's verified school domain requires school SSO. */
+const SSO_REQUIRED_CODE = "auth_sso_required";
 
 type Translate = (
   key: TranslationKey,
@@ -182,6 +184,8 @@ function formatRemaining(seconds: number) {
 type Failure =
   | { kind: "signupDisabled" }
   | { kind: "signupUnavailable" }
+  /** AUTH-13B: domain-level, so it never says whether an account exists. */
+  | { kind: "ssoRequired" }
   | { kind: "conflict" }
   | { kind: "rateLimited"; seconds?: number }
   | { kind: "busy"; seconds?: number }
@@ -195,6 +199,9 @@ function failureFrom(error: unknown): Failure {
     case 400:
       return { kind: "signupUnavailable" };
     case 403:
+      if (error.problem?.code === SSO_REQUIRED_CODE) {
+        return { kind: "ssoRequired" };
+      }
       return error.problem?.code === SIGNUP_DISABLED_CODE
         ? { kind: "signupDisabled" }
         : { kind: "generic" };
@@ -224,6 +231,8 @@ function failureText(failure: Failure, t: Translate) {
       return t("completeRegistration.signupDisabled");
     case "signupUnavailable":
       return t("completeRegistration.signupUnavailable");
+    case "ssoRequired":
+      return t("completeRegistration.ssoRequired");
     case "conflict":
       return t("completeRegistration.conflict");
     case "rateLimited":
@@ -366,6 +375,19 @@ export function CompleteRegistrationPage() {
     resetCooldown();
   }, [resetCooldown]);
 
+  /**
+   * AUTH-13B: 403 `auth_sso_required` — the typed address belongs to a
+   * school that requires SSO. Any code for it is dead, so the page returns
+   * to the email step (the address stays editable for a personal one) with
+   * a notice that also offers to cancel and sign in with school SSO.
+   */
+  function showSchoolSSORequired() {
+    invalidateChallenge();
+    setSendFailure({ kind: "ssoRequired" });
+    // Wait for the email step to render before moving focus back.
+    window.setTimeout(() => emailRef.current?.focus(), 0);
+  }
+
   function handleFailure(
     error: unknown,
     onFailure: (failure: Failure) => void,
@@ -374,7 +396,12 @@ export function CompleteRegistrationPage() {
       markUnavailable();
       return;
     }
-    onFailure(failureFrom(error));
+    const failure = failureFrom(error);
+    if (failure.kind === "ssoRequired") {
+      showSchoolSSORequired();
+      return;
+    }
+    onFailure(failure);
   }
 
   async function issueCode(resend: boolean) {
@@ -727,6 +754,10 @@ export function CompleteRegistrationPage() {
                     onChange={(event) => {
                       setEmail(event.target.value);
                       setEmailInvalid(false);
+                      // A school SSO notice belongs to the previous address.
+                      if (sendFailure?.kind === "ssoRequired") {
+                        setSendFailure(null);
+                      }
                       // A late answer for the previous address is discarded.
                       if (requesting) invalidateChallenge();
                     }}
@@ -747,6 +778,19 @@ export function CompleteRegistrationPage() {
                 {sendFailure ? (
                   <div className="account-link-card__alert" role="alert">
                     <p>{failureText(sendFailure, t)}</p>
+                    {sendFailure.kind === "ssoRequired" ? (
+                      // Cancelling also clears the HttpOnly registration
+                      // cookie before /sign-in, where school SSO starts.
+                      <Button
+                        loading={cancelling}
+                        loadingLabel={t("completeRegistration.cancelling")}
+                        onClick={() => void handleCancel()}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        {t("completeRegistration.ssoRequiredAction")}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="account-link-card__actions">

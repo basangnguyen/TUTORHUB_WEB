@@ -144,6 +144,8 @@ type PhoneSignInFailure =
   | { kind: "stale" }
   | { kind: "secondFactor" }
   | { kind: "delivery" }
+  /** AUTH-13A: the account's school requires SSO (handed to the caller). */
+  | { kind: "ssoRequired" }
   | { kind: "rateLimited"; seconds: number }
   | { kind: "busy"; seconds: number }
   | { kind: "network" }
@@ -161,6 +163,7 @@ function phoneFailureFrom(error: unknown): PhoneSignInFailure {
     case 401:
       return { kind: "codeInvalid" };
     case 403:
+      if (code === "auth_sso_required") return { kind: "ssoRequired" };
       if (code === "auth_phone_stale") return { kind: "stale" };
       if (code === "auth_phone_second_factor_required") {
         return { kind: "secondFactor" };
@@ -245,6 +248,13 @@ export interface SignInPhoneFormProps {
   onAuthenticated: () => Promise<void>;
   /** The code was right but the account needs its second factor. */
   onMfaRequired: (methods: readonly MFAMethod[]) => Promise<void>;
+  /**
+   * AUTH-13B: 403 `auth_sso_required` — the code proved the number, but the
+   * account's school requires SSO and the server consumed the transaction
+   * (and its `auth_tx` cookie). The form has already dropped the code; the
+   * caller leaves for the school SSO entry and explains why.
+   */
+  onSchoolSSORequired: () => void;
   /** Keep-signed-in checkbox shared with the other first factors. */
   options: ReactNode;
   /**
@@ -270,6 +280,7 @@ export function SignInPhoneForm({
   notice,
   onAuthenticated,
   onMfaRequired,
+  onSchoolSSORequired,
   options,
   transactionOwnerRef,
 }: SignInPhoneFormProps) {
@@ -317,7 +328,30 @@ export function SignInPhoneForm({
     else phoneRef.current?.focus();
   }, [step, challengeId]);
 
+  /**
+   * AUTH-13B: the server consumed the transaction for an account whose
+   * school requires SSO. Nothing typed outlives it: the code, the number,
+   * the challenge and its clocks are dropped before the hand-over.
+   */
+  function leaveForSchoolSSO() {
+    generationRef.current += 1;
+    setChallenge(null);
+    setCode("");
+    setPhone("");
+    setErrors({});
+    setFailure(null);
+    setSending(false);
+    setVerifying(false);
+    expiry.reset();
+    cooldown.reset();
+    onSchoolSSORequired();
+  }
+
   function fail(next: PhoneSignInFailure) {
+    if (next.kind === "ssoRequired") {
+      leaveForSchoolSSO();
+      return;
+    }
     if (next.kind === "rateLimited" || next.kind === "busy") {
       if (next.seconds > 0) lock.start(next.seconds);
     }
@@ -487,6 +521,10 @@ export function SignInPhoneForm({
     } catch (error) {
       const next = phoneFailureFrom(error);
       setVerifying(false);
+      if (next.kind === "ssoRequired") {
+        leaveForSchoolSSO();
+        return;
+      }
       if (next.kind === "stale" || next.kind === "secondFactor") {
         // The server consumed the transaction: only another method helps.
         generationRef.current += 1;

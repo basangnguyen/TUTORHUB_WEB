@@ -1782,6 +1782,9 @@ const messages = {
     "completeRegistration.actionError": "Chưa thể hoàn tất. Vui lòng thử lại.",
     "completeRegistration.sessionError":
       "Tài khoản đã sẵn sàng nhưng chưa tải được phiên đăng nhập.",
+    "completeRegistration.ssoRequired":
+      "Địa chỉ email này thuộc trường học bắt buộc đăng nhập qua SSO trường học nên không dùng được ở đây. Hãy nhập một địa chỉ email cá nhân khác, hoặc hủy đăng ký này rồi chọn “Đăng nhập bằng SSO trường học” trên trang đăng nhập.",
+    "completeRegistration.ssoRequiredAction": "Hủy và quay lại đăng nhập",
     "dataDeletion.kicker": "Quyền riêng tư",
     "dataDeletion.title": "Trạng thái yêu cầu xóa dữ liệu Facebook",
     "dataDeletion.loading": "Đang kiểm tra mã xác nhận",
@@ -4786,6 +4789,9 @@ const messages = {
       "Something went wrong. Please try again.",
     "completeRegistration.sessionError":
       "Your account is ready, but we couldn't load your session yet.",
+    "completeRegistration.ssoRequired":
+      "This email address belongs to a school that requires school SSO, so it can't be used here. Enter a different personal email address, or cancel this sign-up and choose “Sign in with school SSO” on the sign-in page.",
+    "completeRegistration.ssoRequiredAction": "Cancel and go to sign-in",
     "dataDeletion.kicker": "Privacy",
     "dataDeletion.title": "Facebook data deletion status",
     "dataDeletion.loading": "Checking the confirmation code",

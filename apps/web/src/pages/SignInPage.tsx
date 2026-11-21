@@ -30,7 +30,9 @@ import {
 } from "@tutorhub/ui";
 import {
   Fragment,
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useId,
   useMemo,
@@ -42,7 +44,7 @@ import {
   type RefObject,
 } from "react";
 import { KeyRound, School } from "lucide-react";
-import { Navigate, useLocation, useNavigate } from "react-router";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { DEFAULT_MFA_EXPIRES_IN_SECONDS, type MFAMethod } from "../app/mfa";
 import {
@@ -279,6 +281,11 @@ const en = {
     "This email address must sign in through your school's SSO. Use “Sign in with school SSO” with your school account.",
   callbackSsoRequired:
     "You can't sign in with that account: this email domain requires your school's SSO. Choose the Google or Microsoft account your school issued, or use “Sign in with school SSO”.",
+  ssoRequiredAccount:
+    "This account belongs to a school that requires school SSO. Enter your school email, then choose “Sign in with school SSO”.",
+  ssoRequiredSignInPage:
+    "This account must sign in through your school's SSO. Go back to the sign-in page, enter your school email and choose “Sign in with school SSO”.",
+  ssoBackToSignIn: "Back to sign-in for school SSO",
 };
 
 type SignInCopy = Record<keyof typeof en, string>;
@@ -466,6 +473,11 @@ const vi: SignInCopy = {
     "Email này phải đăng nhập qua SSO của trường. Hãy dùng “Đăng nhập bằng SSO trường học” với tài khoản trường cấp.",
   callbackSsoRequired:
     "Không thể đăng nhập bằng tài khoản đó: tên miền email này yêu cầu đăng nhập qua SSO của trường. Hãy chọn đúng tài khoản Google hoặc Microsoft do trường cấp, hoặc dùng “Đăng nhập bằng SSO trường học”.",
+  ssoRequiredAccount:
+    "Tài khoản này thuộc trường học bắt buộc đăng nhập qua SSO trường học. Hãy nhập email trường của bạn rồi chọn “Đăng nhập bằng SSO trường học”.",
+  ssoRequiredSignInPage:
+    "Tài khoản này phải đăng nhập qua SSO của trường. Hãy quay lại trang đăng nhập, nhập email trường của bạn rồi chọn “Đăng nhập bằng SSO trường học”.",
+  ssoBackToSignIn: "Quay lại đăng nhập bằng SSO trường học",
 };
 
 const copyByLanguage: Record<Language, SignInCopy> = { en, vi };
@@ -601,10 +613,21 @@ type AuthFailure =
   | { kind: "passkeyFailed" }
   /** AUTH-12B: 403 `auth_sso_required` (domain-level, never account-level). */
   | { kind: "ssoRequired" }
+  /**
+   * AUTH-13B: the same 403 after a factor that typed no email (passkey,
+   * phone code, a second step after OAuth): the notice never names one.
+   */
+  | { kind: "ssoRequiredAccount" }
   | { kind: "generic" };
 
 /** AUTH-12A: the email's domain enforces school SSO (403). */
 const SSO_REQUIRED_CODE = "auth_sso_required";
+
+function isSsoRequired(failure: AuthFailure | null) {
+  return (
+    failure?.kind === "ssoRequired" || failure?.kind === "ssoRequiredAccount"
+  );
+}
 
 function boundedRetryAfter(value: number | undefined) {
   return typeof value === "number" && Number.isFinite(value) && value > 0
@@ -657,7 +680,8 @@ function passkeyFailureFrom(error: unknown): AuthFailure {
         : { kind: "passkeyFailed" };
     case 403:
       if (error.problem?.code === SSO_REQUIRED_CODE) {
-        return { kind: "ssoRequired" };
+        // A discoverable passkey names no address: the account-level notice.
+        return { kind: "ssoRequiredAccount" };
       }
       return error.problem?.code === "auth_passkey_clone_detected"
         ? { kind: "passkeyClone" }
@@ -719,6 +743,8 @@ function failureText(c: SignInCopy, failure: AuthFailure) {
       return c.passkeyFailed;
     case "ssoRequired":
       return c.ssoRequired;
+    case "ssoRequiredAccount":
+      return c.ssoRequiredAccount;
     default:
       return c.genericError;
   }
@@ -791,6 +817,8 @@ interface PasskeySignInOptions {
   onAuthenticated: () => Promise<void>;
   /** AUTH-09B: a passkey without user verification needs a second step. */
   onMfaRequired: (methods: readonly MFAMethod[]) => void;
+  /** AUTH-13B: the account must use school SSO (403 `auth_sso_required`). */
+  onSsoRequired?: () => void;
 }
 
 type PasskeyVerifyOutcome =
@@ -816,6 +844,10 @@ type PasskeyVerifyOutcome =
  * - AUTH-09B: a passkey without user verification answers `mfa_required`;
  *   the form moves to the second step (`onMfaRequired`), and
  *   `stopBackground()` lets another first factor cancel autofill first.
+ * - AUTH-13B: a 403 `auth_sso_required` (the server already consumed the
+ *   transaction) holds autofill for the rest of this form's life, so a
+ *   method switch never re-arms it against the same refusal, and hands over
+ *   to `onSsoRequired`. The button still works for another passkey.
  */
 function usePasskeySignIn({
   conditional,
@@ -823,16 +855,19 @@ function usePasskeySignIn({
   keepSignedIn,
   onAuthenticated,
   onMfaRequired,
+  onSsoRequired,
 }: PasskeySignInOptions) {
   const [pending, setPending] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const [failure, setFailure] = useState<AuthFailure | null>(null);
   const [rearm, setRearm] = useState(0);
+  const [autofillHeld, setAutofillHeld] = useState(false);
   const lock = useCountdown();
   const lockStart = lock.start;
   const keepSignedInRef = useRef(keepSignedIn);
   const onAuthenticatedRef = useRef(onAuthenticated);
   const onMfaRequiredRef = useRef(onMfaRequired);
+  const onSsoRequiredRef = useRef(onSsoRequired);
   const backgroundRef = useRef<BackgroundPasskeyRequest | null>(null);
   const runningRef = useRef(false);
 
@@ -840,6 +875,7 @@ function usePasskeySignIn({
     keepSignedInRef.current = keepSignedIn;
     onAuthenticatedRef.current = onAuthenticated;
     onMfaRequiredRef.current = onMfaRequired;
+    onSsoRequiredRef.current = onSsoRequired;
   });
 
   const fail = useCallback(
@@ -848,6 +884,10 @@ function usePasskeySignIn({
       if (retryAfter) lockStart(retryAfter);
       setFailure(next);
       setPending(false);
+      if (isSsoRequired(next)) {
+        setAutofillHeld(true);
+        onSsoRequiredRef.current?.();
+      }
     },
     [lockStart],
   );
@@ -897,7 +937,7 @@ function usePasskeySignIn({
   }, []);
 
   useEffect(() => {
-    if (!enabled || !conditional) return;
+    if (!enabled || !conditional || autofillHeld) return;
     const controller = new AbortController();
     const request: BackgroundPasskeyRequest = {
       controller,
@@ -949,7 +989,16 @@ function usePasskeySignIn({
       controller.abort();
       if (backgroundRef.current === request) backgroundRef.current = null;
     };
-  }, [conditional, enabled, fail, finish, rearm, requireMfa, verify]);
+  }, [
+    autofillHeld,
+    conditional,
+    enabled,
+    fail,
+    finish,
+    rearm,
+    requireMfa,
+    verify,
+  ]);
 
   /** Aborts passkey autofill and waits (briefly) for it to settle. */
   const stopBackground = useCallback(async () => {
@@ -1379,6 +1428,13 @@ function SchoolSSONotice({ sso }: { sso: SchoolSSO }) {
   );
 }
 
+/**
+ * AUTH-13B: a page that embeds LoginForm without Home Realm Discovery
+ * (/account-link) names the path where school SSO starts. Every alert inside
+ * the form then points there instead of at a button this page lacks.
+ */
+const SchoolSSOFallbackContext = createContext<string | undefined>(undefined);
+
 interface FormAlertProps {
   failure: AuthFailure;
   onRetrySession?: () => void;
@@ -1386,19 +1442,24 @@ interface FormAlertProps {
 
 function FormAlert({ failure, onRetrySession }: FormAlertProps) {
   const c = useSignInCopy();
+  const ssoFallbackPath = useContext(SchoolSSOFallbackContext);
+  const ssoRequired = isSsoRequired(failure);
+  const leaveForSchoolSSO = ssoRequired && ssoFallbackPath !== undefined;
   return (
     <div
       className={
         failure.kind === "mfaRequired" ||
         failure.kind === "mfaExpired" ||
         failure.kind === "mfaRecoveryExpired" ||
-        failure.kind === "ssoRequired"
+        ssoRequired
           ? "sign-in-form__alert sign-in-form__alert--info"
           : "sign-in-form__alert"
       }
       role="alert"
     >
-      <p>{failureText(c, failure)}</p>
+      <p>
+        {leaveForSchoolSSO ? c.ssoRequiredSignInPage : failureText(c, failure)}
+      </p>
       {failure.kind === "session" && onRetrySession ? (
         <button
           className="sign-in-button sign-in-button--outline"
@@ -1407,6 +1468,14 @@ function FormAlert({ failure, onRetrySession }: FormAlertProps) {
         >
           {c.retry}
         </button>
+      ) : null}
+      {leaveForSchoolSSO ? (
+        <Link
+          className="sign-in-button sign-in-button--outline"
+          to={ssoFallbackPath}
+        >
+          {c.ssoBackToSignIn}
+        </Link>
       ) : null}
     </div>
   );
@@ -1744,6 +1813,12 @@ export interface LoginFormProps {
    * the school's provider. /account-link omits it.
    */
   schoolSSO?: SchoolSSOOptions;
+  /**
+   * AUTH-13B: where school SSO starts when this page offers no Home Realm
+   * Discovery (/account-link passes `/sign-in`). A 403 `auth_sso_required`
+   * then links there instead of naming a button the page does not have.
+   */
+  schoolSSOFallbackPath?: string;
   social: SocialAvailability;
 }
 
@@ -1765,7 +1840,18 @@ type LoginMethod = "password" | "emailCode" | "phone";
  * Password / email-code / phone-code login with recovery. Exported for
  * /account-link, which signs in in place (no social buttons, no navigation).
  */
-export function LoginForm({
+export function LoginForm(props: LoginFormProps) {
+  // AUTH-13B: only a page without Home Realm Discovery names a fallback.
+  const ssoFallbackPath =
+    props.schoolSSO === undefined ? props.schoolSSOFallbackPath : undefined;
+  return (
+    <SchoolSSOFallbackContext.Provider value={ssoFallbackPath}>
+      <LoginFormBody {...props} />
+    </SchoolSSOFallbackContext.Provider>
+  );
+}
+
+function LoginFormBody({
   autoFocus,
   emailCodeEnabled,
   mode,
@@ -1822,8 +1908,12 @@ export function LoginForm({
     resumePendingMfa ? 1 : 0,
   );
   const [refocusAfterMfa, setRefocusAfterMfa] = useState(0);
+  const [identifierFocusRequest, setIdentifierFocusRequest] = useState(0);
+  const [ssoRefused, setSsoRefused] = useState(false);
   /** Remembered (if asked) only once the second step issued a session. */
   const [mfaIdentifier, setMfaIdentifier] = useState("");
+  /** AUTH-12B: this page offers Home Realm Discovery ("school SSO"). */
+  const hrdHere = schoolSSO !== undefined;
   const isPassword = mode === "password";
   const phoneCountries = phoneCountryOptions(phoneAllowedCountries);
   const phoneAvailable = phoneEnabled && phoneCountries.length > 0;
@@ -1854,11 +1944,31 @@ export function LoginForm({
     },
     [],
   );
+
+  /**
+   * AUTH-13B: a passkey, a phone code or a second step reached an account
+   * whose school requires SSO (403 `auth_sso_required`). The server already
+   * consumed that transaction, so the form returns to the identifier field —
+   * the only place school SSO starts — and drops every typed secret.
+   * `notice` is null when the caller shows its own alert (the passkey area).
+   */
+  function openSchoolSSOEntry(notice: AuthFailure | null) {
+    setSsoRefused(true);
+    setPassword("");
+    setErrors({});
+    setSubmitting(false);
+    setPasswordResetDone(false);
+    setMethod("password");
+    setFailure(notice);
+    if (hrdHere) setIdentifierFocusRequest((value) => value + 1);
+  }
+
   const passkey = usePasskeySignIn({
     // Autofill belongs to the password form: never under the email-code or
-    // phone form, the recovery dialog or the second step.
+    // phone form, the recovery dialog, the second step, or after a school SSO refusal.
     conditional:
       passkeyAutofill &&
+      !ssoRefused &&
       !usesEmailCode &&
       !usesPhone &&
       !recoverOpen &&
@@ -1867,6 +1977,8 @@ export function LoginForm({
     keepSignedIn: nativeSession && keepSignedIn,
     onAuthenticated,
     onMfaRequired: showMfaChallenge,
+    // The passkey area shows its own alert; open the school SSO entry.
+    onSsoRequired: () => openSchoolSSOEntry(null),
   });
   const stopPasskeyAutofill = passkey.stopBackground;
   const sso = useSchoolSSO(schoolSSO, stopPasskeyAutofill);
@@ -1923,10 +2035,34 @@ export function LoginForm({
     if (refocusAfterMfa > 0) identifierRef.current?.focus();
   }, [refocusAfterMfa]);
 
+  // AUTH-13B: school SSO starts from the identifier field.
+  useEffect(() => {
+    if (identifierFocusRequest > 0) identifierRef.current?.focus();
+  }, [identifierFocusRequest]);
+
   function leaveMfa(notice: AuthFailure | null) {
     setMfa(null);
     setFailure(notice);
     setRefocusAfterMfa((value) => value + 1);
+  }
+
+  /**
+   * AUTH-13B: the school turned `enforce_sso` on while this second step was
+   * pending. The step is dead; back to the identifier with the notice, and
+   * Home Realm Discovery right away when the first factor typed an email.
+   */
+  function leaveMfaForSchoolSSO() {
+    const email = EMAIL_PATTERN.test(mfaIdentifier) ? mfaIdentifier : "";
+    setSsoRefused(true);
+    setMfaIdentifier("");
+    setPassword("");
+    setErrors({});
+    setMethod("password");
+    leaveMfa(email ? { kind: "ssoRequired" } : { kind: "ssoRequiredAccount" });
+    if (email) {
+      setIdentifier(email);
+      void discoverSchoolSSO(email);
+    }
   }
 
   useEffect(() => {
@@ -2198,6 +2334,7 @@ export function LoginForm({
               setMfa(null);
               await handlePasswordReset();
             }}
+            onSsoRequired={leaveMfaForSchoolSSO}
             passkeysEnabled={passkeysEnabled}
             purpose="signIn"
           />
@@ -2261,6 +2398,10 @@ export function LoginForm({
             // Nothing is remembered for a phone sign-in.
             await enterMfa(methods, "");
           }}
+          // AUTH-13B: leaving the phone form also drops the typed number.
+          onSchoolSSORequired={() =>
+            openSchoolSSOEntry({ kind: "ssoRequiredAccount" })
+          }
           options={phoneOptions}
           transactionOwnerRef={transactionOwnerRef}
         />
@@ -2626,6 +2767,7 @@ function EmailCodeLoginForm({
   }
 
   async function sendCode(trimmedEmail: string) {
+    if (isSsoRequired(failure)) setFailure(null);
     const outcome = await code.request(trimmedEmail);
     if (outcome === "sent") {
       clearError("otp");
@@ -2635,7 +2777,12 @@ function EmailCodeLoginForm({
       emailRef.current?.focus();
     } else if (outcome === "failed" || outcome === "ssoRequired") {
       emailRef.current?.focus();
-      if (outcome === "ssoRequired") onSchoolSSORequired?.(trimmedEmail);
+      if (outcome === "ssoRequired") {
+        // AUTH-13B: an alert (with a way to school SSO where this page has
+        // none), not the code hint.
+        setFailure({ kind: "ssoRequired" });
+        onSchoolSSORequired?.(trimmedEmail);
+      }
     }
   }
 
@@ -2733,7 +2880,9 @@ function EmailCodeLoginForm({
     ) : null;
   }
 
-  const codeNotice = challengeNoticeView(c, code);
+  const ssoNotice =
+    code.notice?.kind === "failure" && isSsoRequired(code.notice.failure);
+  const codeNotice = ssoNotice ? null : challengeNoticeView(c, code);
   const emailDescribedBy =
     [errors.email ? `${ids.email}-error` : "", codeNotice ? ids.codeNotice : ""]
       .filter(Boolean)
@@ -2771,6 +2920,8 @@ function EmailCodeLoginForm({
               setEmail(event.target.value);
               clearError("email");
               onEmailEdited?.();
+              // A school SSO notice belongs to the previous address.
+              if (isSsoRequired(failure)) setFailure(null);
               if (code.challenge || code.requesting) {
                 code.invalidate();
                 setOtp("");
@@ -3896,6 +4047,11 @@ function NativeRecoverPasswordForm({
         onCancel={() => leaveMfa(null)}
         onExpired={() => leaveMfa({ kind: "mfaRecoveryExpired" })}
         onPasswordReset={onPasswordReset}
+        onSsoRequired={() => {
+          // AUTH-13B: nothing was reset; the address now needs school SSO.
+          leaveMfa({ kind: "ssoRequired" });
+          void discoverSchoolSSO(email.trim());
+        }}
         passkeysEnabled={passkeysEnabled}
         purpose="recovery"
         variant="dialog"

@@ -34,6 +34,8 @@ const MAX_MFA_EXPIRES_IN_SECONDS = 300;
 /** Upper bound for client-side locks; the server stays authoritative. */
 const MAX_LOCK_SECONDS = 3600;
 const TOTP_PATTERN = /^\d{6}$/;
+/** AUTH-13A: the school turned `enforce_sso` on while this step was pending. */
+const SSO_REQUIRED_CODE = "auth_sso_required";
 
 const en = {
   title: "Two-step verification",
@@ -282,6 +284,12 @@ export interface SignInMfaStepProps {
    * revoked and the user is NOT signed in.
    */
   onPasswordReset: () => Promise<void>;
+  /**
+   * AUTH-13B: 403 `auth_sso_required` — the account's school now requires
+   * SSO, so this transaction can never finish. The caller leaves the step
+   * and explains it; no timer or device prompt outlives the call.
+   */
+  onSsoRequired: () => void;
   /** `passkeys_enabled` from `/auth/providers`. */
   passkeysEnabled: boolean;
   purpose: "signIn" | "recovery";
@@ -301,6 +309,7 @@ export function SignInMfaStep({
   onCancel,
   onExpired,
   onPasswordReset,
+  onSsoRequired,
   passkeysEnabled,
   purpose,
   variant = "page",
@@ -331,16 +340,25 @@ export function SignInMfaStep({
   const inputRef = useRef<HTMLInputElement>(null);
   const passkeyButtonRef = useRef<HTMLButtonElement>(null);
   const ceremonyRef = useRef<AbortController | null>(null);
-  const expiredRef = useRef(false);
+  /** Set once the step was handed back (expired or school SSO required). */
+  const closedRef = useRef(false);
   /** Set once the server issued the session; a retry only reloads it. */
   const [verified, setVerified] = useState<{ returnTo?: string } | null>(null);
 
   const expire = useCallback(() => {
-    if (expiredRef.current) return;
-    expiredRef.current = true;
+    if (closedRef.current) return;
+    closedRef.current = true;
     ceremonyRef.current?.abort();
     onExpired();
   }, [onExpired]);
+
+  /** AUTH-13B: the expiry timer must not fire after this hand-over. */
+  const leaveForSchoolSSO = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    ceremonyRef.current?.abort();
+    onSsoRequired();
+  }, [onSsoRequired]);
   const secondsLeft = useDeadline(expiresInSeconds, () => {
     // A verified user keeps the session even if the clock runs out.
     if (!verified) expire();
@@ -413,6 +431,10 @@ export function SignInMfaStep({
         } else setFailure({ kind: "passkeyInvalid" });
         return;
       case 403:
+        if (code === SSO_REQUIRED_CODE) {
+          leaveForSchoolSSO();
+          return;
+        }
         setFailure(
           code === "auth_passkey_clone_detected"
             ? { kind: "passkeyClone" }

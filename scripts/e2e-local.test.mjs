@@ -630,7 +630,7 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   );
 
   const nativeSpecPatterns =
-    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",\s*"\*\*\/auth-09-\*\.spec\.ts",\s*"\*\*\/auth-10-\*\.spec\.ts",\s*"\*\*\/auth-12-\*\.spec\.ts",?\s*\]/;
+    /\[\s*"\*\*\/auth-0\[23\]-native-\*\.spec\.ts",\s*"\*\*\/auth-04-\*\.spec\.ts",\s*"\*\*\/auth-05-\*\.spec\.ts",\s*"\*\*\/auth-06-\*\.spec\.ts",\s*"\*\*\/auth-07-\*\.spec\.ts",\s*"\*\*\/auth-08-\*\.spec\.ts",\s*"\*\*\/auth-09-\*\.spec\.ts",\s*"\*\*\/auth-10-\*\.spec\.ts",\s*"\*\*\/auth-12-\*\.spec\.ts",\s*"\*\*\/auth-13-\*\.spec\.ts",?\s*\]/;
   assert.match(
     defaultConfig,
     new RegExp(`testIgnore:\\s*${nativeSpecPatterns.source}`),
@@ -655,11 +655,12 @@ test("native auth specs run only through the dedicated Playwright config", () =>
   assert.ok(nativeSpecs.includes("auth-09-mfa-totp.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-10-phone-otp.spec.ts"));
   assert.ok(nativeSpecs.includes("auth-12-school-sso.spec.ts"));
+  assert.ok(nativeSpecs.includes("auth-13-public-beta-hardening.spec.ts"));
   for (const name of nativeSpecs) {
     assert.ok(
       /^auth-0[23]-native-.*\.spec\.ts$/.test(name) ||
         /^auth-0[456789]-.*\.spec\.ts$/.test(name) ||
-        /^auth-1[02]-.*\.spec\.ts$/.test(name),
+        /^auth-1[023]-.*\.spec\.ts$/.test(name),
       `${name} must match the native auth Playwright patterns`,
     );
   }
