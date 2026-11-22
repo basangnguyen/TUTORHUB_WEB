@@ -389,6 +389,117 @@
   line-height: 1.4;
 }
 
+/* ---------- UI-AUTH-07: three-step sign-up (ClassIn style) ---------- */
+
+.sign-in .sign-in-form__heading--step {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.sign-in-form__step-title {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+/* #6b7280 on white is 4.83:1 (WCAG AA). */
+.sign-in .sign-in-form__subheading,
+.sign-in .sign-in-form__instructions {
+  min-width: 0;
+  color: var(--sign-in-text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.sign-in-form__label {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* "<" back control: 36 x 36 target, icon optically aligned with the fields. */
+.sign-in-form__back {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  margin: -4px 0 -4px -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sign-in-text);
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+
+.sign-in-form__back:hover {
+  background: #f3f4f6;
+}
+
+/* Room on the right for the Resend control that sits inside the field. */
+.sign-in-input--resend {
+  padding-right: 128px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+}
+
+.sign-in-input--resend::placeholder {
+  letter-spacing: normal;
+}
+
+/* #047857 on white is 5.48:1; the counting-down state uses #4b5563 (7.6:1). */
+.sign-in-input-group__action {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #047857;
+  cursor: pointer;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+  white-space: nowrap;
+}
+
+.sign-in-input-group__action:hover:not(:disabled) {
+  background: #ecfdf5;
+}
+
+.sign-in-input-group__action:disabled,
+.sign-in-input-group__action[aria-disabled="true"] {
+  color: #4b5563;
+}
+
+.sign-in-input-group__action:disabled {
+  cursor: not-allowed;
+}
+
+.sign-in-input-group__action[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.sign-in .sign-in-input-group__action:focus-visible {
+  outline-offset: -3px;
+}
+
 .sign-in-form__field {
   display: grid;
   gap: 6px;
@@ -551,6 +662,41 @@
 .sign-in-button--primary:disabled,
 .sign-in-button--primary[aria-disabled="true"] {
   background: #047857;
+  opacity: 0.7;
+}
+
+/*
+ * UI-AUTH-07: a step's main button stays submittable while incomplete (it
+ * then names the missing field) but looks quieter, like ClassIn. Mint:
+ * #064e3b on #dcfce7 is 8.9:1 (hover #bbf7d0: 8.0:1). Grey: #374151 on
+ * #e5e7eb is 8.3:1 (hover #d1d5db: 7.0:1).
+ */
+.sign-in-button--soft,
+.sign-in-button--muted {
+  height: 48px;
+  font-size: 16px;
+}
+
+.sign-in-button--soft {
+  background: #dcfce7;
+  color: #064e3b;
+}
+
+.sign-in-button--soft:hover:not(:disabled) {
+  background: #bbf7d0;
+}
+
+.sign-in-button--muted {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.sign-in-button--muted:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+.sign-in-button--soft:disabled,
+.sign-in-button--muted:disabled {
   opacity: 0.7;
 }
 
@@ -1581,6 +1727,8 @@
   .sign-in-legal__button,
   .sign-in__switch,
   .sign-in-input-group__toggle,
+  .sign-in-input-group__action,
+  .sign-in-form__back,
   .sign-in-form__link,
   .sign-in-form__text-action,
   .sign-in-form__channel {
@@ -1605,6 +1753,8 @@
   }
 
   .sign-in-input-group__toggle,
+  .sign-in-input-group__action,
+  .sign-in-form__back,
   .sign-in-form__channel {
     border: 1px solid CanvasText;
   }

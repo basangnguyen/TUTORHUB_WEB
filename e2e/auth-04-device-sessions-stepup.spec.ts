@@ -63,6 +63,10 @@ const labels = {
   password: /^(?:Mật khẩu|Password)$/,
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
+  // UI-AUTH-07: three-step sign-up (email + terms -> code -> name + password).
+  signUpGetCode: /^(?:Lấy mã|Get code)$/,
+  signUpOtp: /^(?:Vui lòng nhập mã xác minh|Please enter verification code)$/,
+  continue: /^(?:Tiếp tục|Continue)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
   useOtp: /^(?:Đăng nhập với OTP|Log in with OTP)$/,
   emailCodeForm:
@@ -248,12 +252,11 @@ async function signUp(
   await page.goto("/sign-in");
   await page.getByRole("button", { name: labels.signUp }).click();
   const form = page.getByRole("form", { name: labels.signUpForm });
-  await form
-    .getByRole("textbox", { name: labels.fullName })
-    .fill(account.displayName);
+  // Step 1: email + consent -> "Get code".
   await form.getByRole("textbox", { name: labels.email }).fill(account.email);
+  await form.getByRole("checkbox", { name: labels.terms }).check();
   const started = postTo(page, "/v1/auth/signup/email/start");
-  await form.getByRole("button", { name: labels.getCode }).click();
+  await form.getByRole("button", { name: labels.signUpGetCode }).click();
   const challengeId = await readChallengeId(await started);
   const code = await waitForDevInboxCode(
     request,
@@ -261,9 +264,14 @@ async function signUp(
     challengeId,
     "signup_email",
   );
-  await form.getByRole("textbox", { name: labels.otp }).fill(code);
+  // Step 2: the emailed code -> "Continue".
+  await form.getByRole("textbox", { name: labels.signUpOtp }).fill(code);
+  await form.getByRole("button", { name: labels.continue }).click();
+  // Step 3: name + password -> "Create Account".
+  await form
+    .getByRole("textbox", { name: labels.fullName })
+    .fill(account.displayName);
   await form.getByLabel(labels.password).fill(account.password);
-  await form.getByRole("checkbox", { name: labels.terms }).check();
   const complete = postTo(page, "/v1/auth/signup/email/complete");
   await form.getByRole("button", { name: labels.createAccount }).click();
   expect((await complete).status()).toBe(201);

@@ -34,6 +34,13 @@ const labels = {
   password: /^(?:Mật khẩu|Password)$/,
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
+  // UI-AUTH-07: three-step sign-up (email + terms -> code -> name + password).
+  signUpGetCode: /^(?:Lấy mã|Get code)$/,
+  signUpOtp: /^(?:Vui lòng nhập mã xác minh|Please enter verification code)$/,
+  signUpCodeSent:
+    /(?:Mã xác minh 6 chữ số đã được gửi đến|A 6-digit verification code has been sent to)/,
+  resendIn: /^(?:Gửi lại sau \d+s|Resend in \d+s)$/,
+  continue: /^(?:Tiếp tục|Continue)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   codeSent:
@@ -285,15 +292,17 @@ test.describe("AUTH-03 native email-code login, recovery and password settings",
       await page.goto("/sign-in");
       await page.getByRole("button", { name: labels.signUp }).click();
       const form = page.getByRole("form", { name: labels.signUpForm });
-      await form
-        .getByRole("textbox", { name: labels.fullName })
-        .fill(displayName);
-      const { challengeId } = await requestCode(
-        page,
-        form,
-        "/v1/auth/signup/email/start",
-        email,
-      );
+      // Step 1: email + consent -> "Get code".
+      await form.getByRole("textbox", { name: labels.email }).fill(email);
+      await form.getByRole("checkbox", { name: labels.terms }).check();
+      const started = postTo(page, "/v1/auth/signup/email/start");
+      await form.getByRole("button", { name: labels.signUpGetCode }).click();
+      const { challengeId } = await readChallenge(await started);
+      // Step 2: neutral notice; Resend counts down inside the code field.
+      await expect(form.getByText(labels.signUpCodeSent)).toBeVisible();
+      await expect(
+        form.getByRole("button", { name: labels.resendIn }),
+      ).toBeDisabled();
       const delivered = await waitForDevInbox(
         request,
         "the sign-up code",
@@ -302,9 +311,13 @@ test.describe("AUTH-03 native email-code login, recovery and password settings",
       const code = delivered.code ?? "";
       expect(code).toMatch(/^\d{6}$/);
       codes.push(code);
-      await form.getByRole("textbox", { name: labels.otp }).fill(code);
+      await form.getByRole("textbox", { name: labels.signUpOtp }).fill(code);
+      await form.getByRole("button", { name: labels.continue }).click();
+      // Step 3: name + password -> "Create Account".
+      await form
+        .getByRole("textbox", { name: labels.fullName })
+        .fill(displayName);
       await form.getByLabel(labels.password).fill(signupPassword);
-      await form.getByRole("checkbox", { name: labels.terms }).check();
       const complete = postTo(page, "/v1/auth/signup/email/complete");
       await form.getByRole("button", { name: labels.createAccount }).click();
       expect((await complete).status()).toBe(201);

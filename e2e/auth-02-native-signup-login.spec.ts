@@ -24,17 +24,25 @@ const labels = {
   signUpForm: /^(?:Tạo tài khoản mới|Create an Account)$/,
   fullName: /^(?:Họ và tên|Full Name)$/,
   email: /^(?:Địa chỉ email|Email Address)$/,
-  getCode: /^(?:Lấy mã|Get Code)$/,
-  otp: /^(?:Mã OTP|OTP code)$/,
   password: /^(?:Mật khẩu|Password)$/,
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
+  // UI-AUTH-07: three-step sign-up (email + terms -> code -> name + password).
+  emailStep: /^Email$/,
+  accountStep: /^(?:Thiết lập tài khoản|Set up your account)$/,
+  signUpGetCode: /^(?:Lấy mã|Get code)$/,
+  signUpOtp: /^(?:Vui lòng nhập mã xác minh|Please enter verification code)$/,
+  resendIn: /^(?:Gửi lại sau \d+s|Resend in \d+s)$/,
+  continue: /^(?:Tiếp tục|Continue)$/,
+  backToEmail: /^(?:Quay lại nhập email|Back to email)$/,
+  otherSignInMethods:
+    /(?:Google|Microsoft|Facebook|[Pp]asskey|SSO trường học|school SSO)/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
   holdToShowPassword:
     /^(?:Nhấn giữ để hiện mật khẩu|Press and hold to show password)$/,
   signOut: /^(?:Đăng xuất|Sign out)$/,
   codeSent:
-    /(?:mã xác thực 6 chữ số đã được gửi|a 6-digit verification code has been sent)/,
+    /(?:Mã xác minh 6 chữ số đã được gửi đến|A 6-digit verification code has been sent to)/,
 } as const;
 
 interface DevInboxMessage {
@@ -68,13 +76,14 @@ async function openSignUpForm(page: Page) {
   return page.getByRole("form", { name: labels.signUpForm });
 }
 
+/** Step 1 -> step 2: "Get code" with the email and consent already filled. */
 async function requestSignupCode(page: Page, form: Locator) {
   const startResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       apiPath(response.url()).endsWith("/v1/auth/signup/email/start"),
   );
-  await form.getByRole("button", { name: labels.getCode }).click();
+  await form.getByRole("button", { name: labels.signUpGetCode }).click();
   const response = await startResponse;
   // Uniform anti-enumeration contract: always 202 with the same body shape.
   expect(response.status()).toBe(202);
@@ -88,8 +97,14 @@ async function requestSignupCode(page: Page, form: Locator) {
   if (typeof body.challenge_id !== "string") {
     throw new Error("The sign-up start response has no challenge_id.");
   }
+  // Step 2: neutral notice, Resend counts down inside the code field.
   await expect(form.getByText(labels.codeSent)).toBeVisible();
-  await expect(form.getByRole("button", { name: /^\d+s$/ })).toBeDisabled();
+  await expect(
+    form.getByRole("textbox", { name: labels.signUpOtp }),
+  ).toBeFocused();
+  await expect(
+    form.getByRole("button", { name: labels.resendIn }),
+  ).toBeDisabled();
   return body.challenge_id;
 }
 
@@ -183,24 +198,50 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     ).toHaveAttribute("aria-pressed", "false");
     await expectNoBlockingAxeViolations(page, "login view");
 
-    // 1. Sign up: name + email -> code from the dev inbox -> terms -> password.
+    // 1. Sign up in three steps (UI-AUTH-07): email + terms -> code from the
+    //    dev inbox -> name + password.
     await page.getByRole("button", { name: labels.signUp }).click();
     const signUpForm = page.getByRole("form", { name: labels.signUpForm });
-    await signUpForm
-      .getByRole("textbox", { name: labels.fullName })
-      .fill(displayName);
-    await signUpForm.getByRole("textbox", { name: labels.email }).fill(email);
+    await expect(
+      signUpForm.getByRole("heading", { level: 2, name: labels.emailStep }),
+    ).toBeVisible();
+    const emailField = signUpForm.getByRole("textbox", { name: labels.email });
+    await expect(emailField).toBeFocused();
+    // The brand row's Log In stays; no social, passkey or school SSO entry.
+    await expect(
+      page.getByRole("button", { name: labels.logIn }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".sign-in__panel")
+        .getByRole("button", { name: labels.otherSignInMethods }),
+    ).toHaveCount(0);
+    await expectNoBlockingAxeViolations(page, "sign-up step 1 (incomplete)");
+    await emailField.fill(email);
+    await signUpForm.getByRole("checkbox", { name: labels.terms }).check();
+    await expectNoBlockingAxeViolations(page, "sign-up step 1 (ready)");
     const challengeId = await requestSignupCode(page, signUpForm);
+    await expectNoBlockingAxeViolations(page, "sign-up step 2 (code)");
     const delivered = await readDevInbox(request, challengeId);
     expect(delivered.kind).toBe("challenge");
     expect(delivered.purpose).toBe("signup_email");
     const code = delivered.code ?? "";
     expect(code).toMatch(/^\d{6}$/);
 
-    await signUpForm.getByRole("textbox", { name: labels.otp }).fill(code);
+    await signUpForm
+      .getByRole("textbox", { name: labels.signUpOtp })
+      .fill(code);
+    await signUpForm.getByRole("button", { name: labels.continue }).click();
+    await expect(
+      signUpForm.getByRole("heading", { level: 2, name: labels.accountStep }),
+    ).toBeVisible();
+    const fullNameField = signUpForm.getByRole("textbox", {
+      name: labels.fullName,
+    });
+    await expect(fullNameField).toBeFocused();
+    await fullNameField.fill(displayName);
     await signUpForm.getByLabel(labels.password).fill(password);
-    await signUpForm.getByRole("checkbox", { name: labels.terms }).check();
-    await expectNoBlockingAxeViolations(page, "sign-up view");
+    await expectNoBlockingAxeViolations(page, "sign-up step 3 (account)");
 
     const completeResponse = page.waitForResponse(
       (response) =>
@@ -210,7 +251,12 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     await signUpForm
       .getByRole("button", { name: labels.createAccount })
       .click();
-    expect((await completeResponse).status()).toBe(201);
+    const complete = await completeResponse;
+    expect(complete.status()).toBe(201);
+    // UI-AUTH-07: sign-up on /sign-in asks for a persistent session too.
+    expect(complete.request().postDataJSON()).toMatchObject({
+      keep_signed_in: true,
+    });
     await expectSignedInAs(page, email, displayName);
 
     // The session lives only in HttpOnly cookies; no secret reaches web storage.
@@ -230,11 +276,17 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     // 3. Requesting a code for the now-registered email looks identical in the
     //    UI, but only an "account exists" notice without a code is delivered.
     const repeatForm = await openSignUpForm(page);
-    await repeatForm
-      .getByRole("textbox", { name: labels.fullName })
-      .fill(displayName);
     await repeatForm.getByRole("textbox", { name: labels.email }).fill(email);
+    await repeatForm.getByRole("checkbox", { name: labels.terms }).check();
     const repeatChallengeId = await requestSignupCode(page, repeatForm);
+    // "<" returns to the email step with the address and consent kept.
+    await repeatForm.getByRole("button", { name: labels.backToEmail }).click();
+    await expect(
+      repeatForm.getByRole("textbox", { name: labels.email }),
+    ).toHaveValue(email);
+    await expect(
+      repeatForm.getByRole("checkbox", { name: labels.terms }),
+    ).toBeChecked();
     const notice = await readDevInbox(request, repeatChallengeId);
     expect(notice.kind).toBe("notice");
     expect(notice.notice_kind).toBe("account_exists");

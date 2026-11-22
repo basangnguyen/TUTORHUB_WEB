@@ -40,11 +40,13 @@ const labels = {
   signUpForm: /^(?:Tạo tài khoản mới|Create an Account)$/,
   fullName: /^(?:Họ và tên|Full Name)$/,
   email: /^(?:Địa chỉ email|Email Address)$/,
-  getCode: /^(?:Lấy mã|Get Code)$/,
-  otp: /^(?:Mã OTP|OTP code)$/,
   password: /^(?:Mật khẩu|Password)$/,
   terms: /(?:Thỏa thuận người dùng|User Agreement)/,
   createAccount: /^(?:Tạo tài khoản|Create Account)$/,
+  // UI-AUTH-07: three-step sign-up (email + terms -> code -> name + password).
+  signUpGetCode: /^(?:Lấy mã|Get code)$/,
+  signUpOtp: /^(?:Vui lòng nhập mã xác minh|Please enter verification code)$/,
+  continue: /^(?:Tiếp tục|Continue)$/,
   identifier: /^(?:Email hoặc tên đăng nhập|Email or username)$/,
   logIn: /^(?:Đăng nhập|Log In)$/,
   keepSignedIn: /^(?:Duy trì đăng nhập|Keep me signed in)$/,
@@ -337,17 +339,21 @@ async function signUp(
   await page.goto("/sign-in");
   await page.getByRole("button", { name: labels.signUp }).click();
   const form = page.getByRole("form", { name: labels.signUpForm });
+  // Step 1: email + consent -> "Get code".
+  await form.getByRole("textbox", { name: labels.email }).fill(account.email);
+  await form.getByRole("checkbox", { name: labels.terms }).check();
+  const started = responseTo(page, "POST", "/v1/auth/signup/email/start");
+  await form.getByRole("button", { name: labels.signUpGetCode }).click();
+  const { challengeId } = await readChallenge(await started);
+  const code = await waitForDevInboxCode(request, challengeId, "signup_email");
+  // Step 2: the emailed code -> "Continue".
+  await form.getByRole("textbox", { name: labels.signUpOtp }).fill(code);
+  await form.getByRole("button", { name: labels.continue }).click();
+  // Step 3: name + password -> "Create Account".
   await form
     .getByRole("textbox", { name: labels.fullName })
     .fill(account.displayName);
-  await form.getByRole("textbox", { name: labels.email }).fill(account.email);
-  const started = responseTo(page, "POST", "/v1/auth/signup/email/start");
-  await form.getByRole("button", { name: labels.getCode }).click();
-  const { challengeId } = await readChallenge(await started);
-  const code = await waitForDevInboxCode(request, challengeId, "signup_email");
-  await form.getByRole("textbox", { name: labels.otp }).fill(code);
   await form.getByLabel(labels.password).fill(account.password);
-  await form.getByRole("checkbox", { name: labels.terms }).check();
   const complete = responseTo(page, "POST", "/v1/auth/signup/email/complete");
   await form.getByRole("button", { name: labels.createAccount }).click();
   expect((await complete).status()).toBe(201);

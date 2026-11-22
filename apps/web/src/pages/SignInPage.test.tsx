@@ -768,23 +768,43 @@ describe("SignInPage", () => {
     expect(signInMock).toHaveBeenCalledWith("/app/home");
   });
 
-  it("switches between Sign Up and Log In and validates the sign-up form", async () => {
+  it("switches between Sign Up and Log In and walks the three sign-up steps on the OIDC fallback", async () => {
     vi.useFakeTimers();
     await renderSignIn({ from: { pathname: "/app/calendar" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
 
+    // UI-AUTH-07 step 1: email + consent only, under the brand row.
     const form = screen.getByRole("form", { name: "Create an Account" });
-    const fullName = within(form).getByRole("textbox", { name: "Full Name" });
-    expect(fullName).toHaveFocus();
+    expect(
+      within(form).getByRole("heading", { level: 2, name: "Email" }),
+    ).toBeInTheDocument();
+    const email = within(form).getByRole("textbox", { name: "Email Address" });
+    expect(email).toHaveFocus();
+    expect(email).toHaveAttribute("placeholder", "Please enter your email");
+    expect(email).toHaveAttribute("type", "email");
+    expect(email).toHaveAttribute("autocomplete", "email");
+    expect(email).toHaveAttribute("maxlength", "320");
+    expect(
+      within(form).queryByRole("textbox", { name: "Full Name" }),
+    ).toBeNull();
     expect(screen.queryByRole("button", { name: "Sign Up" })).toBeNull();
     expect(screen.getByRole("button", { name: "Log In" })).toHaveAttribute(
       "type",
       "button",
     );
-    expect(
-      within(form).getByRole("textbox", { name: "OTP code" }),
-    ).toHaveAttribute("placeholder", "- Enter OTP Code -");
+    expect(screen.getByText("TutorHub")).toHaveClass("sign-in__brand-name");
+    // No social, passkey or school SSO entry and no consent footer here.
+    for (const name of [
+      "Sign in with Google",
+      "Continue with Facebook",
+      "Sign in with Microsoft",
+      "Sign in with a passkey",
+      "Sign in with school SSO",
+    ]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.queryByText(/^By signing in, you agree to the/)).toBeNull();
     for (const name of ["User Agreement", "Privacy Policy"]) {
       const legalButton = within(form).getByRole("button", { name });
       expect(legalButton).toHaveAttribute("type", "button");
@@ -795,72 +815,99 @@ describe("SignInPage", () => {
       );
       expect(legalButton.closest("label")).toBeNull();
     }
-    expect(
-      within(form).getByRole("checkbox", {
-        name: "I have read and agree to the User Agreement and Privacy Policy",
-      }),
-    ).not.toBeChecked();
+    const terms = within(form).getByRole("checkbox", {
+      name: "I have read and agree to the User Agreement and Privacy Policy",
+    });
+    expect(terms).not.toBeChecked();
 
+    // Incomplete: quiet mint button that still reports what is missing.
+    const getCode = within(form).getByRole("button", { name: "Get code" });
+    expect(getCode).toHaveAttribute("type", "submit");
+    expect(getCode).toHaveClass("sign-in-button--soft");
+    expect(getCode).toBeEnabled();
+    fireEvent.click(getCode);
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription(
+      "Please enter a valid email address.",
+    );
+    expect(email).toHaveFocus();
+    expect(terms).toHaveAccessibleDescription(
+      "You must agree to the User Agreement and Privacy Policy.",
+    );
+
+    fireEvent.change(email, { target: { value: "new.student@example.com" } });
+    fireEvent.click(getCode);
+    expect(terms).toHaveFocus();
+    expect(terms).toHaveAttribute("aria-invalid", "true");
+    fireEvent.click(terms);
+    expect(getCode).toHaveClass("sign-in-button--primary");
+    fireEvent.click(getCode);
+
+    // Step 2: the identity portal issues codes, so nothing is sent here.
+    const otp = within(form).getByRole("textbox", {
+      name: "Please enter verification code",
+    });
+    expect(otp).toHaveFocus();
+    expect(otp).toHaveAttribute("placeholder", "Enter 6-digit code");
+    expect(otp).toHaveAttribute("autocomplete", "one-time-code");
+    expect(otp).toHaveAttribute("inputmode", "numeric");
+    expect(otp).toHaveAttribute("maxlength", "6");
+    expect(screen.getByText(/no code is sent from this page/)).toBeVisible();
+    expect(
+      within(form).getByRole("button", { name: "Back to email" }),
+    ).toHaveAttribute("title", "Back to email");
+    const resend = within(form).getByRole("button", { name: "Resend in 60s" });
+    expect(resend).toBeDisabled();
+    expect(resend.closest(".sign-in-input-group")).toBe(
+      otp.closest(".sign-in-input-group"),
+    );
+    tickSeconds(1);
+    expect(resend).toHaveTextContent("Resend in 59s");
+    tickSeconds(59);
+    expect(resend).toBeEnabled();
+    expect(resend).toHaveTextContent(/^Resend$/);
+
+    const continueButton = within(form).getByRole("button", {
+      name: "Continue",
+    });
+    expect(continueButton).toHaveClass("sign-in-button--muted");
+    fireEvent.click(continueButton);
+    expect(otp).toHaveAccessibleDescription(
+      expect.stringContaining("Please enter the 6-digit OTP code."),
+    );
+    expect(otp).toHaveFocus();
+    fireEvent.change(otp, { target: { value: "123456" } });
+    expect(continueButton).toHaveClass("sign-in-button--primary");
+    fireEvent.click(continueButton);
+
+    // Step 3: name + password, with the address being registered.
+    expect(
+      within(form).getByRole("heading", {
+        level: 2,
+        name: "Set up your account",
+      }),
+    ).toBeInTheDocument();
+    expect(within(form).getByText("new.student@example.com")).toHaveClass(
+      "sign-in-form__subheading",
+    );
+    const fullName = within(form).getByRole("textbox", { name: "Full Name" });
+    expect(fullName).toHaveFocus();
+    expect(within(form).queryByRole("checkbox")).toBeNull();
     fireEvent.click(
       within(form).getByRole("button", { name: "Create Account" }),
     );
-    expect(fullName).toHaveAttribute("aria-invalid", "true");
     expect(fullName).toHaveAccessibleDescription(
       "Please enter your full name.",
     );
     expect(fullName).toHaveFocus();
     expect(
-      screen.getByText("Please enter a valid email address."),
-    ).toBeVisible();
-    expect(
-      screen.getByText("Please enter the 6-digit OTP code."),
-    ).toBeVisible();
-    expect(
       screen.getByText("Password must be at least 8 characters."),
     ).toBeVisible();
-    expect(
-      screen.getByText(
-        "You must agree to the User Agreement and Privacy Policy.",
-      ),
-    ).toBeVisible();
-
-    const email = within(form).getByRole("textbox", { name: "Email Address" });
-    const getCode = within(form).getByRole("button", { name: "Get Code" });
-    fireEvent.change(email, { target: { value: "not-an-email" } });
-    fireEvent.click(getCode);
-    expect(getCode).toBeEnabled();
-    expect(email).toHaveFocus();
-
-    fireEvent.change(email, { target: { value: "new.student@example.com" } });
-    fireEvent.click(getCode);
-    expect(getCode).toBeDisabled();
-    expect(getCode).toHaveTextContent("60s");
-    expect(
-      within(form).getByRole("textbox", { name: "OTP code" }),
-    ).toHaveFocus();
-    expect(
-      screen.getByText(/no code is sent from this page/),
-    ).toBeInTheDocument();
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(getCode).toHaveTextContent("59s");
-    for (let second = 0; second < 59; second += 1) {
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
-    }
-    expect(getCode).toBeEnabled();
-    expect(getCode).toHaveTextContent("Get Code");
 
     fireEvent.change(fullName, { target: { value: "New Student" } });
-    fireEvent.change(within(form).getByRole("textbox", { name: "OTP code" }), {
-      target: { value: "123456" },
-    });
     fireEvent.change(within(form).getByLabelText("Password"), {
       target: { value: "Str0ng-passphrase" },
     });
-    fireEvent.click(within(form).getByRole("checkbox"));
     fireEvent.click(
       within(form).getByRole("button", { name: "Create Account" }),
     );
@@ -998,11 +1045,8 @@ const LEGAL_COPY = {
   en: {
     signUp: "Sign Up",
     form: "Create an Account",
-    fullName: "Full Name",
     email: "Email Address",
-    otp: "OTP code",
-    password: "Password",
-    createAccount: "Create Account",
+    getCode: "Get code",
     terms: "I have read and agree to the User Agreement and Privacy Policy",
     termsError: "You must agree to the User Agreement and Privacy Policy.",
     agreement: "User Agreement",
@@ -1023,11 +1067,8 @@ const LEGAL_COPY = {
   vi: {
     signUp: "Đăng ký",
     form: "Tạo tài khoản mới",
-    fullName: "Họ và tên",
     email: "Địa chỉ email",
-    otp: "Mã OTP",
-    password: "Mật khẩu",
-    createAccount: "Tạo tài khoản",
+    getCode: "Lấy mã",
     terms:
       "Tôi đã đọc và đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư",
     termsError:
@@ -1059,10 +1100,7 @@ async function openSignUpForm(language: Language) {
   return {
     copy,
     form,
-    fullName: within(form).getByRole("textbox", { name: copy.fullName }),
     email: within(form).getByRole("textbox", { name: copy.email }),
-    otp: within(form).getByRole("textbox", { name: copy.otp }),
-    password: within(form).getByLabelText(copy.password),
     terms: within(form).getByRole("checkbox", { name: copy.terms }),
     agreementButton: within(form).getByRole("button", {
       name: copy.agreement,
@@ -1123,16 +1161,11 @@ async function expectDialogClosed() {
 describe.each(["en", "vi"] as const)(
   "SignInPage terms dialog (%s)",
   (language) => {
-    it("opens the User Agreement tab, switches tabs and keeps the typed sign-up values", async () => {
+    it("opens the User Agreement tab, switches tabs and keeps the typed sign-up email", async () => {
       const field = await openSignUpForm(language);
       const { copy } = field;
-      fireEvent.change(field.fullName, { target: { value: "Nguyễn Văn A" } });
       fireEvent.change(field.email, {
         target: { value: "new.student@example.com" },
-      });
-      fireEvent.change(field.otp, { target: { value: "123456" } });
-      fireEvent.change(field.password, {
-        target: { value: "Str0ng-passphrase" },
       });
 
       fireEvent.click(field.agreementButton);
@@ -1196,10 +1229,7 @@ describe.each(["en", "vi"] as const)(
       fireEvent.click(within(dialog).getByRole("button", { name: copy.close }));
       await expectDialogClosed();
       await waitFor(() => expect(field.agreementButton).toHaveFocus());
-      expect(field.fullName).toHaveValue("Nguyễn Văn A");
       expect(field.email).toHaveValue("new.student@example.com");
-      expect(field.otp).toHaveValue("123456");
-      expect(field.password).toHaveValue("Str0ng-passphrase");
       expect(field.terms).not.toBeChecked();
       expect(window.localStorage.length).toBe(0);
       expect(window.sessionStorage.length).toBe(0);
@@ -1246,9 +1276,12 @@ describe.each(["en", "vi"] as const)(
       const field = await openSignUpForm(language);
       const { copy, form } = field;
 
-      fireEvent.click(
-        within(form).getByRole("button", { name: copy.createAccount }),
-      );
+      // Step 1 reports missing consent inline (the email is checked first).
+      fireEvent.change(field.email, {
+        target: { value: "new.student@example.com" },
+      });
+      fireEvent.click(within(form).getByRole("button", { name: copy.getCode }));
+      expect(field.terms).toHaveFocus();
       expect(screen.getByText(copy.termsError)).toBeVisible();
       expect(field.terms).toHaveAttribute("aria-invalid", "true");
       expect(field.terms).toHaveAccessibleDescription(copy.termsError);
@@ -1284,24 +1317,41 @@ const NATIVE_COPY = {
     signUp: "Sign Up",
     logIn: "Log In",
     form: "Create an Account",
+    emailHeading: "Email",
+    accountHeading: "Set up your account",
+    codeHeading: "Verify your email",
     fullName: "Full Name",
     email: "Email Address",
-    otp: "OTP code",
+    otp: "Please enter verification code",
     password: "Password",
     identifier: "Email or username",
     holdToShowPassword: "Press and hold to show password",
     useOtp: "Log in with OTP",
     usePassword: "Log in with password",
     terms: "I have read and agree to the User Agreement and Privacy Policy",
-    getCode: "Get Code",
+    getCode: "Get code",
+    sending: "Sending…",
+    retryIn: "Try again in {seconds}s",
     resend: "Resend",
+    resendIn: "Resend in {seconds}s",
+    continue: "Continue",
+    backToEmail: "Back to email",
+    backToCode: "Back to verification code",
     createAccount: "Create Account",
     accept: "Agree & Continue",
     dialog: "Terms & Privacy Policy",
     reviewTerms: "Review updated terms",
+    codeSentTo:
+      "A 6-digit verification code has been sent to {email} if the address is eligible (valid for 10 min). Please enter it below.",
+    /** Shared neutral notice of the email-code login and recovery forms. */
     codeSent:
       "If the email address is valid and eligible, a 6-digit verification code has been sent. Please check your inbox. The code is valid for 10 minutes.",
-    codeRequired: "Select Get Code to receive a verification code first.",
+    codeExpired:
+      "Your verification code has expired. Select Resend to get a new code.",
+    errorCodeExpired: "This code has expired. Select Resend to get a new code.",
+    errorOtp: "Please enter the 6-digit OTP code.",
+    errorEmail: "Please enter a valid email address.",
+    errorTerms: "You must agree to the User Agreement and Privacy Policy.",
     termsChanged:
       "The User Agreement or Privacy Policy has just been updated. Please review it and agree again.",
     passwordPolicy:
@@ -1318,9 +1368,12 @@ const NATIVE_COPY = {
     signUp: "Đăng ký",
     logIn: "Đăng nhập",
     form: "Tạo tài khoản mới",
+    emailHeading: "Email",
+    accountHeading: "Thiết lập tài khoản",
+    codeHeading: "Xác minh email",
     fullName: "Họ và tên",
     email: "Địa chỉ email",
-    otp: "Mã OTP",
+    otp: "Vui lòng nhập mã xác minh",
     password: "Mật khẩu",
     identifier: "Email hoặc tên đăng nhập",
     holdToShowPassword: "Nhấn giữ để hiện mật khẩu",
@@ -1329,14 +1382,27 @@ const NATIVE_COPY = {
     terms:
       "Tôi đã đọc và đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư",
     getCode: "Lấy mã",
+    sending: "Đang gửi…",
+    retryIn: "Thử lại sau {seconds}s",
     resend: "Gửi lại",
+    resendIn: "Gửi lại sau {seconds}s",
+    continue: "Tiếp tục",
+    backToEmail: "Quay lại nhập email",
+    backToCode: "Quay lại nhập mã xác minh",
     createAccount: "Tạo tài khoản",
     accept: "Tôi đồng ý & Tiếp tục",
     dialog: "Điều khoản & Chính sách TutorHub",
     reviewTerms: "Xem điều khoản mới",
+    codeSentTo:
+      "Mã xác minh 6 chữ số đã được gửi đến {email} (nếu địa chỉ hợp lệ, hiệu lực 10 phút). Vui lòng nhập mã xác minh vào bên dưới.",
     codeSent:
       "Nếu email hợp lệ và đủ điều kiện, mã xác thực 6 chữ số đã được gửi. Vui lòng kiểm tra hộp thư. Mã có hiệu lực trong 10 phút.",
-    codeRequired: "Vui lòng bấm Lấy mã để nhận mã xác thực trước.",
+    codeExpired: "Mã xác thực đã hết hạn. Vui lòng bấm Gửi lại để nhận mã mới.",
+    errorCodeExpired: "Mã đã hết hạn. Vui lòng bấm Gửi lại để nhận mã mới.",
+    errorOtp: "Vui lòng nhập mã OTP gồm 6 chữ số.",
+    errorEmail: "Vui lòng nhập địa chỉ email hợp lệ.",
+    errorTerms:
+      "Bạn cần đồng ý với Thỏa thuận người dùng và Chính sách quyền riêng tư.",
     termsChanged:
       "Thỏa thuận người dùng hoặc Chính sách quyền riêng tư vừa được cập nhật. Vui lòng xem lại và đồng ý lại.",
     passwordPolicy:
@@ -1351,6 +1417,18 @@ const NATIVE_COPY = {
   },
 } as const;
 
+type NativeCopy = (typeof NATIVE_COPY)[Language];
+
+function fill(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    String(values[name] ?? match),
+  );
+}
+
+/**
+ * UI-AUTH-07: the sign-up form keeps its name while its fields change per
+ * step, so every field is looked up when it is used.
+ */
 async function openNativeSignUp(
   language: Language,
   from?: RenderOptions["from"],
@@ -1359,55 +1437,99 @@ async function openNativeSignUp(
   await renderSignIn({ from, language });
   fireEvent.click(screen.getByRole("button", { name: copy.signUp }));
   const form = screen.getByRole("form", { name: copy.form });
+  const inForm = within(form);
   return {
     copy,
     form,
-    fullName: within(form).getByRole("textbox", { name: copy.fullName }),
-    email: within(form).getByRole("textbox", { name: copy.email }),
-    otp: within(form).getByRole("textbox", { name: copy.otp }),
-    password: within(form).getByLabelText(copy.password),
-    terms: within(form).getByRole("checkbox", { name: copy.terms }),
-    getCode: within(form).getByRole("button", { name: copy.getCode }),
-    createAccount: within(form).getByRole("button", {
-      name: copy.createAccount,
-    }),
+    heading: () => inForm.getByRole("heading", { level: 2 }),
+    email: () => inForm.getByRole("textbox", { name: copy.email }),
+    terms: () =>
+      inForm.getByRole<HTMLInputElement>("checkbox", { name: copy.terms }),
+    otp: () => inForm.getByRole("textbox", { name: copy.otp }),
+    resend: () => {
+      const button = form.querySelector<HTMLButtonElement>(
+        ".sign-in-input-group__action",
+      );
+      if (!button) throw new Error("Missing the Resend control");
+      return button;
+    },
+    fullName: () => inForm.getByRole("textbox", { name: copy.fullName }),
+    password: () => inForm.getByLabelText(copy.password),
+    eye: () => inForm.getByRole("button", { name: copy.holdToShowPassword }),
+    back: (name: string) => inForm.getByRole("button", { name }),
+    /** The step's main button: its label changes while sending or locked. */
+    submit: () => {
+      const button = form.querySelector<HTMLButtonElement>(
+        'button[type="submit"]',
+      );
+      if (!button) throw new Error("Missing the submit button");
+      return button;
+    },
   };
 }
 
 type NativeSignUpFields = Awaited<ReturnType<typeof openNativeSignUp>>;
 
-function fillIdentity(field: NativeSignUpFields, email: string) {
-  fireEvent.change(field.fullName, { target: { value: "  New Student  " } });
-  fireEvent.change(field.email, { target: { value: email } });
+/** Step 1: email + consent, then "Get code". */
+async function submitEmailStep(field: NativeSignUpFields, email: string) {
+  fireEvent.change(field.email(), { target: { value: email } });
+  if (!field.terms().checked) fireEvent.click(field.terms());
+  fireEvent.click(field.submit());
+  await settle();
 }
 
-function fillCodePasswordAndTerms(field: NativeSignUpFields) {
-  fireEvent.change(field.otp, { target: { value: "123456" } });
-  fireEvent.change(field.password, {
+/** Step 2: a well-formed code, then "Continue". */
+function submitCodeStep(field: NativeSignUpFields, code = "123456") {
+  fireEvent.change(field.otp(), { target: { value: code } });
+  fireEvent.click(field.submit());
+}
+
+/** Step 3: name + password, then "Create Account". */
+async function submitAccountStep(field: NativeSignUpFields) {
+  fireEvent.change(field.fullName(), { target: { value: "  New Student  " } });
+  fireEvent.change(field.password(), {
     target: { value: "Str0ng-passphrase" },
   });
-  if (!(field.terms as HTMLInputElement).checked) fireEvent.click(field.terms);
+  fireEvent.click(field.submit());
+  await settle();
 }
 
 function expectNoSecretsInBrowserStorage() {
   expect(window.sessionStorage.length).toBe(0);
   expect(window.localStorage.length).toBe(0);
   const stored = JSON.stringify({ ...window.localStorage });
-  for (const secret of ["Str0ng-passphrase", "123456", "challenge-"]) {
+  for (const secret of [
+    "Str0ng-passphrase",
+    "123456",
+    "challenge-",
+    "New Student",
+    "@example.com",
+  ]) {
     expect(stored).not.toContain(secret);
   }
+}
+
+function expectStep(field: NativeSignUpFields, step: 1 | 2 | 3) {
+  const { copy } = field;
+  const name =
+    step === 1
+      ? copy.emailHeading
+      : step === 2
+        ? copy.codeHeading
+        : copy.accountHeading;
+  expect(field.heading()).toHaveTextContent(name);
 }
 
 describe.each(["en", "vi"] as const)(
   "SignInPage native email sign-up (%s)",
   (language) => {
-    const copy = NATIVE_COPY[language];
+    const copy: NativeCopy = NATIVE_COPY[language];
 
     beforeEach(() => {
       api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
     });
 
-    it("requests a code, resends it after the 60s cooldown and completes the session hand-off", async () => {
+    it("requests a code on step 1, resends it inside the code field after 60s and completes the session hand-off", async () => {
       vi.useFakeTimers();
       api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
       api.resendAuthChallenge.mockResolvedValue(
@@ -1418,44 +1540,98 @@ describe.each(["en", "vi"] as const)(
         pathname: "/app/calendar",
         search: "?view=week",
       });
-      fillIdentity(field, "new.student@example.com");
 
-      fireEvent.click(field.getCode);
-      await settle();
+      // Step 1: only the email, consent and "Get code" (no social sign-in).
+      expectStep(field, 1);
+      expect(field.email()).toHaveFocus();
+      expect(
+        within(field.form).queryByRole("textbox", { name: copy.fullName }),
+      ).toBeNull();
+      expect(screen.queryByRole("button", { name: /Google/ })).toBeNull();
+      expect(screen.getByRole("button", { name: copy.logIn })).toHaveAttribute(
+        "type",
+        "button",
+      );
+      expect(field.submit()).toHaveTextContent(copy.getCode);
+      expect(field.submit()).toHaveClass("sign-in-button--soft");
+      fireEvent.click(field.submit());
+      expect(field.email()).toHaveAccessibleDescription(copy.errorEmail);
+      expect(field.terms()).toHaveAccessibleDescription(copy.errorTerms);
+      expect(field.email()).toHaveFocus();
+      expect(api.startEmailSignup).not.toHaveBeenCalled();
+
+      await submitEmailStep(field, "  new.student@example.com ");
+      expect(api.startEmailSignup).toHaveBeenCalledTimes(1);
       expect(api.startEmailSignup).toHaveBeenCalledWith(
         { email: "new.student@example.com" },
         { baseUrl: "/api" },
       );
-      // Same neutral wording for new, existing and throttled addresses.
-      expect(screen.getByText(copy.codeSent)).toBeInTheDocument();
-      expect(field.email).toHaveAccessibleDescription(copy.codeSent);
-      expect(field.getCode).toBeDisabled();
-      expect(field.getCode).toHaveTextContent("60s");
-      expect(field.otp).toHaveFocus();
+
+      // Step 2: same neutral wording for new, existing and throttled addresses.
+      const codeSent = fill(copy.codeSentTo, {
+        email: "new.student@example.com",
+      });
+      expectStep(field, 2);
+      expect(screen.getByText(codeSent)).toBeInTheDocument();
+      expect(field.otp()).toHaveFocus();
+      expect(field.otp()).toHaveAccessibleDescription(codeSent);
+      expect(field.back(copy.backToEmail)).toBeInTheDocument();
+      expect(field.resend()).toBeDisabled();
+      expect(field.resend()).toHaveTextContent(
+        fill(copy.resendIn, { seconds: 60 }),
+      );
+      expect(field.submit()).toHaveTextContent(copy.continue);
+      expect(field.submit()).toHaveClass("sign-in-button--muted");
 
       tickSeconds(59);
-      expect(field.getCode).toHaveTextContent("1s");
+      expect(field.resend()).toHaveTextContent(
+        fill(copy.resendIn, { seconds: 1 }),
+      );
       tickSeconds(1);
-      expect(field.getCode).toBeEnabled();
-      expect(field.getCode).toHaveTextContent(copy.resend);
+      expect(field.resend()).toBeEnabled();
+      expect(field.resend()).toHaveTextContent(new RegExp(`^${copy.resend}$`));
 
-      fireEvent.click(field.getCode);
+      fireEvent.click(field.resend());
+      expect(field.resend()).toHaveTextContent(copy.sending);
+      expect(field.resend()).toHaveAttribute("aria-disabled", "true");
       await settle();
       expect(api.resendAuthChallenge).toHaveBeenCalledTimes(1);
       expect(api.resendAuthChallenge).toHaveBeenCalledWith({ baseUrl: "/api" });
       expect(api.startEmailSignup).toHaveBeenCalledTimes(1);
-      expect(field.getCode).toHaveTextContent("60s");
+      expect(field.resend()).toHaveTextContent(
+        fill(copy.resendIn, { seconds: 60 }),
+      );
+      expect(field.otp()).toHaveFocus();
 
-      fillCodePasswordAndTerms(field);
-      fireEvent.click(field.createAccount);
-      await settle();
+      // An incomplete code is reported on step 2 itself.
+      fireEvent.change(field.otp(), { target: { value: "12" } });
+      fireEvent.click(field.submit());
+      expect(field.otp()).toHaveAttribute("aria-invalid", "true");
+      expect(field.otp()).toHaveAccessibleDescription(
+        expect.stringContaining(copy.errorOtp),
+      );
+      expect(field.otp()).toHaveFocus();
+      fireEvent.change(field.otp(), { target: { value: "123456" } });
+      expect(field.submit()).toHaveClass("sign-in-button--primary");
+      fireEvent.click(field.submit());
+
+      // Step 3: name + password for the address being registered.
+      expectStep(field, 3);
+      expect(
+        within(field.form).getByText("new.student@example.com"),
+      ).toBeInTheDocument();
+      expect(field.fullName()).toHaveFocus();
+      expect(field.fullName()).toHaveAttribute("autocomplete", "name");
+      expect(field.password()).toHaveAttribute("autocomplete", "new-password");
+      expect(field.back(copy.backToCode)).toBeInTheDocument();
+      await submitAccountStep(field);
 
       expect(api.completeEmailSignup).toHaveBeenCalledWith(
         {
           challenge_id: "challenge-2",
           code: "123456",
           display_name: "New Student",
-          keep_signed_in: false,
+          keep_signed_in: true,
           password: "Str0ng-passphrase",
           terms_version: "2026-11-16-v2.0",
         },
@@ -1469,44 +1645,51 @@ describe.each(["en", "vi"] as const)(
       expectNoSecretsInBrowserStorage();
     });
 
-    it("drops the requested code when the email changes and asks for a new one", async () => {
+    it("keeps the code when going back without editing the email and drops it when the email changes", async () => {
       api.startEmailSignup
         .mockResolvedValueOnce(challengeResponse("challenge-1"))
         .mockResolvedValueOnce(challengeResponse("challenge-3"));
       const field = await openNativeSignUp(language);
-      fillIdentity(field, "first@example.com");
-      fireEvent.click(field.getCode);
-      await settle();
-      expect(field.getCode).toHaveTextContent("60s");
-      fireEvent.change(field.otp, { target: { value: "123456" } });
+      await submitEmailStep(field, "first@example.com");
+      fireEvent.change(field.otp(), { target: { value: "123456" } });
 
-      fireEvent.change(field.email, {
+      // "<" keeps the email, consent and the pending code.
+      fireEvent.click(field.back(copy.backToEmail));
+      expectStep(field, 1);
+      expect(field.email()).toHaveFocus();
+      expect(field.email()).toHaveValue("first@example.com");
+      expect(field.terms()).toBeChecked();
+      fireEvent.click(field.submit());
+      await settle();
+      expectStep(field, 2);
+      expect(api.startEmailSignup).toHaveBeenCalledTimes(1);
+      expect(field.otp()).toHaveValue("");
+      expect(field.otp()).toHaveFocus();
+      expect(field.resend()).toBeDisabled();
+
+      // A different address needs a new code.
+      fireEvent.click(field.back(copy.backToEmail));
+      fireEvent.change(field.email(), {
         target: { value: "second@example.com" },
       });
-      expect(field.getCode).toBeEnabled();
-      expect(field.getCode).toHaveTextContent(copy.getCode);
-      expect(field.otp).toHaveValue("");
-      expect(screen.queryByText(copy.codeSent)).toBeNull();
-
-      fillCodePasswordAndTerms(field);
-      fireEvent.click(field.createAccount);
-      expect(field.otp).toHaveAttribute("aria-invalid", "true");
-      expect(field.otp).toHaveAccessibleDescription(copy.codeRequired);
-      expect(field.otp).toHaveFocus();
-      expect(api.completeEmailSignup).not.toHaveBeenCalled();
-
-      fireEvent.click(field.getCode);
+      expect(field.submit()).toBeEnabled();
+      expect(field.submit()).toHaveTextContent(copy.getCode);
+      fireEvent.click(field.submit());
       await settle();
       expect(api.startEmailSignup).toHaveBeenLastCalledWith(
         { email: "second@example.com" },
         { baseUrl: "/api" },
       );
       expect(api.resendAuthChallenge).not.toHaveBeenCalled();
+      expect(
+        screen.getByText(
+          fill(copy.codeSentTo, { email: "second@example.com" }),
+        ),
+      ).toBeInTheDocument();
 
       api.completeEmailSignup.mockResolvedValue({ status: "authenticated" });
-      fireEvent.change(field.otp, { target: { value: "654321" } });
-      fireEvent.click(field.createAccount);
-      await settle();
+      submitCodeStep(field, "654321");
+      await submitAccountStep(field);
       expect(api.completeEmailSignup).toHaveBeenCalledWith(
         expect.objectContaining({
           challenge_id: "challenge-3",
@@ -1516,7 +1699,67 @@ describe.each(["en", "vi"] as const)(
       );
     });
 
-    it("reloads the providers, unticks consent and asks for a new agreement when the terms change", async () => {
+    it("goes back from step 3 to the code and reveals the new password only while the eye is held", async () => {
+      api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+      const field = await openNativeSignUp(language);
+      await submitEmailStep(field, "new.student@example.com");
+      submitCodeStep(field);
+      fireEvent.change(field.fullName(), { target: { value: "New Student" } });
+      fireEvent.change(field.password(), {
+        target: { value: "Str0ng-passphrase" },
+      });
+
+      const eye = field.eye();
+      expect(eye).toHaveAttribute("aria-controls", field.password().id);
+      expect(eye).toHaveAttribute("title", copy.holdToShowPassword);
+      const expectHidden = () => {
+        expect(field.password()).toHaveAttribute("type", "password");
+        expect(field.eye()).toHaveAttribute("aria-pressed", "false");
+      };
+      const expectShown = () => {
+        expect(field.password()).toHaveAttribute("type", "text");
+        expect(field.eye()).toHaveAttribute("aria-pressed", "true");
+      };
+      expectHidden();
+      fireEvent.pointerDown(eye, { button: 0, pointerId: 1 });
+      expectShown();
+      fireEvent.pointerUp(eye, { button: 0, pointerId: 1 });
+      expectHidden();
+      fireEvent.pointerDown(eye, { button: 0, pointerId: 1 });
+      fireEvent.lostPointerCapture(eye, { pointerId: 1 });
+      expectHidden();
+      fireEvent.pointerDown(eye, { button: 0, pointerId: 1 });
+      fireEvent.blur(window);
+      expectHidden();
+      fireEvent.keyDown(eye, { key: " " });
+      expectShown();
+      fireEvent.keyUp(eye, { key: " " });
+      expectHidden();
+      expect(fireEvent.mouseDown(eye)).toBe(false);
+      expect(fireEvent.contextMenu(eye)).toBe(false);
+
+      // Leaving step 3 mid-hold hides it; name and code are kept.
+      fireEvent.keyDown(eye, { key: "Enter" });
+      expectShown();
+      fireEvent.click(field.back(copy.backToCode));
+      expectStep(field, 2);
+      expect(field.otp()).toHaveValue("123456");
+      expect(field.otp()).toHaveFocus();
+      fireEvent.click(field.submit());
+      expectStep(field, 3);
+      expect(field.fullName()).toHaveValue("New Student");
+      expectHidden();
+
+      // Submitting mid-hold hides it before anything is validated.
+      fireEvent.change(field.password(), { target: { value: "short" } });
+      fireEvent.keyDown(field.eye(), { key: " " });
+      fireEvent.click(field.submit());
+      expectHidden();
+      expect(field.password()).toHaveFocus();
+      expect(api.completeEmailSignup).not.toHaveBeenCalled();
+    });
+
+    it("stays on step 3 and asks for agreement again when the terms change", async () => {
       api.getAuthProviders
         .mockResolvedValue({
           ...NATIVE_PROVIDERS,
@@ -1528,26 +1771,28 @@ describe.each(["en", "vi"] as const)(
         .mockRejectedValueOnce(apiError(400, "auth_terms_version_changed"))
         .mockResolvedValueOnce({ status: "authenticated" });
       const field = await openNativeSignUp(language);
-      fillIdentity(field, "new.student@example.com");
-      fireEvent.click(field.getCode);
-      await settle();
-      fillCodePasswordAndTerms(field);
+      await submitEmailStep(field, "new.student@example.com");
+      submitCodeStep(field);
+      await submitAccountStep(field);
 
-      fireEvent.click(field.createAccount);
-      await settle();
       expect(api.completeEmailSignup).toHaveBeenLastCalledWith(
         expect.objectContaining({ terms_version: "2026-11-16-v2.0" }),
         { baseUrl: "/api" },
       );
       expect(api.getAuthProviders).toHaveBeenCalledTimes(2);
-      expect(field.terms).not.toBeChecked();
-      expect(field.terms).toHaveAttribute("aria-invalid", "true");
-      expect(field.terms).toHaveAccessibleDescription(copy.termsChanged);
-      expect(field.terms).toHaveFocus();
+      expectStep(field, 3);
+      expect(field.terms()).not.toBeChecked();
+      expect(field.terms()).toHaveAttribute("aria-invalid", "true");
+      expect(field.terms()).toHaveAccessibleDescription(copy.termsChanged);
+      expect(field.terms()).toHaveFocus();
       expect(completeNativeSignInMock).not.toHaveBeenCalled();
-      // The typed values stay so only consent has to be given again.
-      expect(field.fullName).toHaveValue("  New Student  ");
-      expect(field.otp).toHaveValue("123456");
+      // The name, password and verified code stay: only consent is asked.
+      expect(field.fullName()).toHaveValue("  New Student  ");
+      expect(field.password()).toHaveValue("Str0ng-passphrase");
+      expect(
+        field.terms().compareDocumentPosition(field.submit()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
 
       fireEvent.click(
         within(field.form).getByRole("button", { name: copy.reviewTerms }),
@@ -1557,63 +1802,81 @@ describe.each(["en", "vi"] as const)(
         within(dialog).getByRole("button", { name: copy.accept }),
       );
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      expect(field.terms).toBeChecked();
+      expect(field.terms()).toBeChecked();
 
-      fireEvent.click(field.createAccount);
+      fireEvent.click(field.submit());
       await settle();
       expect(api.completeEmailSignup).toHaveBeenLastCalledWith(
-        expect.objectContaining({ terms_version: "2026-12-01-v2.1" }),
+        expect.objectContaining({
+          code: "123456",
+          terms_version: "2026-12-01-v2.1",
+        }),
         { baseUrl: "/api" },
       );
       expect(completeNativeSignInMock).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
     });
 
-    it("asks for a stronger password without clearing the name, email or code", async () => {
+    it("asks for a stronger password on step 3 without clearing the name, email or code", async () => {
       api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
       api.completeEmailSignup.mockRejectedValue(
         apiError(400, "auth_password_policy"),
       );
       const field = await openNativeSignUp(language);
-      fillIdentity(field, "new.student@example.com");
-      fireEvent.click(field.getCode);
-      await settle();
-      fillCodePasswordAndTerms(field);
+      await submitEmailStep(field, "new.student@example.com");
+      submitCodeStep(field);
+      fireEvent.keyDown(field.eye(), { key: " " });
+      await submitAccountStep(field);
 
-      fireEvent.click(field.createAccount);
-      await settle();
-      expect(field.password).toHaveValue("");
-      expect(field.password).toHaveAttribute("aria-invalid", "true");
-      expect(field.password).toHaveAccessibleDescription(copy.passwordPolicy);
-      expect(field.password).toHaveFocus();
-      expect(field.fullName).toHaveValue("  New Student  ");
-      expect(field.email).toHaveValue("new.student@example.com");
-      expect(field.otp).toHaveValue("123456");
-      expect(field.terms).toBeChecked();
+      expectStep(field, 3);
+      expect(field.password()).toHaveValue("");
+      expect(field.password()).toHaveAttribute("type", "password");
+      expect(field.password()).toHaveAttribute("aria-invalid", "true");
+      expect(field.password()).toHaveAccessibleDescription(copy.passwordPolicy);
+      expect(field.password()).toHaveFocus();
+      expect(field.fullName()).toHaveValue("  New Student  ");
       expect(completeNativeSignInMock).not.toHaveBeenCalled();
+      fireEvent.click(field.back(copy.backToCode));
+      expect(field.otp()).toHaveValue("123456");
+      fireEvent.click(field.back(copy.backToEmail));
+      expect(field.email()).toHaveValue("new.student@example.com");
+      expect(field.terms()).toBeChecked();
     });
 
-    it("shows one account-neutral message when the code or sign-up is rejected", async () => {
+    it("returns to step 2 with one account-neutral message when the code or sign-up is rejected", async () => {
       api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
-      api.completeEmailSignup.mockRejectedValue(apiError(400));
+      api.completeEmailSignup
+        .mockRejectedValueOnce(apiError(400))
+        .mockRejectedValueOnce(apiError(401));
       const field = await openNativeSignUp(language);
-      fillIdentity(field, "existing@example.com");
-      fireEvent.click(field.getCode);
-      await settle();
-      fillCodePasswordAndTerms(field);
+      await submitEmailStep(field, "existing@example.com");
+      submitCodeStep(field);
+      await submitAccountStep(field);
 
-      fireEvent.click(field.createAccount);
-      await settle();
+      expectStep(field, 2);
       expect(within(field.form).getByRole("alert")).toHaveTextContent(
         copy.signUpFailed,
       );
-      expect(field.otp).toHaveValue("");
-      expect(field.otp).toHaveFocus();
+      expect(field.otp()).toHaveValue("");
+      expect(field.otp()).toHaveFocus();
       expect(completeNativeSignInMock).not.toHaveBeenCalled();
       expect(screen.queryByTestId("landing")).toBeNull();
+
+      // A new code clears the message; a 401 answers the same way.
+      submitCodeStep(field, "654321");
+      expectStep(field, 3);
+      expect(within(field.form).queryByRole("alert")).toBeNull();
+      expect(field.fullName()).toHaveValue("  New Student  ");
+      fireEvent.click(field.submit());
+      await settle();
+      expectStep(field, 2);
+      expect(within(field.form).getByRole("alert")).toHaveTextContent(
+        copy.signUpFailed,
+      );
+      expect(api.completeEmailSignup).toHaveBeenCalledTimes(2);
     });
 
-    it("honours Retry-After for 429 code requests and 503 account creation", async () => {
+    it("honours Retry-After for 429 code requests on step 1 and 503 account creation on step 3", async () => {
       vi.useFakeTimers();
       api.startEmailSignup
         .mockRejectedValueOnce(apiError(429, undefined, 42))
@@ -1622,38 +1885,36 @@ describe.each(["en", "vi"] as const)(
         .mockRejectedValueOnce(apiError(503, undefined, 2))
         .mockResolvedValueOnce({ status: "authenticated" });
       const field = await openNativeSignUp(language);
-      fillIdentity(field, "new.student@example.com");
 
-      fireEvent.click(field.getCode);
-      await settle();
+      await submitEmailStep(field, "new.student@example.com");
+      expectStep(field, 1);
       expect(screen.getByText(copy.rateLimited)).toBeInTheDocument();
-      expect(field.email).toHaveAccessibleDescription(copy.rateLimited);
-      expect(field.email).toHaveFocus();
-      expect(field.getCode).toBeDisabled();
-      expect(field.getCode).toHaveTextContent("42s");
+      expect(field.email()).toHaveAccessibleDescription(copy.rateLimited);
+      expect(field.email()).toHaveFocus();
+      expect(field.submit()).toBeDisabled();
+      expect(field.submit()).toHaveTextContent(
+        fill(copy.retryIn, { seconds: 42 }),
+      );
       tickSeconds(42);
-      expect(field.getCode).toBeEnabled();
-      expect(field.getCode).toHaveTextContent(copy.getCode);
+      expect(field.submit()).toBeEnabled();
+      expect(field.submit()).toHaveTextContent(copy.getCode);
 
-      fireEvent.click(field.getCode);
+      fireEvent.click(field.submit());
       await settle();
-      expect(screen.getByText(copy.codeSent)).toBeInTheDocument();
-      fillCodePasswordAndTerms(field);
-
-      fireEvent.click(field.createAccount);
-      await settle();
+      expectStep(field, 2);
+      submitCodeStep(field);
+      await submitAccountStep(field);
+      expectStep(field, 3);
       expect(within(field.form).getByRole("alert")).toHaveTextContent(
         copy.busy,
       );
-      expect(field.createAccount).toBeDisabled();
-      expect(field.createAccount).toHaveTextContent(
-        `${copy.createAccount} (2s)`,
-      );
+      expect(field.submit()).toBeDisabled();
+      expect(field.submit()).toHaveTextContent(`${copy.createAccount} (2s)`);
       tickSeconds(2);
-      expect(field.createAccount).toBeEnabled();
-      expect(field.createAccount).toHaveTextContent(copy.createAccount);
+      expect(field.submit()).toBeEnabled();
+      expect(field.submit()).toHaveTextContent(copy.createAccount);
 
-      fireEvent.click(field.createAccount);
+      fireEvent.click(field.submit());
       await settle();
       expect(api.completeEmailSignup).toHaveBeenCalledTimes(2);
       expect(screen.getByTestId("landing")).toHaveTextContent("/app/home");
@@ -1662,34 +1923,53 @@ describe.each(["en", "vi"] as const)(
 );
 
 describe("SignInPage native email sign-up code lifetime", () => {
+  beforeEach(() => {
+    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
+  });
+
   it("reminds the user to resend once the code has expired", async () => {
     vi.useFakeTimers();
-    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
     api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
     const field = await openNativeSignUp("en");
-    fillIdentity(field, "new.student@example.com");
-    fireEvent.click(field.getCode);
-    await settle();
+    await submitEmailStep(field, "new.student@example.com");
 
     act(() => {
       vi.advanceTimersByTime(600_000);
     });
-    expect(
-      screen.getByText(
-        "Your verification code has expired. Select Resend to get a new code.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(NATIVE_COPY.en.codeExpired)).toBeInTheDocument();
 
-    fillCodePasswordAndTerms(field);
-    fireEvent.click(field.createAccount);
-    expect(field.otp).toHaveAccessibleDescription(
-      "This code has expired. Select Resend to get a new code.",
+    fireEvent.change(field.otp(), { target: { value: "123456" } });
+    expect(field.submit()).toHaveClass("sign-in-button--muted");
+    fireEvent.click(field.submit());
+    expectStep(field, 2);
+    expect(field.otp()).toHaveAccessibleDescription(
+      expect.stringContaining(NATIVE_COPY.en.errorCodeExpired),
     );
+    expect(field.otp()).toHaveFocus();
+    expect(api.completeEmailSignup).not.toHaveBeenCalled();
+  });
+
+  it("sends the user back to step 2 when the code expires on step 3", async () => {
+    vi.useFakeTimers();
+    api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+    const field = await openNativeSignUp("en");
+    await submitEmailStep(field, "new.student@example.com");
+    submitCodeStep(field);
+    expectStep(field, 3);
+
+    act(() => {
+      vi.advanceTimersByTime(600_000);
+    });
+    await submitAccountStep(field);
+    expectStep(field, 2);
+    expect(field.otp()).toHaveAccessibleDescription(
+      expect.stringContaining(NATIVE_COPY.en.errorCodeExpired),
+    );
+    expect(field.otp()).toHaveFocus();
     expect(api.completeEmailSignup).not.toHaveBeenCalled();
   });
 
   it("ignores a late code response after the email was edited mid-request", async () => {
-    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
     let resolveFirst: (value: AuthSignupChallengeResponse) => void = () =>
       undefined;
     api.startEmailSignup
@@ -1700,29 +1980,31 @@ describe("SignInPage native email sign-up code lifetime", () => {
       )
       .mockResolvedValueOnce(challengeResponse("challenge-new"));
     const field = await openNativeSignUp("en");
-    fillIdentity(field, "old@example.com");
-    fireEvent.click(field.getCode);
-    expect(field.getCode).toHaveTextContent("Sending…");
+    fireEvent.change(field.email(), { target: { value: "old@example.com" } });
+    fireEvent.click(field.terms());
+    fireEvent.click(field.submit());
+    expect(field.submit()).toHaveTextContent("Sending…");
+    expect(field.submit()).toHaveAttribute("aria-disabled", "true");
 
-    fireEvent.change(field.email, { target: { value: "new@example.com" } });
+    fireEvent.change(field.email(), { target: { value: "new@example.com" } });
     await act(async () => {
       resolveFirst(challengeResponse("challenge-old"));
     });
     await settle();
-    expect(field.getCode).toHaveTextContent("Get Code");
-    expect(field.getCode).toBeEnabled();
-    expect(screen.queryByText(NATIVE_COPY.en.codeSent)).not.toBeInTheDocument();
+    expectStep(field, 1);
+    expect(field.submit()).toHaveTextContent("Get code");
+    expect(field.submit()).toBeEnabled();
 
-    fireEvent.click(field.getCode);
+    fireEvent.click(field.submit());
     await settle();
     expect(api.startEmailSignup).toHaveBeenLastCalledWith(
       { email: "new@example.com" },
       { baseUrl: "/api" },
     );
+    expectStep(field, 2);
     api.completeEmailSignup.mockResolvedValue({ status: "authenticated" });
-    fillCodePasswordAndTerms(field);
-    fireEvent.click(field.createAccount);
-    await settle();
+    submitCodeStep(field);
+    await submitAccountStep(field);
     expect(api.completeEmailSignup).toHaveBeenCalledWith(
       expect.objectContaining({ challenge_id: "challenge-new" }),
       { baseUrl: "/api" },
@@ -1731,18 +2013,15 @@ describe("SignInPage native email sign-up code lifetime", () => {
 
   it("starts a new transaction when the resend transaction has already ended", async () => {
     vi.useFakeTimers();
-    api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);
     api.startEmailSignup
       .mockResolvedValueOnce(challengeResponse("challenge-1"))
       .mockResolvedValueOnce(challengeResponse("challenge-4"));
     api.resendAuthChallenge.mockRejectedValue(apiError(400));
     const field = await openNativeSignUp("en");
-    fillIdentity(field, "new.student@example.com");
-    fireEvent.click(field.getCode);
-    await settle();
+    await submitEmailStep(field, "new.student@example.com");
     tickSeconds(60);
 
-    fireEvent.click(field.getCode);
+    fireEvent.click(field.resend());
     await settle();
     expect(api.resendAuthChallenge).toHaveBeenCalledTimes(1);
     expect(api.startEmailSignup).toHaveBeenCalledTimes(2);
@@ -1750,7 +2029,27 @@ describe("SignInPage native email sign-up code lifetime", () => {
       { email: "new.student@example.com" },
       { baseUrl: "/api" },
     );
-    expect(field.getCode).toHaveTextContent("60s");
+    expect(field.resend()).toHaveTextContent("Resend in 60s");
+  });
+
+  it("keeps a failed resend on step 2 and reports it there", async () => {
+    vi.useFakeTimers();
+    api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+    api.resendAuthChallenge.mockRejectedValue(apiError(429, undefined, 30));
+    const field = await openNativeSignUp("en");
+    await submitEmailStep(field, "new.student@example.com");
+    tickSeconds(60);
+
+    fireEvent.click(field.resend());
+    await settle();
+    expectStep(field, 2);
+    const throttled = "Too many attempts. Please try again in 30 seconds.";
+    expect(screen.getByText(throttled)).toBeInTheDocument();
+    expect(field.otp()).toHaveAccessibleDescription(
+      expect.stringContaining(throttled),
+    );
+    expect(field.resend()).toBeDisabled();
+    expect(field.resend()).toHaveTextContent("Resend in 30s");
   });
 });
 
@@ -2076,12 +2375,23 @@ describe("SignInPage auth providers and native edge cases", () => {
     expect(within(form).getByRole("status")).toHaveTextContent(
       "New accounts can't be created right now. Please contact your administrator.",
     );
+    // UI-AUTH-07: step 1 cannot request a code while sign-up is off.
     expect(
-      within(form).getByRole("button", { name: "Create Account" }),
-    ).toBeDisabled();
+      within(form).getByRole("heading", { level: 2, name: "Email" }),
+    ).toBeInTheDocument();
     expect(
-      within(form).getByRole("button", { name: "Get Code" }),
+      within(form).getByRole("button", { name: "Get code" }),
     ).toBeDisabled();
+    fireEvent.change(
+      within(form).getByRole("textbox", { name: "Email Address" }),
+      { target: { value: "new.student@example.com" } },
+    );
+    fireEvent.click(within(form).getByRole("checkbox"));
+    fireEvent.submit(form);
+    expect(
+      within(form).getByRole("heading", { level: 2, name: "Email" }),
+    ).toBeInTheDocument();
+    expect(api.startEmailSignup).not.toHaveBeenCalled();
   });
 
   it("locks Log In for the Retry-After window and reports busy and network failures", async () => {

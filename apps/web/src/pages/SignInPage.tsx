@@ -43,7 +43,15 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Eye, EyeOff, KeyRound, Lock, School, User } from "lucide-react";
+import {
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Lock,
+  School,
+  User,
+} from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { useI18n, type Language } from "../app/i18n";
 import { DEFAULT_MFA_EXPIRES_IN_SECONDS, type MFAMethod } from "../app/mfa";
@@ -159,6 +167,21 @@ const en = {
   termsJoin: " and ",
   privacyPolicy: "Privacy Policy",
   createAccount: "Create Account",
+  // UI-AUTH-07: three-step sign-up (email + terms -> code -> name + password).
+  signUpEmailHeading: "Email",
+  signUpEmailPlaceholder: "Please enter your email",
+  signUpGetCode: "Get code",
+  signUpRetryIn: "Try again in {seconds}s",
+  signUpBackToEmail: "Back to email",
+  signUpCodeHeading: "Verify your email",
+  signUpCodeSentTo:
+    "A 6-digit verification code has been sent to {email} if the address is eligible (valid for {minutes} min). Please enter it below.",
+  signUpOtpLabel: "Please enter verification code",
+  signUpOtpPlaceholder: "Enter 6-digit code",
+  signUpResendIn: "Resend in {seconds}s",
+  signUpContinue: "Continue",
+  signUpBackToCode: "Back to verification code",
+  signUpAccountHeading: "Set up your account",
   codeNotice:
     "Verification codes are issued by the TutorHub identity portal, so no code is sent from this page. Continue with secure sign-in to verify your email.",
   signUpNoticeTitle: "Finish on the TutorHub identity portal",
@@ -350,6 +373,20 @@ const vi: SignInCopy = {
   termsJoin: " và ",
   privacyPolicy: "Chính sách quyền riêng tư",
   createAccount: "Tạo tài khoản",
+  signUpEmailHeading: "Email",
+  signUpEmailPlaceholder: "Vui lòng nhập email của bạn",
+  signUpGetCode: "Lấy mã",
+  signUpRetryIn: "Thử lại sau {seconds}s",
+  signUpBackToEmail: "Quay lại nhập email",
+  signUpCodeHeading: "Xác minh email",
+  signUpCodeSentTo:
+    "Mã xác minh 6 chữ số đã được gửi đến {email} (nếu địa chỉ hợp lệ, hiệu lực {minutes} phút). Vui lòng nhập mã xác minh vào bên dưới.",
+  signUpOtpLabel: "Vui lòng nhập mã xác minh",
+  signUpOtpPlaceholder: "Nhập mã 6 chữ số",
+  signUpResendIn: "Gửi lại sau {seconds}s",
+  signUpContinue: "Tiếp tục",
+  signUpBackToCode: "Quay lại nhập mã xác minh",
+  signUpAccountHeading: "Thiết lập tài khoản",
   codeNotice:
     "Mã xác minh do cổng định danh TutorHub cấp nên trang này không gửi mã. Hãy tiếp tục đăng nhập bảo mật để xác minh email.",
   signUpNoticeTitle: "Hoàn tất tại cổng định danh TutorHub",
@@ -786,6 +823,92 @@ function useCountdown() {
   const reset = useCallback(() => setRemaining(0), []);
 
   return { remaining, reset, start };
+}
+
+/**
+ * UI-AUTH-04: the eye button reveals a password only while it is held. Every
+ * caller also conceals it again on submit and whenever it switches away.
+ */
+function usePasswordReveal() {
+  const [visible, setVisible] = useState(false);
+  const conceal = useCallback(() => setVisible(false), []);
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    // Switching windows mid-hold may never deliver the release event.
+    window.addEventListener("blur", conceal);
+    return () => window.removeEventListener("blur", conceal);
+  }, [conceal, visible]);
+  return { conceal, setVisible, visible };
+}
+
+interface PasswordRevealButtonProps {
+  /** id of the password input the button reveals. */
+  controls: string;
+  onConceal: () => void;
+  onReveal: () => void;
+  visible: boolean;
+}
+
+/**
+ * Press-and-hold reveal: the password shows only while the pointer (mouse,
+ * touch, pen) or Space/Enter is held down and hides again on release, cancel,
+ * blur or window switch. Shared by the log-in and sign-up password fields.
+ */
+function PasswordRevealButton({
+  controls,
+  onConceal,
+  onReveal,
+  visible,
+}: PasswordRevealButtonProps) {
+  const c = useSignInCopy();
+  return (
+    <button
+      aria-controls={controls}
+      aria-label={c.holdToShowPassword}
+      aria-pressed={visible}
+      className="sign-in-input-group__toggle"
+      onBlur={onConceal}
+      // Long-press on touch screens would open the context menu.
+      onContextMenu={(event) => event.preventDefault()}
+      onKeyDown={(event) => {
+        if (event.key === " " || event.key === "Enter") {
+          event.preventDefault();
+          onReveal();
+        }
+      }}
+      onKeyUp={(event) => {
+        if (event.key === " " || event.key === "Enter") {
+          onConceal();
+        }
+      }}
+      onLostPointerCapture={onConceal}
+      // Keep focus (and the caret) in the password field on click.
+      onMouseDown={(event) => event.preventDefault()}
+      onPointerCancel={onConceal}
+      onPointerDown={(event) => {
+        if (event.button !== 0) {
+          return;
+        }
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          // Capture is best effort; release on the button still hides.
+        }
+        onReveal();
+      }}
+      onPointerUp={onConceal}
+      title={c.holdToShowPassword}
+      type="button"
+    >
+      {visible ? (
+        <Eye aria-hidden="true" focusable="false" size={18} />
+      ) : (
+        <EyeOff aria-hidden="true" focusable="false" size={18} />
+      )}
+    </button>
+  );
 }
 
 /** How long the passkey button waits for an aborted autofill request. */
@@ -1887,17 +2010,11 @@ function LoginFormBody({
    * UI-AUTH-04: the eye button reveals the password only while it is held;
    * also back to hidden on submit and every switch.
    */
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const concealPassword = () => setPasswordVisible(false);
-  useEffect(() => {
-    if (!passwordVisible) {
-      return;
-    }
-    // Switching windows mid-hold may never deliver the release event.
-    const conceal = () => setPasswordVisible(false);
-    window.addEventListener("blur", conceal);
-    return () => window.removeEventListener("blur", conceal);
-  }, [passwordVisible]);
+  const {
+    conceal: concealPassword,
+    setVisible: setPasswordVisible,
+    visible: passwordVisible,
+  } = usePasswordReveal();
   /** Only read with `sessionPersistence="optIn"` (/account-link). */
   const [keepSignedInChecked, setKeepSignedInChecked] = useState(false);
   const [errors, setErrors] = useState<LoginErrors>({});
@@ -1949,7 +2066,7 @@ function LoginFormBody({
       expiresInSeconds = DEFAULT_MFA_EXPIRES_IN_SECONDS,
     ) => {
       setPassword("");
-      setPasswordVisible(false);
+      concealPassword();
       setErrors({});
       setSubmitting(false);
       setPasswordResetDone(false);
@@ -1961,7 +2078,7 @@ function LoginFormBody({
       setFailure(null);
       setMfa({ kind: "challenge", expiresInSeconds, id: Date.now(), methods });
     },
-    [],
+    [concealPassword],
   );
 
   /**
@@ -2505,55 +2622,12 @@ function LoginFormBody({
                 type={passwordVisible ? "text" : "password"}
                 value={password}
               />
-              {/*
-               * Press-and-hold reveal: the password shows only while the
-               * pointer (mouse, touch, pen) or Space/Enter is held down and
-               * hides again on release, cancel, blur or window switch.
-               */}
-              <button
-                aria-controls={ids.password}
-                aria-label={c.holdToShowPassword}
-                aria-pressed={passwordVisible}
-                className="sign-in-input-group__toggle"
-                onBlur={concealPassword}
-                // Long-press on touch screens would open the context menu.
-                onContextMenu={(event) => event.preventDefault()}
-                onKeyDown={(event) => {
-                  if (event.key === " " || event.key === "Enter") {
-                    event.preventDefault();
-                    setPasswordVisible(true);
-                  }
-                }}
-                onKeyUp={(event) => {
-                  if (event.key === " " || event.key === "Enter") {
-                    concealPassword();
-                  }
-                }}
-                onLostPointerCapture={concealPassword}
-                // Keep focus (and the caret) in the password field on click.
-                onMouseDown={(event) => event.preventDefault()}
-                onPointerCancel={concealPassword}
-                onPointerDown={(event) => {
-                  if (event.button !== 0) {
-                    return;
-                  }
-                  try {
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                  } catch {
-                    // Capture is best effort; release on the button still hides.
-                  }
-                  setPasswordVisible(true);
-                }}
-                onPointerUp={concealPassword}
-                title={c.holdToShowPassword}
-                type="button"
-              >
-                {passwordVisible ? (
-                  <Eye aria-hidden="true" focusable="false" size={18} />
-                ) : (
-                  <EyeOff aria-hidden="true" focusable="false" size={18} />
-                )}
-              </button>
+              <PasswordRevealButton
+                controls={ids.password}
+                onConceal={concealPassword}
+                onReveal={() => setPasswordVisible(true)}
+                visible={passwordVisible}
+              />
             </div>
             {errorFor("password")}
           </div>
@@ -3093,12 +3167,16 @@ function EmailCodeLoginForm({
   );
 }
 
+/**
+ * UI-AUTH-07: sign-up runs in three steps (ClassIn style) inside one form:
+ * email + terms → emailed code → name + password.
+ */
+type SignUpStep = "email" | "code" | "account";
 type SignUpField = "fullName" | "email" | "otp" | "password" | "terms";
 type SignUpErrors = Partial<Record<SignUpField, CopyKey>>;
-const SIGN_UP_FIELD_ORDER: readonly SignUpField[] = [
+/** Step 3 order; the email and the code were validated on earlier steps. */
+const ACCOUNT_FIELD_ORDER: readonly SignUpField[] = [
   "fullName",
-  "email",
-  "otp",
   "password",
   "terms",
 ];
@@ -3123,6 +3201,9 @@ interface SignUpChallenge {
   id: string;
 }
 
+/** A sign-up code belongs to the address it was requested for. */
+type SignUpCodeChallenge = SignUpChallenge & { email: string };
+
 type CodeNotice =
   | { kind: "legacy" }
   | { kind: "sent"; minutes: number }
@@ -3140,7 +3221,6 @@ function SignUpForm({
 }: SignUpFormProps) {
   const c = useSignInCopy();
   const ids = {
-    heading: useId(),
     fullName: useId(),
     email: useId(),
     otp: useId(),
@@ -3148,6 +3228,7 @@ function SignUpForm({
     terms: useId(),
     termsText: useId(),
     codeNotice: useId(),
+    instructions: useId(),
   };
   const fullNameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -3159,14 +3240,27 @@ function SignUpForm({
   const codeRequestGenerationRef = useRef(0);
   const sso = useSchoolSSO(schoolSSO);
   const discoverSchoolSSO = sso.discover;
+  const [step, setStep] = useState<SignUpStep>("email");
+  /** Focus moves only after the requested step has rendered its field. */
+  const [focusRequest, setFocusRequest] = useState<{
+    field: SignUpField;
+    seq: number;
+  } | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
+  const {
+    conceal: concealPassword,
+    setVisible: setPasswordVisible,
+    visible: passwordVisible,
+  } = usePasswordReveal();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  /** The server announced new terms: consent is asked again on step 3. */
+  const [termsReconsent, setTermsReconsent] = useState(false);
   const [errors, setErrors] = useState<SignUpErrors>({});
   const [codeNotice, setCodeNotice] = useState<CodeNotice | null>(null);
-  const [challenge, setChallenge] = useState<SignUpChallenge | null>(null);
+  const [challenge, setChallenge] = useState<SignUpCodeChallenge | null>(null);
   const [challengeExpired, setChallengeExpired] = useState(false);
   const [requestingCode, setRequestingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -3180,8 +3274,20 @@ function SignUpForm({
   const inactive = mode === "pending" || mode === "unavailable";
 
   useEffect(() => {
-    if (autoFocus) fullNameRef.current?.focus();
+    if (autoFocus) emailRef.current?.focus();
   }, [autoFocus]);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    const fieldRefs = {
+      fullName: fullNameRef,
+      email: emailRef,
+      otp: otpRef,
+      password: passwordRef,
+      terms: termsRef,
+    };
+    fieldRefs[focusRequest.field].current?.focus();
+  }, [focusRequest]);
 
   // Remind the user to resend once the server-side code lifetime has passed.
   useEffect(() => {
@@ -3193,15 +3299,15 @@ function SignUpForm({
     return () => window.clearTimeout(timer);
   }, [challenge]);
 
-  function focusField(field: SignUpField) {
-    const fieldRefs = {
-      fullName: fullNameRef,
-      email: emailRef,
-      otp: otpRef,
-      password: passwordRef,
-      terms: termsRef,
-    };
-    fieldRefs[field].current?.focus();
+  function requestFocus(field: SignUpField) {
+    setFocusRequest((current) => ({ field, seq: (current?.seq ?? 0) + 1 }));
+  }
+
+  /** Every step change hides the password again and moves focus. */
+  function goToStep(next: SignUpStep, focus: SignUpField) {
+    concealPassword();
+    setStep(next);
+    requestFocus(focus);
   }
 
   function clearError(field: SignUpField) {
@@ -3243,61 +3349,68 @@ function SignUpForm({
     }
   }
 
-  async function sendCode(trimmedEmail: string) {
+  /**
+   * "email" (step 1) always opens a new sign-up transaction; "code" (Resend
+   * on step 2) resends within the current one.
+   */
+  async function sendCode(trimmedEmail: string, origin: "email" | "code") {
     const generation = ++codeRequestGenerationRef.current;
     const isStale = () => generation !== codeRequestGenerationRef.current;
     setRequestingCode(true);
     setCodeNotice(null);
     try {
-      const result = await requestChallenge(trimmedEmail);
+      const result =
+        origin === "email"
+          ? await startEmailSignup(
+              { email: trimmedEmail },
+              { baseUrl: getApiBaseUrl() },
+            )
+          : await requestChallenge(trimmedEmail);
       // The email was edited meanwhile: this code belongs to the old address.
       if (isStale()) return;
       setChallenge({
+        email: trimmedEmail,
         expiresInSeconds: result.expires_in_seconds,
         id: result.challenge_id,
       });
       setChallengeExpired(false);
       cooldown.start(result.cooldown_seconds);
-      // Uniform wording: never reveal whether the address already has an account.
-      setCodeNotice({
-        kind: "sent",
-        minutes: Math.max(1, Math.ceil(result.expires_in_seconds / 60)),
-      });
       clearError("otp");
-      focusField("otp");
+      if (origin === "email") goToStep("code", "otp");
+      else requestFocus("otp");
     } catch (error) {
       if (isStale()) return;
       const next = authFailureFrom(error);
-      if (next.kind === "badRequest") {
+      if (next.kind === "badRequest" && origin === "email") {
         setErrors((current) => ({ ...current, email: "errorEmail" }));
-      } else {
-        const retryAfter = retryAfterOf(next);
-        if (retryAfter) cooldown.start(retryAfter);
-        setCodeNotice({ kind: "failure", failure: next });
-        if (next.kind === "ssoRequired") void discoverSchoolSSO(trimmedEmail);
+        requestFocus("email");
+        return;
       }
-      focusField("email");
+      const retryAfter = retryAfterOf(next);
+      if (retryAfter) cooldown.start(retryAfter);
+      setCodeNotice({ kind: "failure", failure: next });
+      if (next.kind === "ssoRequired") {
+        // School SSO starts from the email step.
+        void discoverSchoolSSO(trimmedEmail);
+        goToStep("email", "email");
+        return;
+      }
+      requestFocus(origin === "email" ? "email" : "otp");
     } finally {
       if (!isStale()) setRequestingCode(false);
     }
   }
 
-  function handleGetCode() {
-    const trimmedEmail = email.trim();
-    if (!EMAIL_PATTERN.test(trimmedEmail)) {
-      setErrors((current) => ({ ...current, email: "errorEmail" }));
-      focusField("email");
-      return;
-    }
-    clearError("email");
+  function resendCode() {
+    if (inactive || requestingCode || cooldown.remaining > 0) return;
     if (mode === "oidc") {
       cooldown.start(OTP_COOLDOWN_SECONDS);
       setCodeNotice({ kind: "legacy" });
-      focusField("otp");
+      requestFocus("otp");
       return;
     }
-    if (!isNative || requestingCode || cooldown.remaining > 0) return;
-    void sendCode(trimmedEmail);
+    if (!isNative) return;
+    void sendCode(challenge?.email ?? email.trim(), "code");
   }
 
   function openLegal(tab: SignInLegalTab, event: MouseEvent<HTMLElement>) {
@@ -3312,23 +3425,18 @@ function SignUpForm({
     legalReturnFocusRef.current = termsRef.current;
   }
 
-  function validate() {
-    const nextErrors: SignUpErrors = {};
-    if (!fullName.trim()) nextErrors.fullName = "errorFullName";
-    if (!EMAIL_PATTERN.test(email.trim())) nextErrors.email = "errorEmail";
-    if (isNative && !challenge) {
-      nextErrors.otp = "errorCodeRequired";
-    } else if (isNative && challengeExpired) {
-      nextErrors.otp = "errorCodeExpired";
-    } else if (!OTP_PATTERN.test(otp.trim())) {
-      nextErrors.otp = "errorOtp";
-    }
-    // Count code points like the server (which counts runes after NFKC).
-    if (Array.from(password).length < passwordMinLength) {
-      nextErrors.password = "errorPassword";
-    }
-    if (!acceptedTerms) nextErrors.terms = "errorTerms";
-    return nextErrors;
+  function backToEmail() {
+    setOtp("");
+    clearError("otp");
+    setFailure(null);
+    goToStep("email", "email");
+  }
+
+  function backToCode() {
+    setErrors({});
+    setFailure(null);
+    setSubmitted(false);
+    goToStep("code", "otp");
   }
 
   async function finishSession() {
@@ -3344,33 +3452,42 @@ function SignUpForm({
   }
 
   function handleCreateAccountFailure(next: AuthFailure) {
+    concealPassword();
     switch (next.kind) {
       case "termsChanged":
+        // Stay on step 3 so the verified code is not lost.
         setAcceptedTerms(false);
+        setTermsReconsent(true);
         setErrors({ terms: "errorTermsChanged" });
         onTermsChanged();
-        focusField("terms");
+        requestFocus("terms");
         return;
       case "passwordPolicy":
         // Keep name, email and code; only the rejected password is cleared.
         setPassword("");
         setErrors({ password: "errorPasswordPolicy" });
-        focusField("password");
+        requestFocus("password");
         return;
       case "badRequest":
       case "invalidCredentials":
+        // Wrong or expired code (account-neutral): enter it again.
         setOtp("");
+        setErrors({});
         setFailure({ kind: "signUpFailed" });
-        focusField("otp");
+        goToStep("code", "otp");
+        return;
+      case "ssoRequired":
+        setPassword("");
+        invalidateChallenge();
+        setErrors({});
+        setFailure(next);
+        goToStep("email", "email");
+        void discoverSchoolSSO(email.trim());
         return;
       default: {
         const retryAfter = retryAfterOf(next);
         if (retryAfter) submitLock.start(retryAfter);
         setFailure(next);
-        if (next.kind === "ssoRequired") {
-          setPassword("");
-          void discoverSchoolSSO(email.trim());
-        }
       }
     }
   }
@@ -3384,7 +3501,8 @@ function SignUpForm({
           challenge_id: challengeId,
           code: otp.trim(),
           display_name: fullName.trim(),
-          keep_signed_in: false,
+          // UI-AUTH-04 policy on /sign-in; the server caps the session length.
+          keep_signed_in: true,
           password,
           terms_version: version,
         },
@@ -3400,16 +3518,77 @@ function SignUpForm({
     await finishSession();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (inactive || submitting || submitLock.remaining > 0) return;
-    const nextErrors = validate();
+  function submitEmailStep() {
+    const trimmedEmail = email.trim();
+    const nextErrors: SignUpErrors = {};
+    if (!EMAIL_PATTERN.test(trimmedEmail)) nextErrors.email = "errorEmail";
+    if (!acceptedTerms) nextErrors.terms = "errorTerms";
     setErrors(nextErrors);
+    if (nextErrors.email || nextErrors.terms) {
+      requestFocus(nextErrors.email ? "email" : "terms");
+      return;
+    }
+    setFailure(null);
+    if (mode === "oidc") {
+      if (cooldown.remaining === 0) cooldown.start(OTP_COOLDOWN_SECONDS);
+      setCodeNotice({ kind: "legacy" });
+      goToStep("code", "otp");
+      return;
+    }
+    if (!isNative || requestingCode) return;
+    if (challenge && !challengeExpired && challenge.email === trimmedEmail) {
+      // Back from step 2 with the same address: the code is still valid.
+      goToStep("code", "otp");
+      return;
+    }
+    if (cooldown.remaining > 0) return;
+    void sendCode(trimmedEmail, "email");
+  }
 
-    const firstInvalid = SIGN_UP_FIELD_ORDER.find((field) => nextErrors[field]);
+  function codeStepError(): CopyKey | undefined {
+    if (isNative && !challenge) return "errorCodeRequired";
+    if (isNative && challengeExpired) return "errorCodeExpired";
+    return OTP_PATTERN.test(otp.trim()) ? undefined : "errorOtp";
+  }
+
+  function submitCodeStep() {
+    const otpError = codeStepError();
+    if (otpError) {
+      setErrors((current) => ({ ...current, otp: otpError }));
+      requestFocus("otp");
+      return;
+    }
+    clearError("otp");
+    setFailure(null);
+    goToStep("account", "fullName");
+  }
+
+  function submitAccountStep() {
+    concealPassword();
+    if (submitting || submitLock.remaining > 0) return;
+    if (isNative && challengeExpired) {
+      // The code expired while the name and password were typed.
+      setErrors({ otp: "errorCodeExpired" });
+      goToStep("code", "otp");
+      return;
+    }
+    const nextErrors: SignUpErrors = {};
+    if (!fullName.trim()) nextErrors.fullName = "errorFullName";
+    // Count code points like the server (which counts runes after NFKC).
+    if (Array.from(password).length < passwordMinLength) {
+      nextErrors.password = "errorPassword";
+    }
+    if (!acceptedTerms) {
+      nextErrors.terms =
+        errors.terms === "errorTermsChanged"
+          ? "errorTermsChanged"
+          : "errorTerms";
+    }
+    setErrors(nextErrors);
+    const firstInvalid = ACCOUNT_FIELD_ORDER.find((field) => nextErrors[field]);
     if (firstInvalid) {
       setSubmitted(false);
-      focusField(firstInvalid);
+      requestFocus(firstInvalid);
       return;
     }
 
@@ -3424,6 +3603,14 @@ function SignUpForm({
     }
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inactive) return;
+    if (step === "email") submitEmailStep();
+    else if (step === "code") submitCodeStep();
+    else submitAccountStep();
+  }
+
   function errorFor(field: SignUpField) {
     const key = errors[field];
     return key ? (
@@ -3433,57 +3620,104 @@ function SignUpForm({
     ) : null;
   }
 
-  function describedBy(field: SignUpField, extra?: string) {
-    const parts = [errors[field] ? `${ids[field]}-error` : "", extra ?? ""];
+  function describedBy(field: SignUpField, ...extra: (string | undefined)[]) {
+    const parts = [errors[field] ? `${ids[field]}-error` : "", ...extra];
     const value = parts.filter(Boolean).join(" ");
     return value || undefined;
   }
 
-  function codeNoticeView(): { error: boolean; text: string } | null {
-    if (isNative && challenge && challengeExpired) {
-      return { error: true, text: c.codeExpired };
-    }
-    if (!codeNotice) return null;
-    switch (codeNotice.kind) {
-      case "legacy":
-        return { error: false, text: c.codeNotice };
-      case "sent":
-        return {
-          error: false,
-          text: formatCopy(c.codeSent, { minutes: codeNotice.minutes }),
-        };
-      case "failure":
-        return { error: true, text: failureText(c, codeNotice.failure) };
-    }
+  function backButton(label: string, onClick: () => void) {
+    return (
+      <button
+        aria-label={label}
+        className="sign-in-form__back"
+        onClick={onClick}
+        title={label}
+        type="button"
+      >
+        <ChevronLeft aria-hidden="true" focusable="false" size={22} />
+      </button>
+    );
   }
 
-  const notice = codeNoticeView();
-  const codeButtonLabel = requestingCode
-    ? c.sendingCode
-    : cooldown.remaining > 0
-      ? formatCopy(c.codeCountdown, { seconds: cooldown.remaining })
-      : isNative && challenge
-        ? c.resendCode
-        : c.getCode;
-  const createLabel = submitting
-    ? c.creatingAccount
-    : submitLock.remaining > 0
-      ? formatCopy(c.submitWait, {
-          label: c.createAccount,
-          seconds: submitLock.remaining,
-        })
-      : c.createAccount;
+  function termsField() {
+    return (
+      <div className="sign-in-form__field">
+        <div className="sign-in-check sign-in-check--terms">
+          <input
+            aria-describedby={describedBy("terms")}
+            aria-invalid={errors.terms ? true : undefined}
+            aria-labelledby={ids.termsText}
+            checked={acceptedTerms}
+            id={ids.terms}
+            name="terms"
+            onChange={(event) => {
+              setAcceptedTerms(event.target.checked);
+              clearError("terms");
+            }}
+            ref={termsRef}
+            type="checkbox"
+          />
+          <p className="sign-in-check__text" id={ids.termsText}>
+            <label htmlFor={ids.terms}>{c.termsLead}</label>
+            <button
+              aria-haspopup="dialog"
+              className="sign-in-check__accent sign-in-check__link"
+              onClick={(event) => openLegal("agreement", event)}
+              type="button"
+            >
+              {c.userAgreement}
+            </button>
+            {c.termsJoin}
+            <button
+              aria-haspopup="dialog"
+              className="sign-in-check__accent sign-in-check__link"
+              onClick={(event) => openLegal("privacy", event)}
+              type="button"
+            >
+              {c.privacyPolicy}
+            </button>
+          </p>
+        </div>
+        {errorFor("terms")}
+        {errors.terms === "errorTermsChanged" ? (
+          <button
+            aria-haspopup="dialog"
+            className="sign-in-check__link sign-in-form__review-terms"
+            onClick={(event) => openLegal("agreement", event)}
+            type="button"
+          >
+            {c.reviewTerms}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
-  return (
-    <div className="sign-in-form">
-      <form
-        aria-labelledby={ids.heading}
-        className="sign-in-form__stack sign-in-form__stack--signup"
-        noValidate
-        onSubmit={handleSubmit}
-      >
-        <h2 className="sign-in-form__heading" id={ids.heading}>
-          {c.signUpHeading}
+  const failureAlert = failure ? (
+    <FormAlert failure={failure} onRetrySession={() => void finishSession()} />
+  ) : null;
+  const trimmedEmail = email.trim();
+  const codeFailureText =
+    codeNotice?.kind === "failure" ? failureText(c, codeNotice.failure) : null;
+
+  function emailStep() {
+    const reusableChallenge =
+      challenge !== null &&
+      !challengeExpired &&
+      challenge.email === trimmedEmail;
+    // A Retry-After or cooldown lock only matters when a new code is needed.
+    const locked = isNative && cooldown.remaining > 0 && !reusableChallenge;
+    const ready = EMAIL_PATTERN.test(trimmedEmail) && acceptedTerms;
+    const label = requestingCode
+      ? c.sendingCode
+      : locked
+        ? formatCopy(c.signUpRetryIn, { seconds: cooldown.remaining })
+        : c.signUpGetCode;
+    return (
+      <>
+        <h2 className="sign-in-form__heading sign-in-form__heading--step">
+          {c.signUpEmailHeading}
         </h2>
         {mode === "unavailable" ? (
           <p className="sign-in-form__alert" role="status">
@@ -3493,179 +3727,253 @@ function SignUpForm({
 
         <div className="sign-in-form__field">
           <input
-            aria-describedby={describedBy("fullName")}
-            aria-invalid={errors.fullName ? true : undefined}
-            aria-label={c.fullNameLabel}
-            autoComplete="name"
+            aria-describedby={describedBy(
+              "email",
+              codeFailureText ? ids.codeNotice : undefined,
+            )}
+            aria-invalid={errors.email ? true : undefined}
+            aria-label={c.emailLabel}
+            autoComplete="email"
             className="sign-in-input"
-            id={ids.fullName}
-            name="full-name"
+            id={ids.email}
+            inputMode="email"
+            maxLength={IDENTIFIER_MAX_LENGTH}
+            name="email"
             onChange={(event) => {
-              setFullName(event.target.value);
-              clearError("fullName");
+              const value = event.target.value;
+              setEmail(value);
+              clearError("email");
+              sso.reset();
+              if (
+                requestingCode ||
+                (challenge && challenge.email !== value.trim())
+              ) {
+                invalidateChallenge();
+              }
             }}
-            placeholder={c.fullNameLabel}
-            ref={fullNameRef}
-            type="text"
-            value={fullName}
+            placeholder={c.signUpEmailPlaceholder}
+            ref={emailRef}
+            spellCheck={false}
+            type="email"
+            value={email}
           />
-          {errorFor("fullName")}
-        </div>
-
-        <div className="sign-in-form__field">
-          <div className="sign-in-form__code-row">
-            <input
-              aria-describedby={describedBy(
-                "email",
-                notice ? ids.codeNotice : undefined,
-              )}
-              aria-invalid={errors.email ? true : undefined}
-              aria-label={c.emailLabel}
-              autoComplete="email"
-              className="sign-in-input"
-              id={ids.email}
-              inputMode="email"
-              name="email"
-              onChange={(event) => {
-                setEmail(event.target.value);
-                clearError("email");
-                sso.reset();
-                if (challenge || requestingCode) invalidateChallenge();
-              }}
-              placeholder={c.emailLabel}
-              ref={emailRef}
-              spellCheck={false}
-              type="email"
-              value={email}
-            />
-            <button
-              aria-disabled={requestingCode || undefined}
-              className="sign-in-button sign-in-button--code"
-              disabled={cooldown.remaining > 0 || inactive}
-              onClick={handleGetCode}
-              type="button"
-            >
-              {codeButtonLabel}
-            </button>
-          </div>
           {errorFor("email")}
           <div aria-live="polite">
-            {notice ? (
+            {codeFailureText ? (
               <p
-                className={
-                  notice.error
-                    ? "sign-in-form__hint sign-in-form__hint--error"
-                    : "sign-in-form__hint"
-                }
+                className="sign-in-form__hint sign-in-form__hint--error"
                 id={ids.codeNotice}
               >
-                {notice.text}
+                {codeFailureText}
               </p>
             ) : null}
           </div>
         </div>
 
+        {termsField()}
+
+        {failureAlert}
+        <SchoolSSONotice sso={sso} />
+        <button
+          aria-disabled={requestingCode || undefined}
+          className={
+            ready
+              ? "sign-in-button sign-in-button--primary"
+              : "sign-in-button sign-in-button--soft"
+          }
+          disabled={inactive || locked}
+          type="submit"
+        >
+          {label}
+        </button>
+      </>
+    );
+  }
+
+  function codeStep() {
+    const ready = OTP_PATTERN.test(otp.trim()) && !challengeExpired;
+    const instructions =
+      mode === "oidc"
+        ? c.codeNotice
+        : challenge
+          ? formatCopy(c.signUpCodeSentTo, {
+              email: challenge.email,
+              minutes: Math.max(1, Math.ceil(challenge.expiresInSeconds / 60)),
+            })
+          : null;
+    const notice =
+      isNative && challengeExpired ? c.codeExpired : codeFailureText;
+    const resendLabel = requestingCode
+      ? c.sendingCode
+      : cooldown.remaining > 0
+        ? formatCopy(c.signUpResendIn, { seconds: cooldown.remaining })
+        : c.resendCode;
+    return (
+      <>
+        {backButton(c.signUpBackToEmail, backToEmail)}
+        <h2 className="visually-hidden">{c.signUpCodeHeading}</h2>
+        {instructions ? (
+          <p className="sign-in-form__instructions" id={ids.instructions}>
+            {instructions}
+          </p>
+        ) : null}
+        <div aria-live="polite">
+          {notice ? (
+            <p
+              className="sign-in-form__hint sign-in-form__hint--error"
+              id={ids.codeNotice}
+            >
+              {notice}
+            </p>
+          ) : null}
+        </div>
+        {failureAlert}
+
         <div className="sign-in-form__field">
-          <input
-            aria-describedby={describedBy("otp")}
-            aria-invalid={errors.otp ? true : undefined}
-            aria-label={c.otpLabel}
-            autoComplete="one-time-code"
-            className="sign-in-input sign-in-input--otp"
-            id={ids.otp}
-            inputMode="numeric"
-            maxLength={6}
-            name="otp"
-            onChange={(event) => {
-              setOtp(event.target.value);
-              clearError("otp");
-            }}
-            placeholder={c.otpPlaceholder}
-            ref={otpRef}
-            type="text"
-            value={otp}
-          />
+          <label className="sign-in-form__label" htmlFor={ids.otp}>
+            {c.signUpOtpLabel}
+          </label>
+          <div className="sign-in-input-group">
+            <input
+              aria-describedby={describedBy(
+                "otp",
+                instructions ? ids.instructions : undefined,
+                notice ? ids.codeNotice : undefined,
+              )}
+              aria-invalid={errors.otp ? true : undefined}
+              autoComplete="one-time-code"
+              className="sign-in-input sign-in-input--resend"
+              id={ids.otp}
+              inputMode="numeric"
+              maxLength={6}
+              name="otp"
+              onChange={(event) => {
+                setOtp(event.target.value);
+                clearError("otp");
+              }}
+              placeholder={c.signUpOtpPlaceholder}
+              ref={otpRef}
+              spellCheck={false}
+              type="text"
+              value={otp}
+            />
+            <button
+              aria-disabled={requestingCode || undefined}
+              className="sign-in-input-group__action"
+              disabled={inactive || (!requestingCode && cooldown.remaining > 0)}
+              onClick={resendCode}
+              type="button"
+            >
+              {resendLabel}
+            </button>
+          </div>
           {errorFor("otp")}
         </div>
 
+        <button
+          className={
+            ready
+              ? "sign-in-button sign-in-button--primary"
+              : "sign-in-button sign-in-button--muted"
+          }
+          disabled={inactive}
+          type="submit"
+        >
+          {c.signUpContinue}
+        </button>
+      </>
+    );
+  }
+
+  function accountStep() {
+    const createLabel = submitting
+      ? c.creatingAccount
+      : submitLock.remaining > 0
+        ? formatCopy(c.submitWait, {
+            label: c.createAccount,
+            seconds: submitLock.remaining,
+          })
+        : c.createAccount;
+    return (
+      <>
+        {backButton(c.signUpBackToCode, backToCode)}
+        <div className="sign-in-form__step-title">
+          <h2 className="sign-in-form__heading sign-in-form__heading--step">
+            {c.signUpAccountHeading}
+          </h2>
+          <p className="sign-in-form__subheading" translate="no">
+            {trimmedEmail}
+          </p>
+        </div>
+
         <div className="sign-in-form__field">
-          <input
-            aria-describedby={describedBy("password")}
-            aria-invalid={errors.password ? true : undefined}
-            aria-label={c.passwordLabel}
-            autoComplete="new-password"
-            className="sign-in-input"
-            id={ids.password}
-            name="new-password"
-            onChange={(event) => {
-              setPassword(event.target.value);
-              clearError("password");
-            }}
-            placeholder={c.signUpPasswordPlaceholder}
-            ref={passwordRef}
-            type="password"
-            value={password}
-          />
+          <div className="sign-in-input-group">
+            <User
+              aria-hidden="true"
+              className="sign-in-input-group__icon"
+              focusable="false"
+              size={18}
+            />
+            <input
+              aria-describedby={describedBy("fullName")}
+              aria-invalid={errors.fullName ? true : undefined}
+              aria-label={c.fullNameLabel}
+              autoComplete="name"
+              className="sign-in-input sign-in-input--icon"
+              id={ids.fullName}
+              name="full-name"
+              onChange={(event) => {
+                setFullName(event.target.value);
+                clearError("fullName");
+              }}
+              placeholder={c.fullNameLabel}
+              ref={fullNameRef}
+              type="text"
+              value={fullName}
+            />
+          </div>
+          {errorFor("fullName")}
+        </div>
+
+        <div className="sign-in-form__field">
+          <div className="sign-in-input-group">
+            <Lock
+              aria-hidden="true"
+              className="sign-in-input-group__icon"
+              focusable="false"
+              size={18}
+            />
+            <input
+              aria-describedby={describedBy("password")}
+              aria-invalid={errors.password ? true : undefined}
+              aria-label={c.passwordLabel}
+              autoComplete="new-password"
+              className="sign-in-input sign-in-input--icon sign-in-input--toggle"
+              id={ids.password}
+              name="new-password"
+              onChange={(event) => {
+                setPassword(event.target.value);
+                clearError("password");
+              }}
+              placeholder={c.signUpPasswordPlaceholder}
+              ref={passwordRef}
+              spellCheck={false}
+              type={passwordVisible ? "text" : "password"}
+              value={password}
+            />
+            <PasswordRevealButton
+              controls={ids.password}
+              onConceal={concealPassword}
+              onReveal={() => setPasswordVisible(true)}
+              visible={passwordVisible}
+            />
+          </div>
           {errorFor("password")}
         </div>
 
-        <div className="sign-in-form__field">
-          <div className="sign-in-check sign-in-check--terms">
-            <input
-              aria-describedby={describedBy("terms")}
-              aria-invalid={errors.terms ? true : undefined}
-              aria-labelledby={ids.termsText}
-              checked={acceptedTerms}
-              id={ids.terms}
-              name="terms"
-              onChange={(event) => {
-                setAcceptedTerms(event.target.checked);
-                clearError("terms");
-              }}
-              ref={termsRef}
-              type="checkbox"
-            />
-            <p className="sign-in-check__text" id={ids.termsText}>
-              <label htmlFor={ids.terms}>{c.termsLead}</label>
-              <button
-                aria-haspopup="dialog"
-                className="sign-in-check__accent sign-in-check__link"
-                onClick={(event) => openLegal("agreement", event)}
-                type="button"
-              >
-                {c.userAgreement}
-              </button>
-              {c.termsJoin}
-              <button
-                aria-haspopup="dialog"
-                className="sign-in-check__accent sign-in-check__link"
-                onClick={(event) => openLegal("privacy", event)}
-                type="button"
-              >
-                {c.privacyPolicy}
-              </button>
-            </p>
-          </div>
-          {errorFor("terms")}
-          {errors.terms === "errorTermsChanged" ? (
-            <button
-              aria-haspopup="dialog"
-              className="sign-in-check__link sign-in-form__review-terms"
-              onClick={(event) => openLegal("agreement", event)}
-              type="button"
-            >
-              {c.reviewTerms}
-            </button>
-          ) : null}
-        </div>
+        {termsReconsent || !acceptedTerms ? termsField() : null}
 
-        {failure ? (
-          <FormAlert
-            failure={failure}
-            onRetrySession={() => void finishSession()}
-          />
-        ) : null}
-        <SchoolSSONotice sso={sso} />
+        {failureAlert}
         <button
           aria-disabled={submitting || undefined}
           className="sign-in-button sign-in-button--primary"
@@ -3674,6 +3982,23 @@ function SignUpForm({
         >
           {createLabel}
         </button>
+      </>
+    );
+  }
+
+  return (
+    <div className="sign-in-form">
+      <form
+        aria-label={c.signUpHeading}
+        className="sign-in-form__stack sign-in-form__stack--signup"
+        noValidate
+        onSubmit={handleSubmit}
+      >
+        {step === "email"
+          ? emailStep()
+          : step === "code"
+            ? codeStep()
+            : accountStep()}
       </form>
 
       <SignInLegalDialog

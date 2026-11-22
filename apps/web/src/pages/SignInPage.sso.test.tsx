@@ -27,6 +27,7 @@ import { SignInPage } from "./SignInPage";
 
 const { api } = vi.hoisted(() => ({
   api: {
+    completeEmailSignup: vi.fn(),
     discoverAuthIdentifier: vi.fn(),
     getAuthProviders: vi.fn(),
     loginWithPassword: vi.fn(),
@@ -335,20 +336,20 @@ describe("SignInPage AUTH-12B school SSO", () => {
     ).toBeInTheDocument();
   });
 
-  it("handles auth_sso_required when a sign-up code is requested", async () => {
+  it("keeps sign-up on the email step when a sign-up code is refused with auth_sso_required", async () => {
     api.startEmailSignup.mockRejectedValue(apiError(403, "auth_sso_required"));
     api.discoverAuthIdentifier.mockResolvedValue(route(true));
     await renderSignIn();
     fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
     const form = screen.getByRole("form", { name: "Create an Account" });
-    fireEvent.change(within(form).getByRole("textbox", { name: "Full Name" }), {
-      target: { value: "New Learner" },
-    });
-    fireEvent.change(
-      within(form).getByRole("textbox", { name: "Email Address" }),
-      { target: { value: SCHOOL_EMAIL } },
-    );
-    fireEvent.click(within(form).getByRole("button", { name: "Get Code" }));
+    // UI-AUTH-07: no school SSO entry point on the sign-up view itself.
+    expect(
+      screen.queryByRole("button", { name: "Sign in with school SSO" }),
+    ).toBeNull();
+    const email = within(form).getByRole("textbox", { name: "Email Address" });
+    fireEvent.change(email, { target: { value: SCHOOL_EMAIL } });
+    fireEvent.click(within(form).getByRole("checkbox"));
+    fireEvent.click(within(form).getByRole("button", { name: "Get code" }));
     expect(
       await within(form).findByText(
         /This email address must sign in through your school's SSO/,
@@ -359,6 +360,81 @@ describe("SignInPage AUTH-12B school SSO", () => {
         name: "Continue with school Google",
       }),
     ).toBeInTheDocument();
+    expect(
+      within(form).getByRole("heading", { level: 2, name: "Email" }),
+    ).toBeInTheDocument();
+    expect(email).toHaveFocus();
+    expect(api.discoverAuthIdentifier).toHaveBeenCalledWith(
+      { identifier: SCHOOL_EMAIL },
+      expect.anything(),
+    );
+  });
+
+  it("returns sign-up to the email step when account creation answers auth_sso_required", async () => {
+    api.startEmailSignup.mockResolvedValue({
+      challenge_id: "challenge-1",
+      cooldown_seconds: 60,
+      expires_in_seconds: 600,
+    });
+    api.completeEmailSignup.mockRejectedValue(
+      apiError(403, "auth_sso_required"),
+    );
+    api.discoverAuthIdentifier.mockResolvedValue(route(true));
+    await renderSignIn();
+    fireEvent.click(screen.getByRole("button", { name: "Sign Up" }));
+    const form = screen.getByRole("form", { name: "Create an Account" });
+    fireEvent.change(
+      within(form).getByRole("textbox", { name: "Email Address" }),
+      { target: { value: SCHOOL_EMAIL } },
+    );
+    fireEvent.click(within(form).getByRole("checkbox"));
+    fireEvent.click(within(form).getByRole("button", { name: "Get code" }));
+    await settle();
+    fireEvent.change(
+      within(form).getByRole("textbox", {
+        name: "Please enter verification code",
+      }),
+      { target: { value: "123456" } },
+    );
+    fireEvent.click(within(form).getByRole("button", { name: "Continue" }));
+    fireEvent.change(within(form).getByRole("textbox", { name: "Full Name" }), {
+      target: { value: "New Learner" },
+    });
+    fireEvent.change(within(form).getByLabelText("Password"), {
+      target: { value: "Harbor-Lantern-77" },
+    });
+    fireEvent.click(
+      within(form).getByRole("button", { name: "Create Account" }),
+    );
+    await settle();
+
+    expect(api.completeEmailSignup).toHaveBeenCalledWith(
+      expect.objectContaining({ keep_signed_in: true }),
+      expect.anything(),
+    );
+    expect(within(form).getByRole("alert")).toHaveTextContent(
+      "This email address must sign in through your school's SSO.",
+    );
+    expect(
+      within(form).getByRole("heading", { level: 2, name: "Email" }),
+    ).toBeInTheDocument();
+    const email = within(form).getByRole("textbox", { name: "Email Address" });
+    expect(email).toHaveValue(SCHOOL_EMAIL);
+    await waitFor(() => expect(email).toHaveFocus());
+    expect(
+      await within(form).findByRole("button", {
+        name: "Continue with school Google",
+      }),
+    ).toBeInTheDocument();
+    expect(api.discoverAuthIdentifier).toHaveBeenCalledWith(
+      { identifier: SCHOOL_EMAIL },
+      expect.anything(),
+    );
+    // The typed password and code are gone; nothing reached Web Storage.
+    expect(within(form).queryByLabelText("Password")).toBeNull();
+    expect(
+      JSON.stringify({ ...localStorage, ...sessionStorage }),
+    ).not.toContain("Harbor-Lantern-77");
   });
 
   it("handles auth_sso_required in the password recovery dialog", async () => {
