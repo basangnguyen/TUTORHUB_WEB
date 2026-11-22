@@ -15,9 +15,14 @@
   --sign-in-error: #b91c1c;
 }
 
+/*
+ * UI-AUTH-08: stacked layout gives the spare viewport height to the panel row
+ * only, so a shorter form never stretches the hero and moves the brand row.
+ */
 .sign-in {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
   min-height: 100vh;
   min-height: 100dvh;
   background: #fff;
@@ -300,10 +305,14 @@
 
 /* ---------- Right column: brand row and forms ---------- */
 
+/*
+ * UI-AUTH-08: the panel top never follows the form height, so the brand row
+ * stays put (0px) across Log In / Sign Up steps, OTP, MFA and errors.
+ */
 .sign-in__panel {
   display: flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 36px 16px 40px;
   background: #fff;
@@ -391,11 +400,60 @@
 
 /* ---------- UI-AUTH-07: three-step sign-up (ClassIn style) ---------- */
 
+/*
+ * UI-AUTH-08: every sign-up step starts 8px under the brand row (Log In: 40px
+ * to its first field). Step 1 then puts its email field and button on the same
+ * lines as Log In's identifier and button (see the step 1 rules below).
+ */
+.sign-in-form--signup {
+  margin-top: 8px;
+}
+
+/* A px line box keeps the step geometry identical whichever font loads. */
 .sign-in .sign-in-form__heading--step {
   margin: 0;
   font-size: 24px;
-  line-height: 1.3;
+  line-height: 28px;
   text-align: left;
+}
+
+/*
+ * UI-AUTH-08 step 1, from the brand row: 8 + (28 - 12) + 16 (gap) = 40px to
+ * the email field, as on Log In. Field 48 + 6 (live region row) + 16 + 6 =
+ * 28px above the terms, 36px of terms (two lines) + 16 + 12 = 28px above the
+ * button: 140px from field top to button top, as on Log In.
+ */
+.sign-in .sign-in-form__heading--email {
+  margin-bottom: -12px;
+}
+
+.sign-in-form__stack--email > .sign-in-form__field--terms {
+  margin-top: 6px;
+}
+
+.sign-in-form__stack--email > .sign-in-form__signup-submit {
+  margin-top: 12px;
+}
+
+/*
+ * UI-AUTH-08 steps 2 and 3: "<" shares a row with the step's first content
+ * (instructions or title), so the fields stay right under the brand row.
+ */
+.sign-in-form__step-header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.sign-in-form__step-header > :not(.sign-in-form__back) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Centre the first 20px line of instructions on the 28px "<" row. */
+.sign-in-form__step-header > .sign-in-form__instructions {
+  padding-top: 4px;
 }
 
 .sign-in-form__step-title {
@@ -426,6 +484,7 @@
   display: inline-flex;
   width: 36px;
   height: 36px;
+  flex: none;
   align-items: center;
   justify-content: center;
   justify-self: start;
@@ -1612,6 +1671,7 @@
 @media (min-width: 960px) {
   .sign-in {
     grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
+    grid-template-rows: auto;
   }
 
   .sign-in__hero {
@@ -1624,7 +1684,19 @@
   }
 
   .sign-in__panel {
+    align-items: flex-start;
     padding: 45px clamp(24px, 3vw, 48px);
+  }
+
+  /*
+   * UI-AUTH-08: a fixed anchor instead of centring on the current form. It
+   * reproduces the centred position of the standard ~544px Log In view
+   * (45px panel padding + 272px half height = 317px) and never goes above
+   * the padding on short screens.
+   */
+  .sign-in__panel-inner {
+    margin-block: max(0px, calc(50vh - 317px)) auto;
+    margin-block: max(0px, calc(50dvh - 317px)) auto;
   }
 }
 

@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/mail"
+	"regexp"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -65,61 +68,246 @@ func readResendRequest(t *testing.T, r *http.Request) resendPayload {
 	if err != nil || from.Address != cfg.FromEmail || from.Name != cfg.FromName {
 		t.Error("incorrect sender address or encoded display name")
 	}
-	if strings.Contains(p.Subject, resendTestCode) || strings.Contains(p.HTML, "<img") || strings.Contains(p.HTML, "href=") ||
-		strings.Contains(p.HTML, "src=") || !strings.Contains(p.HTML, "<p>") {
-		t.Error("unexpected sensitive subject or active HTML")
+	if strings.Contains(p.Subject, resendTestCode) || !strings.Contains(p.HTML, "<p style=") {
+		t.Error("unexpected sensitive subject or unstyled HTML")
 	}
+	assertResendInertHTML(t, p.HTML)
 	return p
 }
 
-func TestResendChallengeWireContract(t *testing.T) {
-	for _, tc := range []struct{ purpose, locale, action, warning string }{
-		{"signup_email", "vi-VN", "xác minh địa chỉ email", "Không chia sẻ"},
-		{"login_code", "en-US", "sign in", "Do not share"},
-		{"password_recovery", "VI", "đặt lại mật khẩu", "Không chia sẻ"},
-		{"link_identity", "en", "link a sign-in method", "Do not share"},
-		{"reauth", "", "confirm your identity again", "Không chia sẻ"},
-		{"mfa", "vi", "xác minh bước hai", "Không chia sẻ"},
-	} {
-		t.Run(tc.purpose, func(t *testing.T) {
-			msg := resendTestChallenge()
-			msg.Purpose, msg.Locale = tc.purpose, tc.locale
-			sender := resendTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				p := readResendRequest(t, r)
-				if r.Header.Get("Idempotency-Key") != "auth-challenge:"+msg.ChallengeID.String() ||
-					!strings.Contains(p.Subject, tc.action) {
-					t.Error("incorrect idempotency key or localized purpose")
-				}
-				for _, body := range []string{p.Text, p.HTML} {
-					for _, want := range []string{resendTestCode, tc.action, tc.warning, msg.ExpiresAt.UTC().Format("2006-01-02 15:04:05 UTC")} {
-						if !strings.Contains(body, want) {
-							t.Error("message is missing code, purpose, expiry or warning")
-						}
-					}
-				}
-				w.WriteHeader(http.StatusCreated)
-				_, _ = io.WriteString(w, `{"id":"`+resendTestReference+`"}`)
-			})
-			before := time.Now()
-			receipt, err := sender.SendChallenge(t.Context(), msg)
-			if err != nil || receipt.ProviderMessageRef != resendTestReference || receipt.Provider != "resend" || receipt.Channel != DeliveryEmail ||
-				receipt.AcceptedAt.Location() != time.UTC || receipt.AcceptedAt.Before(before) || receipt.AcceptedAt.After(time.Now()) {
-				t.Fatal("invalid acceptance receipt")
-			}
-		})
+// The shell may only contain static markup and inline CSS: no remote images,
+// links, scripts or remote CSS.
+func assertResendInertHTML(t *testing.T, body string) {
+	t.Helper()
+	lower := strings.ToLower(body)
+	for _, active := range []string{"<img", "<script", "<a", "href=", "src=", "url("} {
+		if strings.Contains(lower, active) {
+			t.Errorf("HTML contains active or remote content %q", active)
+		}
+	}
+	if !strings.Contains(body, resendTestHeader) {
+		t.Error("HTML is missing the bold TutorHub header")
 	}
 }
 
+const resendTestHeader = `<div style="font-size: 28px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: #111827; margin: 0 0 24px 0;">TutorHub</div>`
+
+var (
+	resendTestTags   = regexp.MustCompile(`<[^>]*>`)
+	resendTestDigits = regexp.MustCompile(`[0-9]+`)
+	// Same extractor as postgres_resend_delivery_integration_test.go.
+	resendTestOTP = regexp.MustCompile(`\b[0-9]{6}\b`)
+)
+
+// resendVisibleText drops tags (with their style attributes) and decodes
+// entities, leaving the text a reader or Gmail's code extractor sees.
+func resendVisibleText(body string) string {
+	return html.UnescapeString(resendTestTags.ReplaceAllString(body, " "))
+}
+
+// Independent copy of the AUTH-15 wording so a typo in the production table fails.
+var resendTestPurposes = []struct{ purpose, vi, en, subjectEN string }{
+	{"signup_email", "xác minh địa chỉ email đăng ký", "verify your signup email", "Your temporary TutorHub verification code"},
+	{"login_code", "đăng nhập", "sign in", "Your temporary TutorHub login code"},
+	{"password_recovery", "đặt lại mật khẩu", "reset your password", "Your temporary TutorHub password reset code"},
+	{"link_identity", "liên kết phương thức đăng nhập", "link a sign-in method", "Your temporary TutorHub verification code"},
+	{"reauth", "xác nhận lại danh tính", "confirm your identity again", "Your temporary TutorHub security code"},
+	{"mfa", "xác minh bước hai", "complete two-step verification", "Your temporary TutorHub verification code"},
+}
+
+const (
+	resendTestFooterVI = "Mã xác minh tạm thời này sẽ sớm hết hạn. Không chia sẻ mã này với bất kỳ ai. Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này."
+	resendTestFooterEN = "This temporary verification code expires shortly. Do not share it with anyone. If you did not request this code, you can safely ignore this email."
+	resendTestCodeBox  = `<td bgcolor="#f3f4f6" style="background-color: #f3f4f6; border-radius: 12px; padding: 20px 24px;">` +
+		`<div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; ` +
+		`font-size: 30px; font-weight: 600; letter-spacing: 4px; line-height: 1.2; color: #111827; ` +
+		`user-select: all; -webkit-user-select: all;">` + resendTestCode + `</div></td>`
+)
+
+func TestResendChallengeWireContract(t *testing.T) {
+	for _, tc := range resendTestPurposes {
+		leadVI := "Nhập mã xác minh tạm thời này để " + tc.vi + ":"
+		leadEN := "Enter this temporary verification code to " + tc.en + ":"
+		for _, locale := range []struct {
+			name, value, lang string
+			subject           []string
+			leads, footers    []string
+		}{
+			{"vi-VN", "vi-VN", "vi", []string{"Mã xác minh tạm thời TutorHub để " + tc.vi},
+				[]string{leadVI}, []string{resendTestFooterVI}},
+			{"en-US", "en-US", "en", []string{"Your temporary TutorHub", tc.subjectEN, tc.en},
+				[]string{leadEN}, []string{resendTestFooterEN}},
+			{"bilingual", "", "vi", []string{"Mã xác minh TutorHub để " + tc.vi + " — Your temporary TutorHub verification code"},
+				[]string{leadVI, leadEN}, []string{resendTestFooterVI, resendTestFooterEN}},
+		} {
+			t.Run(tc.purpose+"/"+locale.name, func(t *testing.T) {
+				msg := resendTestChallenge()
+				msg.Purpose, msg.Locale = tc.purpose, locale.value
+				sender := resendTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+					p := readResendRequest(t, r)
+					if r.Header.Get("Idempotency-Key") != "auth-challenge:"+msg.ChallengeID.String() {
+						t.Error("incorrect idempotency key")
+					}
+					for _, want := range locale.subject {
+						if !strings.Contains(p.Subject, want) {
+							t.Errorf("subject %q is missing %q", p.Subject, want)
+						}
+					}
+					if resendTestDigits.MatchString(p.Subject) {
+						t.Errorf("subject %q contains digits", p.Subject)
+					}
+
+					wantText := "TutorHub\n" + strings.Join(locale.leads, "\n") + "\n\n" + resendTestCode + "\n\n" + strings.Join(locale.footers, "\n\n")
+					if p.Text != wantText {
+						t.Errorf("text/plain = %q, want %q", p.Text, wantText)
+					}
+					if resendTestOTP.FindString(p.Text) != resendTestCode {
+						t.Error("integration-test OTP extractor cannot find the code in text/plain")
+					}
+
+					if !strings.HasPrefix(p.HTML, `<!DOCTYPE html><html lang="`+locale.lang+`">`) ||
+						!strings.Contains(p.HTML, `<body style="margin: 0; padding: 0; background-color: #ffffff;">`) ||
+						!strings.Contains(p.HTML, `<div style="max-width: 460px; margin: 0 auto; padding: 40px 24px; font-family: -apple-system,`) {
+						t.Error("HTML is missing the document shell or centred container")
+					}
+					if !strings.Contains(p.HTML, resendTestCodeBox) || strings.Count(p.HTML, resendTestCode) != 1 ||
+						strings.Index(p.HTML, resendTestHeader) > strings.Index(p.HTML, resendTestCodeBox) {
+						t.Error("code is not isolated once in the grey user-select box below the header")
+					}
+					codeAt := strings.Index(p.HTML, resendTestCodeBox)
+					for _, lead := range locale.leads {
+						if i := strings.Index(p.HTML, html.EscapeString(lead)+"</p>"); i < 0 || i > codeAt {
+							t.Errorf("lead %q is not a paragraph above the code box", lead)
+						}
+					}
+					for _, footer := range locale.footers {
+						if i := strings.Index(p.HTML, html.EscapeString(footer)+"</p>"); i < codeAt {
+							t.Errorf("footer %q is not a paragraph below the code box", footer)
+						}
+					}
+					if len(locale.leads) == 2 && !strings.Contains(p.HTML,
+						`<p style="font-size: 13px; line-height: 1.6; color: #6b7280; margin: 4px 0 18px 0;">`+html.EscapeString(leadEN)+`</p>`) {
+						t.Error("bilingual English lead is not the grey sub-line")
+					}
+
+					for name, body := range map[string]string{"text": p.Text, "visible HTML": resendVisibleText(p.HTML)} {
+						if got := resendTestDigits.FindAllString(body, -1); !slices.Equal(got, []string{resendTestCode}) {
+							t.Errorf("%s numbers = %q, want only the code", name, got)
+						}
+					}
+					w.WriteHeader(http.StatusCreated)
+					_, _ = io.WriteString(w, `{"id":"`+resendTestReference+`"}`)
+				})
+				before := time.Now()
+				receipt, err := sender.SendChallenge(t.Context(), msg)
+				if err != nil || receipt.ProviderMessageRef != resendTestReference || receipt.Provider != "resend" || receipt.Channel != DeliveryEmail ||
+					receipt.AcceptedAt.Location() != time.UTC || receipt.AcceptedAt.Before(before) || receipt.AcceptedAt.After(time.Now()) {
+					t.Fatal("invalid acceptance receipt")
+				}
+			})
+		}
+	}
+}
+
+func TestResendChallengeLocaleRouting(t *testing.T) {
+	action := resendChallengeActions["login_code"]
+	for _, tc := range []struct{ locale, subject string }{
+		{"vi", "Mã xác minh tạm thời TutorHub để đăng nhập"},
+		{"VI", "Mã xác minh tạm thời TutorHub để đăng nhập"},
+		{"vi-VN", "Mã xác minh tạm thời TutorHub để đăng nhập"},
+		{"en", "Your temporary TutorHub login code to sign in"},
+		{"en-US", "Your temporary TutorHub login code to sign in"},
+		{"fr-FR", "Your temporary TutorHub login code to sign in"},
+		{"", "Mã xác minh TutorHub để đăng nhập — Your temporary TutorHub verification code"},
+	} {
+		msg := resendTestChallenge()
+		msg.Locale = tc.locale
+		if subject, _, _ := resendChallengeContent(msg, action); subject != tc.subject {
+			t.Errorf("locale %q subject = %q, want %q", tc.locale, subject, tc.subject)
+		}
+	}
+	if len(resendChallengeActions) != len(resendTestPurposes) {
+		t.Fatal("purpose table and test copy diverged")
+	}
+	for _, want := range resendTestPurposes {
+		if got := resendChallengeActions[want.purpose]; got != (resendChallengeCopy{want.vi, want.en, want.subjectEN}) {
+			t.Errorf("purpose %q wording = %+v", want.purpose, got)
+		}
+	}
+}
+
+// The same message must render byte-for-byte the same content, and the expiry
+// must not leak into it (no clock reads, no timestamp).
+func TestResendChallengeContentIsDeterministic(t *testing.T) {
+	payloads := make(chan resendPayload, 3)
+	sender := resendTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		payloads <- readResendRequest(t, r)
+		_, _ = io.WriteString(w, `{"id":"`+resendTestReference+`"}`)
+	})
+	msg := resendTestChallenge()
+	later := msg
+	later.ExpiresAt = msg.ExpiresAt.Add(37 * time.Minute)
+	for _, m := range []ChallengeMessage{msg, msg, later} {
+		if _, err := sender.SendChallenge(t.Context(), m); err != nil {
+			t.Fatal("challenge was not accepted")
+		}
+	}
+	first := <-payloads
+	for range 2 {
+		if next := <-payloads; next.Subject != first.Subject || next.Text != first.Text || next.HTML != first.HTML {
+			t.Fatal("challenge content changed between identical renders or with the expiry")
+		}
+	}
+	for _, locale := range []string{"vi", "en", ""} {
+		for purpose, action := range resendChallengeActions {
+			m := resendTestChallenge()
+			m.Purpose, m.Locale = purpose, locale
+			s1, t1, h1 := resendChallengeContent(m, action)
+			s2, t2, h2 := resendChallengeContent(m, action)
+			if s1 != s2 || t1 != t2 || h1 != h2 {
+				t.Fatalf("non-deterministic content for %s/%q", purpose, locale)
+			}
+		}
+	}
+}
+
+func TestResendHTMLHelpersEscapeDynamicValues(t *testing.T) {
+	const hostile = `<script>alert("x")</script><a title='t'>&</a>`
+	escaped := html.EscapeString(hostile)
+	for _, rendered := range []string{
+		resendParagraph(resendLeadCSS+"margin: 0;", hostile),
+		resendCodeBox(hostile),
+		resendHTML("vi", resendParagraph(resendFooterCSS+"margin: 0;", hostile)),
+	} {
+		if !strings.Contains(rendered, escaped) || strings.Contains(rendered, "<script") || strings.Contains(rendered, "<a ") {
+			t.Fatalf("dynamic value was not escaped: %q", rendered)
+		}
+	}
+	assertResendInertHTML(t, resendHTML("en", resendParagraph(resendLeadCSS, hostile), resendCodeBox(hostile)))
+}
+
 func TestResendNoticeWireContract(t *testing.T) {
-	for _, tc := range []struct{ kind, subject string }{
-		{"account_exists", "Existing TutorHub account"}, {"password_changed", "password changed"}, {"phone_released", "phone sign-in removed"},
+	for _, tc := range []struct{ kind, subject, vi, en string }{
+		{"account_exists", "Existing TutorHub account", "Địa chỉ email này đã có tài khoản TutorHub.", "This email already has a TutorHub account."},
+		{"password_changed", "password changed", "Mật khẩu TutorHub của bạn đã được đổi.", "Your TutorHub password has changed."},
+		{"phone_released", "phone sign-in removed", "Số điện thoại đăng nhập đã được gỡ", "A phone number was removed from your TutorHub account."},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			keys := make(chan string, 4)
+			notice := resendNotices[tc.kind]
 			sender := resendTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				p := readResendRequest(t, r)
 				if !strings.Contains(p.Subject, tc.subject) || strings.Contains(p.Text+p.HTML, resendTestCode) {
 					t.Error("invalid account notice content")
+				}
+				if p.Text != notice.vi+"\n\n"+notice.en || !strings.HasPrefix(p.Text, tc.vi) || !strings.Contains(p.Text, "\n\n"+tc.en) {
+					t.Error("notice text/plain lost its bilingual paragraphs")
+				}
+				viAt := strings.Index(p.HTML, `<p style="font-size: 15px; line-height: 1.6; color: #374151; margin: 0 0 16px 0;">`+html.EscapeString(notice.vi)+`</p>`)
+				enAt := strings.Index(p.HTML, `<p style="font-size: 15px; line-height: 1.6; color: #374151; margin: 0;">`+html.EscapeString(notice.en)+`</p>`)
+				if !strings.HasPrefix(p.HTML, `<!DOCTYPE html><html lang="vi">`) || viAt < strings.Index(p.HTML, resendTestHeader) || enAt < viAt ||
+					strings.Contains(p.HTML, "#f3f4f6") || strings.Contains(p.HTML, "user-select") {
+					t.Error("notice HTML is not the TutorHub shell with two escaped paragraphs and no code box")
 				}
 				keys <- r.Header.Get("Idempotency-Key")
 				_, _ = io.WriteString(w, `{"id":"accepted-notice"}`)

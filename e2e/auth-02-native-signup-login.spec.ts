@@ -57,6 +57,36 @@ function apiPath(url: string) {
   return new URL(url).pathname;
 }
 
+interface PageBox {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+/** Document coordinates, so focus scrolling on small screens does not count. */
+async function pageBox(locator: Locator): Promise<PageBox> {
+  return locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      top: rect.top + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      height: rect.height,
+    };
+  });
+}
+
+/** UI-AUTH-08: "0px" with only sub-pixel (LayoutUnit) tolerance. */
+function expectSameBox(actual: PageBox, expected: PageBox, label: string) {
+  for (const key of ["top", "left", "width", "height"] as const) {
+    expect(
+      Math.abs(actual[key] - expected[key]),
+      `${label}: ${key} ${actual[key]} vs ${expected[key]}`,
+    ).toBeLessThan(0.05);
+  }
+}
+
 async function expectNoBlockingAxeViolations(page: Page, label: string) {
   const results = await new AxeBuilder({ page })
     .include(".sign-in__panel")
@@ -197,6 +227,9 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
       page.getByRole("button", { name: labels.holdToShowPassword }),
     ).toHaveAttribute("aria-pressed", "false");
     await expectNoBlockingAxeViolations(page, "login view");
+    // UI-AUTH-08: the brand row never moves between views and steps.
+    const brandRow = page.locator(".sign-in__panel .sign-in__brand-row");
+    const loginBrand = await pageBox(brandRow);
 
     // 1. Sign up in three steps (UI-AUTH-07): email + terms -> code from the
     //    dev inbox -> name + password.
@@ -205,6 +238,7 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     await expect(
       signUpForm.getByRole("heading", { level: 2, name: labels.emailStep }),
     ).toBeVisible();
+    expectSameBox(await pageBox(brandRow), loginBrand, "sign-up step 1 brand");
     const emailField = signUpForm.getByRole("textbox", { name: labels.email });
     await expect(emailField).toBeFocused();
     // The brand row's Log In stays; no social, passkey or school SSO entry.
@@ -222,6 +256,13 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     await expectNoBlockingAxeViolations(page, "sign-up step 1 (ready)");
     const challengeId = await requestSignupCode(page, signUpForm);
     await expectNoBlockingAxeViolations(page, "sign-up step 2 (code)");
+    // UI-AUTH-08: "<" shares the header row, so the code field stays high
+    // (was ~249px under the brand row top before the compact header).
+    expectSameBox(await pageBox(brandRow), loginBrand, "sign-up step 2 brand");
+    const otpBox = await pageBox(
+      signUpForm.getByRole("textbox", { name: labels.signUpOtp }),
+    );
+    expect(otpBox.top - loginBrand.top).toBeLessThanOrEqual(200);
     const delivered = await readDevInbox(request, challengeId);
     expect(delivered.kind).toBe("challenge");
     expect(delivered.purpose).toBe("signup_email");
@@ -239,6 +280,11 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
       name: labels.fullName,
     });
     await expect(fullNameField).toBeFocused();
+    // UI-AUTH-08: same brand row; name field right under the title (was ~203px).
+    expectSameBox(await pageBox(brandRow), loginBrand, "sign-up step 3 brand");
+    expect(
+      (await pageBox(fullNameField)).top - loginBrand.top,
+    ).toBeLessThanOrEqual(140);
     await fullNameField.fill(displayName);
     await signUpForm.getByLabel(labels.password).fill(password);
     await expectNoBlockingAxeViolations(page, "sign-up step 3 (account)");
@@ -341,5 +387,63 @@ test.describe("AUTH-02 native email sign-up and password login", () => {
     await expect(page).toHaveURL(/\/sign-in$/);
     await expect(page.getByLabel(labels.password)).toHaveValue("");
     await expectNoBlockingAxeViolations(page, "login error");
+  });
+
+  test("UI-AUTH-08 keeps the brand row fixed and puts sign-up step 1 on Log In's lines", async ({
+    page,
+  }) => {
+    const panel = page.locator(".sign-in__panel");
+    const brandRow = panel.locator(".sign-in__brand-row");
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 1366, height: 650 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+      { width: 1280, height: 560 },
+      { width: 375, height: 812 },
+    ]) {
+      const at = `${viewport.width}x${viewport.height}`;
+      await page.setViewportSize(viewport);
+      await page.goto("/sign-in");
+      const loginForm = panel.locator("form").first();
+      const identifier = loginForm.getByRole("textbox", {
+        name: labels.identifier,
+      });
+      const logIn = loginForm.getByRole("button", { name: labels.logIn });
+      await expect(logIn).toBeEnabled();
+      const brand = await pageBox(brandRow);
+      const field = await pageBox(identifier);
+      const button = await pageBox(logIn);
+      // Never above the panel padding, even on short screens.
+      expect(brand.top, `${at}: brand row top`).toBeGreaterThanOrEqual(36);
+
+      // Field errors grow Log In; the brand row stays.
+      await logIn.click();
+      await expect(identifier).toHaveAttribute("aria-invalid", "true");
+      expectSameBox(await pageBox(brandRow), brand, `${at} login errors brand`);
+
+      await page.getByRole("button", { name: labels.signUp }).click();
+      const signUpForm = page.getByRole("form", { name: labels.signUpForm });
+      const email = signUpForm.getByRole("textbox", { name: labels.email });
+      await expect(email).toBeFocused();
+      expectSameBox(await pageBox(brandRow), brand, `${at} sign-up brand`);
+      expectSameBox(await pageBox(email), field, `${at} email vs identifier`);
+      // "Get code" shares Log In's line while the terms take two lines.
+      const terms = await pageBox(signUpForm.locator(".sign-in-check--terms"));
+      expect(Math.round(terms.height), `${at}: two lines of terms`).toBe(36);
+      expectSameBox(
+        await pageBox(
+          signUpForm.getByRole("button", { name: labels.signUpGetCode }),
+        ),
+        button,
+        `${at} Get code vs Log In`,
+      );
+
+      // Back to Log In: nothing moved.
+      await page.getByRole("button", { name: labels.logIn }).first().click();
+      await expect(identifier).toBeVisible();
+      expectSameBox(await pageBox(brandRow), brand, `${at} back to login`);
+      expectSameBox(await pageBox(identifier), field, `${at} identifier`);
+    }
   });
 });

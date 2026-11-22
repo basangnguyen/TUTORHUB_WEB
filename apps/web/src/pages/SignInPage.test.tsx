@@ -1922,6 +1922,183 @@ describe.each(["en", "vi"] as const)(
   },
 );
 
+/**
+ * UI-AUTH-08: jsdom has no layout, so these pin the structure the CSS
+ * geometry relies on (the e2e auth-02 spec measures the real pixels): one
+ * brand row for every view, step 1's grid rows matching Log In's, and steps
+ * 2-3 with "<" in the header row and no empty row above their first field.
+ */
+describe.each(["en", "vi"] as const)(
+  "SignInPage UI-AUTH-08 fixed brand row and sign-up rows (%s)",
+  (language) => {
+    const copy: NativeCopy = NATIVE_COPY[language];
+
+    beforeEach(() => {
+      // School SSO on: its always-mounted status must not sit above "Get code".
+      api.getAuthProviders.mockResolvedValue({
+        ...NATIVE_PROVIDERS,
+        sso_domains_enabled: true,
+      });
+    });
+
+    function brandRow() {
+      const row = document.querySelector<HTMLElement>(".sign-in__brand-row");
+      if (!row) throw new Error("Missing .sign-in__brand-row");
+      return row;
+    }
+
+    function fieldOf(element: HTMLElement) {
+      const field = element.closest<HTMLElement>(".sign-in-form__field");
+      if (!field) throw new Error("Missing .sign-in-form__field");
+      return field;
+    }
+
+    function stepHeaderOf(element: HTMLElement) {
+      const header = element.closest<HTMLElement>(".sign-in-form__step-header");
+      if (!header) throw new Error("Missing .sign-in-form__step-header");
+      return header;
+    }
+
+    it("keeps the same brand row node first in the panel for Log In and all three sign-up steps", async () => {
+      api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+      await renderSignIn({ language });
+      const row = brandRow();
+      const panelInner = row.parentElement;
+      expect(panelInner).toHaveClass("sign-in__panel-inner");
+      expect(panelInner?.firstElementChild).toBe(row);
+      // Log In's first field row sits right under the brand row.
+      const identifier = screen.getByRole("textbox", { name: copy.identifier });
+      const loginStack = identifier.closest("form");
+      expect(loginStack).toHaveClass("sign-in-form__stack");
+      expect(
+        Array.from(loginStack?.children ?? []).find(
+          (child) => !child.classList.contains("visually-hidden"),
+        ),
+      ).toBe(fieldOf(identifier));
+
+      fireEvent.click(screen.getByRole("button", { name: copy.signUp }));
+      const form = screen.getByRole("form", { name: copy.form });
+      expect(brandRow()).toBe(row);
+      expect(form.parentElement).toHaveClass(
+        "sign-in-form",
+        "sign-in-form--signup",
+      );
+      expect(form).toHaveClass("sign-in-form__stack--email");
+
+      // Step 1 rows: heading, email field, terms, then "Get code" (no empty
+      // row in between); the school SSO status follows the button.
+      const heading = within(form).getByRole("heading", {
+        level: 2,
+        name: copy.emailHeading,
+      });
+      expect(heading).toHaveClass(
+        "sign-in-form__heading--step",
+        "sign-in-form__heading--email",
+      );
+      const email = within(form).getByRole("textbox", { name: copy.email });
+      const terms = within(form).getByRole("checkbox", { name: copy.terms });
+      const getCode = within(form).getByRole("button", { name: copy.getCode });
+      expect(getCode).toHaveClass("sign-in-form__signup-submit");
+      const ssoStatus = form.querySelector<HTMLElement>(
+        ".sign-in-sso > .sign-in-sso__status",
+      );
+      expect(ssoStatus).toHaveAttribute("role", "status");
+      expect(ssoStatus).toBeEmptyDOMElement();
+      expect(Array.from(form.children)).toEqual([
+        heading,
+        fieldOf(email),
+        fieldOf(terms),
+        getCode,
+        ssoStatus?.parentElement,
+      ]);
+      expect(fieldOf(terms)).toHaveClass("sign-in-form__field--terms");
+
+      fireEvent.change(email, { target: { value: "new.student@example.com" } });
+      fireEvent.click(terms);
+      fireEvent.click(getCode);
+      await settle();
+
+      // Step 2: "<" + instructions in one header row, then the code field
+      // (its notice live region lives inside the field).
+      expect(brandRow()).toBe(row);
+      expect(form).toHaveClass("sign-in-form__stack--code");
+      const backToEmail = within(form).getByRole("button", {
+        name: copy.backToEmail,
+      });
+      const instructions = within(form).getByText(
+        fill(copy.codeSentTo, { email: "new.student@example.com" }),
+      );
+      const codeHeader = stepHeaderOf(backToEmail);
+      expect(stepHeaderOf(instructions)).toBe(codeHeader);
+      expect(codeHeader.firstElementChild).toBe(backToEmail);
+      const otp = within(form).getByRole("textbox", { name: copy.otp });
+      expect(codeHeader.nextElementSibling).toBe(fieldOf(otp));
+      expect(
+        fieldOf(otp).querySelector(':scope > [aria-live="polite"]'),
+      ).toBeEmptyDOMElement();
+      expect(otp).toHaveAccessibleDescription(instructions.textContent ?? "");
+
+      fireEvent.change(otp, { target: { value: "123456" } });
+      fireEvent.click(
+        within(form).getByRole("button", { name: copy.continue }),
+      );
+
+      // Step 3: "<" + title (with the address) in one header row, then name.
+      expect(brandRow()).toBe(row);
+      expect(form).toHaveClass("sign-in-form__stack--account");
+      const backToCode = within(form).getByRole("button", {
+        name: copy.backToCode,
+      });
+      const accountHeader = stepHeaderOf(backToCode);
+      expect(
+        stepHeaderOf(
+          within(form).getByRole("heading", {
+            level: 2,
+            name: copy.accountHeading,
+          }),
+        ),
+      ).toBe(accountHeader);
+      expect(
+        stepHeaderOf(within(form).getByText("new.student@example.com")),
+      ).toBe(accountHeader);
+      expect(accountHeader.nextElementSibling).toBe(
+        fieldOf(within(form).getByRole("textbox", { name: copy.fullName })),
+      );
+
+      // Back through the steps and over to Log In: still the same row.
+      fireEvent.click(backToCode);
+      expect(form).toHaveClass("sign-in-form__stack--code");
+      fireEvent.click(
+        within(form).getByRole("button", { name: copy.backToEmail }),
+      );
+      expect(form).toHaveClass("sign-in-form__stack--email");
+      expect(brandRow()).toBe(row);
+      fireEvent.click(screen.getByRole("button", { name: copy.logIn }));
+      expect(brandRow()).toBe(row);
+      expect(
+        screen.getByRole("textbox", { name: copy.identifier }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows step 2's expired-code notice under the code field", async () => {
+      vi.useFakeTimers();
+      api.startEmailSignup.mockResolvedValue(challengeResponse("challenge-1"));
+      const field = await openNativeSignUp(language);
+      await submitEmailStep(field, "new.student@example.com");
+      expectStep(field, 2);
+
+      // The code lifetime from challengeResponse() passes.
+      tickSeconds(600);
+      const notice = within(field.form).getByText(copy.codeExpired);
+      expect(notice.parentElement).toHaveAttribute("aria-live", "polite");
+      expect(notice.parentElement?.parentElement).toBe(fieldOf(field.otp()));
+      expect(field.otp()).toHaveAccessibleDescription(
+        expect.stringContaining(copy.codeExpired),
+      );
+    });
+  },
+);
+
 describe("SignInPage native email sign-up code lifetime", () => {
   beforeEach(() => {
     api.getAuthProviders.mockResolvedValue(NATIVE_PROVIDERS);

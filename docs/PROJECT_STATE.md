@@ -4,18 +4,30 @@
 
 ## Snapshot
 
-| Thuộc tính           | Trạng thái                                                                                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ngày cập nhật        | 2026-11-22                                                                                                                                              |
-| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                          |
-| Nhánh làm việc       | `main`                                                                                                                                                  |
-| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                             |
-| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                               |
-| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                                |
-| Task `DONE` gần nhất | `UI-AUTH-07` Chuyển luồng Đăng ký trên `/sign-in` sang 3 bước phong cách ClassIn (Email + Điều khoản → Mã OTP → Họ tên + Mật khẩu)                      |
-| Mốc repository mới   | Neon `staging` ở `52 false` + exact runtime/maintenance ACL; Chromium E2E `34/34` `auth-02..13` + `1/1` `p2-08`; `@tutorhub/web` `924/924` (`100` file) |
-| Task hiện tại        | Xác nhận auto-deploy `UI-AUTH-07` trên `https://tutorhub.vn/sign-in` và theo dõi canary Public Beta (Email OTP Resend + Google + Microsoft + Passkey)   |
-| Task tiếp theo       | Lập lịch job hàng giờ `cmd/auth-maintenance` (GitHub Actions/cron), đối soát `Q12` trước khi gỡ ZITADEL; hoãn Facebook (chờ Meta duyệt) & `+84` ZNS     |
+| Thuộc tính           | Trạng thái                                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ngày cập nhật        | 2026-11-22                                                                                                                                          |
+| Repository           | `https://github.com/basangnguyen/TUTORHUB_WEB`                                                                                                      |
+| Nhánh làm việc       | `main`                                                                                                                                              |
+| Quy trình            | Antigravity làm PM/Gatekeeper điều phối Codex và Claude Code qua prompt; Antigravity nghiệm thu và commit/push thẳng `main`                         |
+| Phase hoàn thành     | Phase 0, Phase 1, Phase 2, Phase 4, Phase 5 collaboration                                                                                           |
+| Phase hiện tại       | Phase 3 deferred carry-over vẫn hoạt động; Phase 5 collaboration đã đóng                                                                            |
+| Task `DONE` gần nhất | `UI-AUTH-08` Khóa trục dọc `0px` nhảy giữa Đăng nhập ↔ Đăng ký & `AUTH-15` Mẫu Email OTP Resend phong cách ChatGPT (0 chữ số nhiễu cho Gmail)       |
+| Mốc repository mới   | Neon `staging` ở `52 false`; `TestResendEmailPostgresDelivery` PASS; Chromium E2E `13/13` + `1/1` `p2-08`; `@tutorhub/web` `928/928` (`100` file)   |
+| Task hiện tại        | Xác nhận auto-deploy `UI-AUTH-08` (Cloudflare Pages) + `AUTH-15` (Render Core API) trên `https://tutorhub.vn` và thử nhận thư OTP thật trong Gmail  |
+| Task tiếp theo       | Lập lịch job hàng giờ `cmd/auth-maintenance` (GitHub Actions/cron), đối soát `Q12` trước khi gỡ ZITADEL; hoãn Facebook (chờ Meta duyệt) & `+84` ZNS |
+
+### Checkpoint `UI-AUTH-08` Khóa Cố định Trục dọc `/sign-in` (`0px` nhảy) & `AUTH-15` Mẫu Email OTP Resend Phong cách ChatGPT (`DONE`) — 2026-11-22
+
+Claude Code triển khai hai gói cải tiến độc lập theo phản hồi thực tế của chủ dự án trên `https://tutorhub.vn`: **`UI-AUTH-08`** phía Web (`SignInPage.*`, `e2e/auth-02`) khóa cố định vị trí dọc giữa màn Đăng nhập và Đăng ký, và **`AUTH-15`** phía Go Core API (`email_providers.go`, `email_providers_test.go`) nâng cấp giao diện thư OTP gửi qua Resend theo phong cách ChatGPT kèm tối ưu thẻ "Sao chép mã" tự động của Gmail; Gatekeeper (Antigravity) review diff/bảo mật, kiểm chứng độc lập `pnpm verify`, tích hợp PostgreSQL 17.12 disposable và bộ Chromium Playwright E2E:
+
+- **`UI-AUTH-08` — Khóa trục dọc `0px` nhảy giữa Đăng nhập ↔ Đăng ký (`SignInPage.css`, `SignInPage.tsx`, `SignInPage.test.tsx`, `e2e/auth-02-native-signup-login.spec.ts`)**:
+  - Đổi `.sign-in__panel` sang `align-items: flex-start` ở mọi breakpoint; trên `< 960px` đặt `.sign-in { grid-template-rows: auto 1fr }` để hero không tự giãn khi form ngắn hơn, và trên `>= 960px` neo `.sign-in__panel-inner` bằng `margin-block: max(0px, calc(50dvh - 317px)) auto` (kèm fallback `50vh`) khớp đúng vị trí cân đối của màn Đăng nhập chuẩn (~`544px`) → hàng `.sign-in__brand-row` (`Logo TutorHub` + nút `Đăng ký` / `Đăng nhập`) có `Δtop = 0px` xuyên suốt Đăng nhập, Đăng ký Bước 1–3, OTP, MFA và khi bung lỗi.
+  - Căn chỉnh Bước 1 Đăng ký (`.sign-in-form--signup { margin-top: 8px }`, `line-height: 28px`, `.sign-in-form__heading--email { margin-bottom: -12px }`, chuyển `SchoolSSONotice` xuống dưới nút chính) để vừa giữ tiêu đề `Email` hiển thị vừa đặt ô nhập Email và nút `Lấy mã` **trùng khít tọa độ `(top, left, width, height)`** với ô định danh và nút `Đăng nhập` trên 6 viewport chuẩn (`1280×720`, `1366×650`, `1440×900`, `1920×1080`, `1280×560`, `375×812`). Bước 2 và Bước 3 gộp nút `<` lên cùng hàng `.sign-in-form__step-header` giúp kéo các ô nhập lên sát dưới hàng thương hiệu.
+- **`AUTH-15` — Mẫu Email OTP Resend Phong cách ChatGPT & Chống nhiễu Bộ trích xuất Gmail (`services/core-api/internal/modules/identity/email_providers.go`, `email_providers_test.go`)**:
+  - Loại bỏ toàn bộ con số gây nhiễu khỏi `Subject`, `Text` và phần chữ hiển thị của `HTML` (bỏ in chuỗi ngày giờ hết hạn `2006-01-02 15:04:05 UTC` và không dùng chữ số trong văn bản hướng dẫn) để **mã 6 chữ số `msg.Code` là chuỗi số duy nhất trong toàn bộ thư**; chuẩn hóa câu dẫn/tiêu đề theo mẫu nhận diện NLP của Gmail (`"Your temporary TutorHub ... code"`, `"Enter this temporary verification code to ...:"`, hỗ trợ `vi`, `en` và song ngữ khi `Locale == ""`), hoàn toàn tất định không đọc đồng hồ lúc render.
+  - Dựng khung HTML email-safe chỉ dùng inline CSS (`max-width: 460px`, nền `#ffffff`, tiêu đề `TutorHub` đậm `28px`, hộp mã 1 ô bảng nền xám `#f3f4f6` bo góc `12px` tương thích cả Gmail/Apple Mail/Outlook, cỡ chữ mã monospace `30px` kèm `user-select: all` nhấp 1 lần chọn trọn mã, chân thư xám `#6b7280`), dùng chung vỏ giao diện cho cả 3 thông báo bảo mật `SendNotice`. Bảo toàn tuyệt đối bất biến riêng tư: `Subject` không bao giờ chứa mã, `HTML` không có `<img`, `<script`, `<a`, `href=`, `src=`, `url(`, mọi chuỗi động đều qua `html.EscapeString` và `resendPayload` giữ `[redacted]`.
+- **Bằng chứng Gatekeeper**: `pnpm verify` PASS (`@tutorhub/web` **`928/928`** trên `100` file, `identity` Go package PASS gồm `6 mục đích × 3 locale = 18` subtest kiểm tra chống nhiễu chữ số + `40` package Go + `go vet`, `security:bundle` `209` file), `gofmt -l` rỗng, `pnpm exec tsc -p tsconfig.e2e.json --noEmit` và `git diff --check` sạch. Trên cụm **PostgreSQL 17.12 loopback disposable** (migration `52`, tự xóa sạch sau khi chạy): `TestResendEmailPostgresDelivery` **`PASS` (`0` skip)** dưới exact runtime ACL, Chromium E2E Phase A (`auth-02` gồm bài đo tọa độ 6 viewport của `UI-AUTH-08`, `auth-05`, `auth-08`, `auth-13`) **`13/13` PASS** và Phase B `p2-08` **`1/1` PASS**.
 
 ### Checkpoint `UI-AUTH-07` Luồng Đăng ký 3 Bước Phong cách ClassIn trên `/sign-in` (`DONE`) — 2026-11-22
 

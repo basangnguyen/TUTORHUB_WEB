@@ -3642,7 +3642,7 @@ function SignUpForm({
 
   function termsField() {
     return (
-      <div className="sign-in-form__field">
+      <div className="sign-in-form__field sign-in-form__field--terms">
         <div className="sign-in-check sign-in-check--terms">
           <input
             aria-describedby={describedBy("terms")}
@@ -3716,7 +3716,7 @@ function SignUpForm({
         : c.signUpGetCode;
     return (
       <>
-        <h2 className="sign-in-form__heading sign-in-form__heading--step">
+        <h2 className="sign-in-form__heading sign-in-form__heading--step sign-in-form__heading--email">
           {c.signUpEmailHeading}
         </h2>
         {mode === "unavailable" ? (
@@ -3773,19 +3773,21 @@ function SignUpForm({
         {termsField()}
 
         {failureAlert}
-        <SchoolSSONotice sso={sso} />
         <button
           aria-disabled={requestingCode || undefined}
           className={
             ready
-              ? "sign-in-button sign-in-button--primary"
-              : "sign-in-button sign-in-button--soft"
+              ? "sign-in-button sign-in-button--primary sign-in-form__signup-submit"
+              : "sign-in-button sign-in-button--soft sign-in-form__signup-submit"
           }
           disabled={inactive || locked}
           type="submit"
         >
           {label}
         </button>
+        {/* UI-AUTH-08: under the main button, as on Log In, so the idle
+            (always-mounted) status keeps "Get code" on Log In's line. */}
+        <SchoolSSONotice sso={sso} />
       </>
     );
   }
@@ -3810,20 +3812,13 @@ function SignUpForm({
         : c.resendCode;
     return (
       <>
-        {backButton(c.signUpBackToEmail, backToEmail)}
         <h2 className="visually-hidden">{c.signUpCodeHeading}</h2>
-        {instructions ? (
-          <p className="sign-in-form__instructions" id={ids.instructions}>
-            {instructions}
-          </p>
-        ) : null}
-        <div aria-live="polite">
-          {notice ? (
-            <p
-              className="sign-in-form__hint sign-in-form__hint--error"
-              id={ids.codeNotice}
-            >
-              {notice}
+        {/* UI-AUTH-08: "<" and the instructions share one header row. */}
+        <div className="sign-in-form__step-header">
+          {backButton(c.signUpBackToEmail, backToEmail)}
+          {instructions ? (
+            <p className="sign-in-form__instructions" id={ids.instructions}>
+              {instructions}
             </p>
           ) : null}
         </div>
@@ -3868,6 +3863,18 @@ function SignUpForm({
             </button>
           </div>
           {errorFor("otp")}
+          {/* Always mounted (live region); under the field like step 1's, so
+              an idle notice adds no empty row above the code field. */}
+          <div aria-live="polite">
+            {notice ? (
+              <p
+                className="sign-in-form__hint sign-in-form__hint--error"
+                id={ids.codeNotice}
+              >
+                {notice}
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <button
@@ -3896,14 +3903,17 @@ function SignUpForm({
         : c.createAccount;
     return (
       <>
-        {backButton(c.signUpBackToCode, backToCode)}
-        <div className="sign-in-form__step-title">
-          <h2 className="sign-in-form__heading sign-in-form__heading--step">
-            {c.signUpAccountHeading}
-          </h2>
-          <p className="sign-in-form__subheading" translate="no">
-            {trimmedEmail}
-          </p>
+        {/* UI-AUTH-08: "<" and the step title share one header row. */}
+        <div className="sign-in-form__step-header">
+          {backButton(c.signUpBackToCode, backToCode)}
+          <div className="sign-in-form__step-title">
+            <h2 className="sign-in-form__heading sign-in-form__heading--step">
+              {c.signUpAccountHeading}
+            </h2>
+            <p className="sign-in-form__subheading" translate="no">
+              {trimmedEmail}
+            </p>
+          </div>
         </div>
 
         <div className="sign-in-form__field">
@@ -3987,10 +3997,10 @@ function SignUpForm({
   }
 
   return (
-    <div className="sign-in-form">
+    <div className="sign-in-form sign-in-form--signup">
       <form
         aria-label={c.signUpHeading}
-        className="sign-in-form__stack sign-in-form__stack--signup"
+        className={`sign-in-form__stack sign-in-form__stack--signup sign-in-form__stack--${step}`}
         noValidate
         onSubmit={handleSubmit}
       >
